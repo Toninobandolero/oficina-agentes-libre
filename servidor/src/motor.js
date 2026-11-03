@@ -85,7 +85,7 @@ async function contexto(t) {
   const hoy = new Intl.DateTimeFormat('es-ES', { timeZone: config.zona, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
   const quien = AGENTES[t.origen]?.nombre || (t.origen === 'dueno' ? 'Dirección' : 'el sistema');
   let txt = t.tipo === 'pregunta'
-    ? `Hoy es ${hoy}.\nDirección te pregunta directamente:\n«${t.instruccion}»\n\nContéstale tú, en primera persona y en 2–6 frases, con tu opinión sincera y concreta. Puedes consultar la base de datos o buscar si lo necesitas. Si no estás de acuerdo con él, díselo. No uses pedir_aprobacion ni anotar: tu respuesta final es lo que le llega.`
+    ? `Hoy es ${hoy}.\nDirección te pregunta directamente:\n«${t.instruccion}»\n\nContéstale tú, en primera persona y en 2–6 frases, con tu opinión sincera y concreta. Puedes consultar la base de datos o buscar si lo necesitas. Si no estás de acuerdo con lo que propone, díselo. No uses pedir_aprobacion ni anotar: tu respuesta final es lo que le llega.`
     : `Hoy es ${hoy}.\nTarea nº ${t.id}, encargada por ${quien}:\n${t.instruccion}`;
   // Si viene del chat (o es una pregunta directa), lo que llevabais hablado, para seguir el hilo
   const canal = t.canal || (t.tipo === 'pregunta' ? t.agente : null);
@@ -94,13 +94,18 @@ async function contexto(t) {
     const e = await empresas.leer(t.empresa_id);
     if (e) {
       const ficha = Object.fromEntries(Object.entries(e).filter(([k, v]) => v != null && !['nombre_norm', 'creada', 'actualizada', 'etapa_max'].includes(k)));
-      txt += `\n\nFicha actual de la empresa (id ${e.id}):\n${JSON.stringify(ficha, null, 2)}`;
+      txt += `\n\nFicha actual de la empresa (id ${e.id}):\n${paraAgente(ficha, 2)}`;
       const personas = await (await import('./contactos.js')).lineaTelefonos(e.id);
       if (personas) txt += `\n\nA quién se puede llamar en esta empresa: ${personas}`;
     }
   }
   return txt;
 }
+
+/** Lo que se le pasa a un agente en JSON, con las fechas en hora de Madrid: en UTC diría las 9:57 de una llamada de las 10:57. */
+export const paraAgente = (v, sangria) => JSON.stringify(v, function (k, x) {
+  return this[k] instanceof Date ? new Intl.DateTimeFormat('sv-SE', { timeZone: config.zona, dateStyle: 'short', timeStyle: 'short' }).format(this[k]) : x;
+}, sangria);
 
 const esErrorDefinitivo = e => [400, 401, 402, 403, 404, 413, 422].includes(e?.status);
 const leerArgs = t => { try { return JSON.parse(t || '{}'); } catch { return null; } };
@@ -156,7 +161,7 @@ export async function ejecutar(t) {
         let contenido;
         if (!args) contenido = JSON.stringify({ error: 'Los argumentos no son JSON válido. Vuelve a intentarlo.' });
         else {
-          try { contenido = JSON.stringify((await herramientas.ejecutar(ctx, nombre, args)) ?? { ok: true }); }
+          try { contenido = paraAgente((await herramientas.ejecutar(ctx, nombre, args)) ?? { ok: true }); }
           catch (e) {
             if (e instanceof presupuesto.PresupuestoAgotado || e?.sinCredito) throw e;
             console.warn(`Herramienta ${nombre} (${t.agente}, tarea ${t.id}):`, String(e.message || e).slice(0, 200));   // si no, el error solo lo ve el modelo

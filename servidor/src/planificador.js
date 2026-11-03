@@ -224,6 +224,15 @@ async function llamadasDelDia() {
   return r.rows.length;
 }
 
+/** Lo que se repite en las llamadas de la semana. Con menos de dos no hay patrón que valga, y no se gasta. */
+export async function repasoLlamadas() {
+  const r = (await q(`SELECT l.resumen, l.mejoras, e.nombre FROM llamadas l LEFT JOIN empresas e ON e.id=l.empresa_id WHERE l.mejoras IS NOT NULL AND coalesce(l.inicio, l.creada) > now() - interval '7 days' ORDER BY coalesce(l.inicio, l.creada)`)).rows;
+  if (r.length < 2) return 0;
+  await tareas.crear('paula', `Repaso de las llamadas de Dirección de esta semana (${r.length}). Busca lo que se repite, no lo de una sola llamada: si necesitas lo que se dijo, leer_empresa con transcripciones. Tu respuesta final es lo que le llega, en 10 líneas como mucho: LO QUE TE FUNCIONA, LO QUE CAMBIARÍA (con su frase literal y cómo decirla) y UNA COSA para la semana que viene.\n\n` +
+    r.map(l => `${l.nombre || 'Número sin empresa'}\nResumen: ${l.resumen || '(sin resumen)'}\nLo visto: ${l.mejoras}`).join('\n\n'), { origen: 'secuencia' });
+  return r.length;
+}
+
 const sumar = (f, n) => { const d = new Date(f + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
 /** El encargo de contenido de los lunes. Un guion de vídeo cada vez: mientras haya uno en tu mesa, no se prepara otro. */
@@ -278,6 +287,8 @@ async function captacion(m, vac) {
   (await import('./atascos.js')).revisar().catch(e => console.error('Atascos:', e.message));
   // Llamadas del día: de lunes a viernes, Nuria prepara el guion de hasta 3 llamadas en caliente (empresas que ya nos conocen)
   if (!vac && m.dia >= 1 && m.dia <= 5 && m.hora >= '09:20') await unaVez('llamadas:' + m.fecha, llamadasDelDia);
+  // Los viernes, Paula repasa cómo ha llamado Dirección esta semana
+  if (!vac && m.dia === 5 && m.hora >= '17:00') await unaVez('repaso-llamadas:' + m.fecha, repasoLlamadas);
   // Licitaciones y peticiones públicas de proveedores: los martes, Sara busca contratos pequeños de lo que vende la empresa
   if (m.dia === 2 && m.hora >= '10:30') await unaVez('licitaciones:' + m.fecha, () => encargar('sara',
     'Busca licitaciones y contratos menores abiertos de lo que vende la empresa (mira la ficha «La empresa y su dueño») en su zona (ayuntamientos, diputación, universidades, empresas públicas): Plataforma de Contratación del Sector Público, perfiles del contratante y boletines. ' +

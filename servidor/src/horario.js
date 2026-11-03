@@ -52,3 +52,8 @@ export function siguienteHueco(sector, horaAnterior = '10:00', desde = null) {
   const manana = Number(String(horaAnterior).slice(0, 2)) < 14;
   return { dia, hora: (manana ? r.franjas[1] || r.franjas[0] : r.franjas[0])[0] };
 }
+
+/** Lo último que Paula ha visto que Dirección puede mejorar al hablar: lo ve antes de llamar y lo usan quienes le escriben los guiones. En la edición Libre no hay análisis de llamadas y sale vacío. */
+export async function mejorasRecientes(n = 3) {
+  return (await q(`SELECT mejoras FROM llamadas WHERE mejoras IS NOT NULL ORDER BY coalesce(inicio, creada) DESC LIMIT $1`, [n])).rows.map(r => r.mejoras);
+}

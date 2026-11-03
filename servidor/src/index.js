@@ -240,7 +240,7 @@ async function rutas(req, res) {
   if (m === 'GET' && p === '/api/empresas') return json(res, 200, await empresas.listar(Object.fromEntries(url.searchParams)));
   let r;
   if ((r = p.match(/^\/api\/empresas\/([\w-]+)\/contactos$/))) {
-    if (m === 'GET') return json(res, 200, { contactos: await contactos.deEmpresa(r[1]), opciones: await contactos.opciones(r[1]) });
+    if (m === 'GET') return json(res, 200, { contactos: await contactos.deEmpresa(r[1]), opciones: await contactos.opciones(r[1]), consejos: await (await import('./horario.js')).mejorasRecientes() });
     if (m === 'POST') {
       try {
         const c = await contactos.guardar(r[1], await cuerpo(req), { origen: 'dueno' });

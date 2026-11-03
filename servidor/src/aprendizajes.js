@@ -18,17 +18,20 @@ export async function quitar(id) {
 }
 
 /** Bloque de texto que se añade a las instrucciones del agente en cada tarea. */
+const ESCRIBEN_GUIONES = new Set(['javi', 'nuria', 'paula']);
 export async function paraPrompt(agente) {
+  const mejoras = ESCRIBEN_GUIONES.has(agente) ? await (await import('./horario.js')).mejorasRecientes() : [];
   const [rg, cor] = await Promise.all([
     q(`SELECT texto FROM aprendizajes WHERE tipo='regla' AND activo AND (agente IS NULL OR agente=$1) ORDER BY id`, [agente]),
     q(`SELECT texto FROM aprendizajes WHERE tipo='correccion' AND activo AND agente=$1 ORDER BY id DESC LIMIT 15`, [agente]),
   ]);
   const gr = await q(`SELECT texto FROM aprendizajes WHERE tipo='gracias' AND agente=$1 ORDER BY id DESC LIMIT 5`, [agente]);
-  if (!rg.rows.length && !cor.rows.length && !gr.rows.length) return '';
+  if (!rg.rows.length && !cor.rows.length && !gr.rows.length && !mejoras.length) return '';
   let t = '## Cómo quiere Dirección que trabajes (prevalece sobre lo anterior)\n';
   if (rg.rows.length) t += 'Reglas fijas:\n' + rg.rows.map(r => `- ${r.texto}`).join('\n') + '\n';
   if (cor.rows.length) t += 'Correcciones que te ha hecho en trabajos anteriores (aplícalas siempre):\n' + cor.rows.reverse().map(r => `- ${r.texto}`).join('\n') + '\n';
   if (gr.rows.length) t += 'Lo que Dirección te ha agradecido últimamente (es lo que valora; sigue en esa línea):\n' + gr.rows.reverse().map(r => `- ${r.texto}`).join('\n') + '\n';
+  if (mejoras.length) t += `Lo visto en sus últimas llamadas (escribe sus guiones con esto en cuenta):\n${mejoras.join('\n')}\n`;
   return t;
 }
 

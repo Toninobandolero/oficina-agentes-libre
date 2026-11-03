@@ -505,7 +505,7 @@ body.modo-oficina .leyenda{display:none}
 .acciones{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .aprob.paso{border-left:4px solid var(--azul)}
 .aprob.prio-1{box-shadow:inset 4px 0 0 var(--err)}.aprob.prio-2{box-shadow:inset 4px 0 0 #f4a261}
-.aprob-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;color:var(--muted);margin:0 0 4px!important}
+.aprob-emp{margin:0 0 6px!important}.aprob-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;color:var(--muted);margin:0 0 4px!important}
 .prio{font-family:var(--pixel);font-size:12px;padding:1px 7px;background:var(--bg);color:var(--text);white-space:nowrap}
 .prio.p1{background:var(--err);color:#fff}.prio.p2{background:#f4a261;color:var(--bg)}.prio.p4{opacity:.75}
 .mesa-barra{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 12px;margin:10px 0 0}
@@ -592,7 +592,7 @@ textarea:focus,input[type=text]:focus{outline:2px solid var(--wait);outline-offs
 .llam-notas{width:100%;box-sizing:border-box;font:inherit;padding:8px 10px}
 .llam-consejo{background:var(--bg);border-left:4px solid var(--wait);padding:8px 10px;font-size:14px}
 .llam-modos{gap:8px;flex-wrap:wrap}
-.llam-quien{display:grid;gap:6px;margin:10px 0}.llam-quien h4{margin:0 0 2px}
+.llam-consejos{margin:10px 0}.llam-consejos pre{white-space:pre-wrap;font:inherit;font-size:13.5px;margin:6px 0 0}.llam-quien{display:grid;gap:6px;margin:10px 0}.llam-quien h4{margin:0 0 2px}
 .llam-op{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border:1px solid var(--line);background:var(--bg);cursor:pointer;font-size:15px}
 .llam-op input{margin-top:4px;transform:scale(1.25)}.llam-op small{display:block;color:var(--muted);font-size:13px}
 .llam-op:has(input:checked){border-color:var(--wait);box-shadow:inset 3px 0 0 var(--wait)}
@@ -637,7 +637,7 @@ textarea:focus,input[type=text]:focus{outline:2px solid var(--wait);outline-offs
 .feed li{display:grid;grid-template-columns:24px 1fr auto;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
 .feed li.charla{color:#d9c8e6}
 .feed li.charla span::before{content:"💬 "}
-.feed.solo-trabajo li.charla{display:none}
+.feed.solo-trabajo li.charla{display:none}body.sin-vida :is(#animo,#tiempo,#cal-chip,#btn-fiesta,#btn-lapso){display:none!important}
 .feed[data-ag] li:not(.de-ag){display:none}
 .sel-agente{font:inherit;font-size:12.5px;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:1px 4px;max-width:min(140px,100%);min-width:0}
 /* nada del panel lateral se sale por la derecha (Safari da a los <select> un ancho mínimo propio) */
@@ -966,6 +966,22 @@ html[data-tema=terminal] .logo{font-family:var(--ui)}
       <div class="dis-fila" data-fila="mapa" role="group" aria-label="Cómo se dibuja la oficina"><span>La oficina se dibuja</span></div>
     </div>
   </dialog>
+  <dialog id="importar-dlg" aria-label="Importar la cartera de clientes">
+    <div class="inf-caja"><button class="cerrar" type="button" aria-label="Cerrar" onclick="this.closest('dialog').close()">×</button>
+      <form class="importar">
+        <h2>Importar una lista de empresas</h2>
+        <p>Un archivo CSV (en Excel: Guardar como › CSV) con una fila por empresa y los nombres de las columnas en la primera fila, en cualquier orden: nombre (obligatoria), persona, cargo, email, telefono, whatsapp, web, municipio, sector y notas. Como mucho 2000 filas; las que ya estén (mismo nombre o web) no se repiten.</p>
+        <input type="file" name="archivo" accept=".csv,text/csv" required aria-label="Archivo CSV">
+        <p><b>¿Qué es esta lista?</b></p>
+        <label><input type="radio" name="estado" value="ganada" checked> Ya son clientes</label>
+        <label><input type="radio" name="estado" value="conversacion"> Nos han dado permiso o están en conversación</label>
+        <label><input type="radio" name="estado" value="nueva"> Lista fría</label>
+        <p class="meta">Importar una lista no da permiso para escribirle: a una lista fría el equipo no le manda correos ni WhatsApp (LSSI, art. 21).</p>
+        <div class="acciones"><button class="btn peq" type="submit">Importar</button></div>
+        <p class="importar-res" aria-live="polite"></p>
+      </form>
+    </div>
+  </dialog>
   <dialog id="informe-dlg" aria-label="Informe">
     <div class="inf-caja"><button class="cerrar" type="button" aria-label="Cerrar" onclick="this.closest('dialog').close()">×</button><div class="inf-cuerpo"></div></div>
   </dialog>
@@ -987,7 +1003,7 @@ html[data-tema=terminal] .logo{font-family:var(--ui)}
   </dialog>
   <dialog id="config" aria-label="Configuración de la plantilla">
     <div class="conf">
-      <nav><div class="conf-vida"><h2>Mi empresa</h2><p>Lo que el equipo sabe de tu empresa y de ti.</p><button class="btn peq" type="button" id="conf-empresa-btn">🏢 Datos de la empresa</button> <button class="btn sec peq" type="button" id="conf-marca-btn">🎨 Imagen de marca</button></div><div class="conf-vida"><h2>Departamentos</h2><p>Los que usa tu empresa y quién trabaja en ellos.</p><button class="btn sec peq" type="button" id="conf-dep-btn">🗂 Departamentos</button></div><div class="conf-vida"><h2>Diseño</h2><p>Cómo se ve todo el panel (pixel, cómic, suizo o terminal), en claro u oscuro, y la oficina.</p><button class="btn sec peq" type="button" data-abrir-diseno>🎨 Cambiar el diseño</button></div><div class="conf-vida"><h2>Conexiones</h2><p>Telegram, LinkedIn, Facebook, centralita, voz de Lola y chats de clientes.</p><button class="btn sec peq" type="button" id="conf-con-btn">🔌 Conexiones</button></div><div class="conf-vida"><h2>Inteligencia artificial</h2><p id="conf-ia-txt">La clave con la que trabajan los agentes.</p><button class="btn sec peq" type="button" id="conf-ia-btn">🧠 Claves de IA</button></div><div class="conf-vida"><h2>Personalidades</h2><p id="conf-vida-txt"></p><button class="btn sec peq" type="button" id="conf-vida-btn"></button></div><h2>Plantilla</h2><ul id="conf-lista"></ul></nav>
+      <nav><div class="conf-vida"><h2>Mi empresa</h2><p>Lo que el equipo sabe de tu empresa y de ti.</p><button class="btn peq" type="button" id="conf-empresa-btn">🏢 Datos de la empresa</button> <button class="btn sec peq" type="button" id="conf-marca-btn">🎨 Imagen de marca</button></div><div class="conf-vida"><h2>Departamentos</h2><p>Los que usa tu empresa y quién trabaja en ellos.</p><button class="btn sec peq" type="button" id="conf-dep-btn">🗂 Departamentos</button></div><div class="conf-vida"><h2>Diseño</h2><p>Cómo se ve todo el panel (pixel, cómic, suizo o terminal), en claro u oscuro, y la oficina.</p><button class="btn sec peq" type="button" data-abrir-diseno>🎨 Cambiar el diseño</button></div><div class="conf-vida"><h2>Conexiones</h2><p>Telegram, LinkedIn, Facebook, Google Maps, centralita, voz de Lola y chats de clientes.</p><button class="btn sec peq" type="button" id="conf-con-btn">🔌 Conexiones</button></div><div class="conf-vida"><h2>Inteligencia artificial</h2><p id="conf-ia-txt">La clave con la que trabajan los agentes.</p><button class="btn sec peq" type="button" id="conf-ia-btn">🧠 Claves de IA</button></div><div class="conf-vida"><h2>Personalidades</h2><p id="conf-vida-txt"></p><button class="btn sec peq" type="button" id="conf-vida-btn"></button></div><h2>Plantilla</h2><ul id="conf-lista"></ul></nav>
       <form id="conf-form" method="dialog"></form>
       <div id="conf-panel" class="conf-panel" hidden></div>
     </div>
@@ -1426,7 +1442,7 @@ function pintarMesa(x,y,a,trabajando,t){
   R(ctx,x-5,y+14,22,2,'#dcab73');R(ctx,x-5,y+16,22,6,'#a8723f');R(ctx,x-5,y+16,22,1,'#8a5a30');
   R(ctx,x-4,y+22,2,3,'#6b4423');R(ctx,x+14,y+22,2,3,'#6b4423');
   R(ctx,x+13,y+12,3,2,'#ffffff');R(ctx,x+16,y+12,1,1,'#ffffff');
-  if(premioMes&&a&&premioMes.agente===a.id){R(ctx,x-4,y+9,5,3,'#f2c94c');R(ctx,x-5,y+9,1,2,'#f2c94c');R(ctx,x+1,y+9,1,2,'#f2c94c');R(ctx,x-3,y+12,3,1,'#c9a227');R(ctx,x-4,y+13,5,1,'#8a6d1a');R(ctx,x-3,y+10,1,1,'#fff6c2');}
+  if(vidaActiva&&premioMes&&a&&premioMes.agente===a.id){R(ctx,x-4,y+9,5,3,'#f2c94c');R(ctx,x-5,y+9,1,2,'#f2c94c');R(ctx,x+1,y+9,1,2,'#f2c94c');R(ctx,x-3,y+12,3,1,'#c9a227');R(ctx,x-4,y+13,5,1,'#8a6d1a');R(ctx,x-3,y+10,1,1,'#fff6c2');}
   if(a.cumple){R(ctx,x-4,y+9,7,5,'#fff1f5');R(ctx,x-4,y+9,7,1,'#ff8fb1');R(ctx,x-1,y+6,1,3,'#ffe08a');if(Math.floor(t*4)%2)R(ctx,x-1,y+5,1,1,'#ff9d3a');
     for(let i=0;i<5;i++)R(ctx,x-4+i*5,y-16+(i%2),3,3,['#ff8fb1','#ffc24b','#7cc4ff','#4fd18b','#c0507a'][i]);}
   if(a.foto){R(ctx,x+12,y+7,5,6,'#ffffff');R(ctx,x+13,y+8,3,3,'#f1c29b');}
@@ -1664,9 +1680,9 @@ function frame(now){
   const dt=Math.min(.08,(now-tPrev)/1000);tPrev=now;T+=dt;
   ctx.drawImage(fondo,0,0);
   const c=pintarVentanas(T);
-  if(esFinde()||fiestaManual>Date.now())pintarFiesta(T);
-  pintarPizarra();pintarNevera();pintarCafetera(T);pintarExtras(T);pintarTemporada(T);pintarMesaDueno(T);
-  const fiestaAhora=esFiestaNoche();
+  if(vidaActiva&&(esFinde()||fiestaManual>Date.now()))pintarFiesta(T);
+  pintarPizarra();pintarNevera();pintarCafetera(T);pintarExtras(T);if(vidaActiva)pintarTemporada(T);pintarMesaDueno(T);
+  const fiestaAhora=vidaActiva&&esFiestaNoche();
   AGENTES.forEach(a=>{
     a.parpadeo-=dt;const blink=a.parpadeo<0;if(a.parpadeo<-.15)a.parpadeo=2+Math.random()*4;
     if(a.salto>0)a.salto-=dt;
@@ -1728,7 +1744,7 @@ function frame(now){
   confeti.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;R(ctx,p.x,p.y,2,2,p.c);});confeti=confeti.filter(p=>p.y<H);
   requestAnimationFrame(frame);
 }
-function lanzarConfeti(n=140){if(reducido)return;const cols=['#ffc24b','#4fd18b','#3a7bd5','#ff6b6b','#ffffff','#ff8fb1'];for(let i=0;i<n;i++)confeti.push({x:Math.random()*W,y:-Math.random()*60,vx:(Math.random()-.5)*20,vy:30+Math.random()*40,c:cols[i%cols.length]});}
+function lanzarConfeti(n=140){if(reducido||!vidaActiva)return;const cols=['#ffc24b','#4fd18b','#3a7bd5','#ff6b6b','#ffffff','#ff8fb1'];for(let i=0;i<n;i++)confeti.push({x:Math.random()*W,y:-Math.random()*60,vx:(Math.random()-.5)*20,vy:30+Math.random()*40,c:cols[i%cols.length]});}
 
 /* ---------- Capa HTML ---------- */
 const capa=document.getElementById('capa');
@@ -1864,8 +1880,8 @@ function pintarDetalle(){
   if(seleccionado==='lola'){pintarFichaLola();return;}
   const a=porId[seleccionado],est=!a.presente?'fuera':a.ruta?'caminando':a.estado;det.hidden=false;
   const avisos=[];
-  if(premioMes&&premioMes.agente===a.id)avisos.push(TR`🏆 Premio del mes (${esc(new Date(premioMes.mes+'-15').toLocaleDateString(LOCALE,{month:'long',year:'numeric'}))}): ${premioMes.puntos} puntos.`);
-  if(a.cumple)avisos.push(TR`🎂 ¡Hoy es su cumpleaños! <button class="btn rosa peq" data-acc="felicitar" type="button">Felicitar</button> <button class="btn rosa peq" data-acc="fiesta-cumple" type="button">🎉 Montar la fiesta</button>`);
+  if(vidaActiva&&premioMes&&premioMes.agente===a.id)avisos.push(TR`🏆 Premio del mes (${esc(new Date(premioMes.mes+'-15').toLocaleDateString(LOCALE,{month:'long',year:'numeric'}))}): ${premioMes.puntos} puntos.`);
+  if(vidaActiva&&a.cumple)avisos.push(TR`🎂 ¡Hoy es su cumpleaños! <button class="btn rosa peq" data-acc="felicitar" type="button">Felicitar</button> <button class="btn rosa peq" data-acc="fiesta-cumple" type="button">🎉 Montar la fiesta</button>`);
   if(a.vuelve&&!leerLS(`bienvenida:${a.id}:${hoyISO()}`,false))avisos.push(TR`👋 Vuelve hoy ${a.vuelve}. <button class="btn rosa peq" data-acc="bienvenida" type="button">Dar la bienvenida</button>`);
   if(a.sustituto)avisos.push(TR`${a.nombre} no está: ${a.motivoAusencia}. Le cubre ${a.sustituto}, que hace exactamente el mismo trabajo.`);
   if(!a.presente)avisos.push(TR`Todavía no ha llegado (${a.excusa||TR('llega tarde')}).`);
@@ -1951,9 +1967,11 @@ function estadoDueno(){
 async function cargarMesa(forzar){
   if(!EN_VIVO||(!forzar&&Date.now()-cacheMesa.t<60000))return;
   cacheMesa.t=Date.now();
-  try{const [r,g,l,fb,zd,ch,tgo]=await Promise.all([fetch(API+'/reglas').then(x=>x.json()),fetch(API+'/gasto').then(x=>x.json()),fetch(API+'/linkedin').then(x=>x.json()),fetch(API+'/facebook').then(x=>x.json()).catch(()=>null),(PRO.centralita?fetch(API+'/zadarma').then(x=>x.json()).catch(()=>null):null),fetch(API+'/chats').then(x=>x.json()).catch(()=>null),fetch(API+'/telegram').then(x=>x.json()).catch(()=>null)]);cacheMesa.chats=ch;cacheMesa.telegram=tgo;cacheMesa.reglas=r;cacheMesa.gasto=g;cacheMesa.linkedin=l;cacheMesa.facebook=fb;cacheMesa.zadarma=zd;}catch{}
+  try{const [r,g,l,fb,zd,ch,tgo,mp]=await Promise.all([fetch(API+'/reglas').then(x=>x.json()),fetch(API+'/gasto').then(x=>x.json()),fetch(API+'/linkedin').then(x=>x.json()),fetch(API+'/facebook').then(x=>x.json()).catch(()=>null),(PRO.centralita?fetch(API+'/zadarma').then(x=>x.json()).catch(()=>null):null),fetch(API+'/chats').then(x=>x.json()).catch(()=>null),fetch(API+'/telegram').then(x=>x.json()).catch(()=>null),fetch(API+'/busqueda/objetivo').then(x=>x.json()).then(o=>o.maps).catch(()=>null)]);cacheMesa.maps=mp;cacheMesa.chats=ch;cacheMesa.telegram=tgo;cacheMesa.reglas=r;cacheMesa.gasto=g;cacheMesa.linkedin=l;cacheMesa.facebook=fb;cacheMesa.zadarma=zd;}catch{}
   if(seleccionado==='dueno')pintarFichaDueno(true);
 }
+const textoMaps=m=>m?.conectado?TR`conectado con la clave que acaba en ${esc(m.final)}. Cada consulta cuenta unos ${String(m.eur_consulta).replace('.',',')} € en tu presupuesto, aunque Google regala unas cuantas al mes.`:TR('sin conectar. Sirve para que Lucía saque negocios reales por zona y sector. Usa tu propia clave de Google.');
+const controlMaps=m=>m?.conectado?TR`<div class="acciones"><button class="btn sec peq" type="button" data-maps-quitar>Quitar la clave</button></div>`:TR`<form class="presu-form" data-maps-form><input name="clave" type="password" autocomplete="off" placeholder="AIza…" aria-label="Clave de Google Maps" required style="width:220px"><button class="btn sec peq" type="submit">Conectar</button></form>`;
 /* En tu mesa solo una línea: qué está conectado y, si algo necesita tu atención, el aviso. El detalle, en Configuración → Conexiones. */
 function resumenConexiones(){
   const t=cacheMesa.telegram,l=cacheMesa.linkedin,f=cacheMesa.facebook,z=cacheMesa.zadarma,c=cacheMesa.chats?.telegram;
@@ -1962,7 +1980,7 @@ function resumenConexiones(){
   const avisos=[];
   if(t&&!t.conectado)avisos.push(TR('el bot de la oficina no está conectado'));
   if(l?.conectado&&l.dias_restantes<=7)avisos.push(TR`LinkedIn caduca en ${l.dias_restantes} día${l.dias_restantes===1?'':'s'}`);
-  return TR`<p class="det-tarea li-estado">${[t&&it('Telegram',t.conectado),l&&it('LinkedIn',l.conectado),f&&it('Facebook',f.conectado),z&&it(TR('Centralita'),z.configurado),c&&it(TR('Contacto'),c.conectado)].filter(Boolean).join(' ')}</p>
+  return TR`<p class="det-tarea li-estado">${[t&&it('Telegram',t.conectado),l&&it('LinkedIn',l.conectado),f&&it('Facebook',f.conectado),z&&it(TR('Centralita'),z.configurado),c&&it(TR('Contacto'),c.conectado),cacheMesa.maps&&it('Google Maps',cacheMesa.maps.conectado)].filter(Boolean).join(' ')}</p>
   ${avisos.length?`<p class="det-tarea">⚠️ ${esc(avisos.join(' · '))}</p>`:''}<div class="acciones"><button class="btn sec peq" data-dueno="conexiones" type="button">🔌 Conexiones</button></div>`;
 }
 function bloqueLinkedin(){
@@ -1982,6 +2000,12 @@ function bloqueFacebook(){
   ${f.redireccion?TR`<p class="meta">En la app, añade esta dirección como «URI de redireccionamiento de OAuth válido»: <code>${esc(f.redireccion)}</code></p>`:''}`;
   if(!f.conectado)return TR`<h4 class="det-sub">Facebook</h4><p class="det-tarea li-estado"><span class="no">● Sin conectar</span></p><div class="acciones"><a class="btn peq" href="/api/facebook/conectar" target="_blank" rel="noopener">Conectar Facebook ↗</a></div>`;
   return TR`<h4 class="det-sub">Facebook</h4><p class="det-tarea li-estado"><span class="ok">● Conectada</span> la página ${esc(f.pagina||'')}${f.instagram?` · Instagram @${esc(f.instagram)}`:''}</p><p class="det-tarea">${f.autopublicar?TR('🤖 <b>Publicación automática activada:</b> los posts de Álex para Facebook salen solos a las 9:00 del día previsto. Puedes publicarlos antes, pedir cambios o descartarlos mientras estén en tu mesa.'):TR('Publicación automática desactivada: los posts de Facebook salen cuando pulsas «Publicar» en tu mesa.')}</p><div class="acciones"><button class="btn sec peq" data-dueno="fb-auto" type="button">${f.autopublicar?TR('Desactivar publicación automática'):TR('Activar publicación automática')}</button><button class="btn sec peq" data-dueno="fb-salir" type="button">Desconectar</button></div>`;
+}
+function bloqueOtrasRedes(){return TR('<p class="meta">Instagram, YouTube y la ficha de Google todavía no tienen conexión: Álex te prepara el texto en tu mesa y lo publicas tú.</p>');}
+function bloqueMaps(){
+  const m=cacheMesa.maps;if(!m)return '';
+  const texto=textoMaps(m);
+  return `<h4 class="det-sub">Google Maps</h4><p class="det-tarea">${texto[0].toUpperCase()+texto.slice(1)}</p>${controlMaps(m)}`;
 }
 function bloqueBotOficina(){
   const t=cacheMesa.telegram;if(!t)return '';
@@ -2085,6 +2109,9 @@ function pintarFichaDueno(desdeCarga){
   if(!desdeCarga)cargarMesa();
 }
 function cablearConexiones(c){
+  const mal=err=>avisar({clave:'maps',clase:'error',img:DUENO.retrato,titulo:TR('No se ha conectado Google Maps'),texto:err.message||'',ms:9000});
+  const fmp=c.querySelector('[data-maps-form]');if(fmp)fmp.onsubmit=async e=>{e.preventDefault();try{cacheMesa.maps=await api('/fuentes/maps',{clave:fmp.clave.value.trim()});repintarConexiones();}catch(err){mal(err);}};
+  const qmp=c.querySelector('[data-maps-quitar]');if(qmp)qmp.onclick=async()=>{try{cacheMesa.maps=await api('/fuentes/maps/quitar',{});repintarConexiones();}catch(err){mal(err);}};
   const fto=c.querySelector('[data-form=tgo]');
   if(fto)fto.onsubmit=async e=>{e.preventDefault();try{cacheMesa.telegram=await api('/telegram',{token:fto.tk.value.trim()});repintarConexiones();}catch(err){avisar({clave:'tgo',clase:'error',titulo:TR('No se ha guardado'),texto:err.message||'',img:DUENO.retrato,ms:10000});}};
   const ftg=c.querySelector('[data-form=tgc]');
@@ -2127,6 +2154,11 @@ function accionDueno(acc){
 /* ---------- Aprobaciones ---------- */
 const pendientes=new Map();const ulB=document.getElementById('bandeja');
 /* Guion de vídeo: el aviso dice siempre qué hay y qué falta. El vídeo existe si se ha generado y está publicado solo si Dirección lo dice */
+// La empresa de una tarjeta: la suya o, si el agente no la dijo, la que se nombra en el título o en el texto
+function botonEmpresaTarjeta(p){
+  const e=p.empresa_id?null:empresaEnTexto(`${p.titulo||''}\n${p.texto||''}`),id=p.empresa_id||e?.id;
+  return id?`<p class="aprob-emp"><button class="btn sec peq" type="button" data-abrir-emp="${esc(id)}">🏢 ${esc(p.empresa||e?.nombre||TR('Ver la empresa'))}</button></p>`:'';
+}
 function tarjetaVideo(p){
   const v=p.video||{},url=`${API}/aprobaciones/${encodeURIComponent(p.id)}/video`,hay=v.bytes>0,gen=v.estado==='generando';
   const nota=(clase,t)=>`<p class="aprob-nota${clase}">${t}</p>`;
@@ -2188,7 +2220,7 @@ function pintarBandeja(){
     const abierto=p.clase==='paso'?' open':'';
     const CANAL_TXT={linkedin:'LinkedIn',facebook:'Facebook',instagram:'Instagram',youtube:'YouTube Shorts',google:'Google Business',web:'Web',boletin:TR('Boletín'),anuncios:TR('Anuncios')};
     const cuando=p.fecha_prevista?fechaCorta(String(p.fecha_prevista).slice(0,10)):'';
-    const meta=(tv?tv.aviso:'')+`<p class="aprob-meta"><span class="prio p${p._prio.nivel}" title="${esc(p._prio.motivo)}">${p._prio.emoji} ${esc(p._prio.etiqueta)}</span><span>${esc(p._prio.motivo)}</span>${p.creada?`<span>· ${esc(haceCuanto(p.creada))}</span>`:''}${dormida(p)?`<span>· 💤 vuelve ${esc(cuandoTxt(p.pospuesta))}</span>`:''}${p.canal||cuando?`<span>· 🗓 ${esc([CANAL_TXT[p.canal]||p.canal,cuando].filter(Boolean).join(' · '))}</span>`:''}${p.clase==='post'&&cuando&&['linkedin','facebook'].includes(p.canal)&&cacheMesa[p.canal]?.autopublicar&&cacheMesa[p.canal]?.conectado?TR`<span class="auto-pub">· 🤖 Se publica solo el ${esc(cuando)} a las 9:00</span>`:''}</p>`;
+    const meta=(tv?tv.aviso:'')+`<p class="aprob-meta"><span class="prio p${p._prio.nivel}" title="${esc(p._prio.motivo)}">${p._prio.emoji} ${esc(p._prio.etiqueta)}</span><span>${esc(p._prio.motivo)}</span>${p.creada?`<span>· ${esc(haceCuanto(p.creada))}</span>`:''}${dormida(p)?`<span>· 💤 vuelve ${esc(cuandoTxt(p.pospuesta))}</span>`:''}${p.canal||cuando?`<span>· 🗓 ${esc([CANAL_TXT[p.canal]||p.canal,cuando].filter(Boolean).join(' · '))}</span>`:''}${p.clase==='post'&&cuando&&['linkedin','facebook'].includes(p.canal)&&cacheMesa[p.canal]?.autopublicar&&cacheMesa[p.canal]?.conectado?TR`<span class="auto-pub">· 🤖 Se publica solo el ${esc(cuando)} a las 9:00</span>`:''}</p>`+botonEmpresaTarjeta(p);
     const extra=p.canal==='google'?TR`<button class="btn sec peq" type="button" data-copiar-gbp="1">📋 Copiar y abrir Google Business ↗</button>`:'';
     li.innerHTML=TR`<button type="button" class="ap-ampliar" data-ampliar title="Ampliar: verla sola y en grande" aria-label="Ampliar esta tarjeta">⤢</button>${porId[p.agente]?`<button type="button" class="ap-ag" data-ver-ag="${p.agente}" title="Ver la ficha de ${esc(nombreVisible(a))}"><img alt="" src="${a.retrato}"></button>`:`<img alt="" src="${a.retrato}">`}<div>${meta}<p>${porId[p.agente]?`<button type="button" class="lnk-ag" data-ver-ag="${p.agente}" title="Ver la ficha de ${esc(nombreVisible(a))}">${esc(nombreVisible(a))}</button>`:`<b>${esc(a.nombre)}</b>`} ${esc(p.titulo)}</p>${p.texto||p.imagen?TR`<details class="aprob-det" data-ap-det="${esc(p.id)}"${ABIERTAS_MESA.has(p.id)?' open':''}><summary>Ver ${p.imagen?TR('imagen y '):''}texto</summary>${p.imagen&&EN_VIVO?`<a class="aprob-img" href="${API}/aprobaciones/${encodeURIComponent(p.id)}/imagen" target="_blank" rel="noopener" title="Ver la imagen en grande"><img src="${API}/aprobaciones/${encodeURIComponent(p.id)}/imagen" alt="Imagen del post" loading="lazy"></a>`:''}${p.texto?textoTarjeta(p.texto,' open'):''}</details>`:''}
     <div class="acciones">${botones}${p.clase==='boletin'?TR`<button class="btn sec" type="button" data-boletin-prueba>🧪 Enviarme una prueba</button>`:''}${extra}${perfil}${dormida(p)?TR`<button class="btn sec" type="button" data-posponer="0" title="Volver a ponerlo arriba">↩ A la mesa</button>`:TR`<button class="btn sec" type="button" data-posp-abrir title="Elige para cuándo: baja al fondo hasta ese día y queda apuntado en el calendario">💤 Más tarde</button>`}<button class="btn rosa" type="button" data-r="gracias" title="Dar las gracias">💛</button></div>
@@ -2481,6 +2513,7 @@ function pedirIndice(id){if(indicePedido.has(id))return;indicePedido.add(id);cle
 async function cargarIndiceEmpresas(){
   try{const l=EN_VIVO?await (await fetch(API+'/empresas?limite=500')).json():DEMO_FICHAS;indiceEmpresas=new Map(l.map(e=>[e.id,e]));prepararAlias();}catch{}
   feed.querySelectorAll('li:not(.charla)').forEach(enlacesDe);
+  document.querySelectorAll('.aprob[data-id]:not(:has(.aprob-emp))').forEach(li=>{const p=pendientes.get(li.dataset.id);if(p)li.querySelector('.aprob-meta')?.insertAdjacentHTML('afterend',botonEmpresaTarjeta(p));});   // las que nombran una empresa que aún no se conocía
 }
 /* Logo de una empresa ya investigada: el icono de su web, que da Google. Si la web no tiene icono propio, no se enseña nada */
 function logoEmpresa(e,t=20){
@@ -2519,7 +2552,7 @@ function enlazarEmpresas(html){
 }
 function empresaEnTexto(t){
   const n=normal(t);let mejor=null;
-  indiceEmpresas.forEach(e=>{const nom=normal(String(e.nombre).replace(/\s*\(.*$/,'').replace(/\b(s\.?l\.?u?|s\.?a\.?)\.?$/,'')).trim();
+  indiceEmpresas.forEach(e=>{const nom=normal(String(e.nombre).replace(/\s*\(.*$/,'').replace(/\b(s\.?l\.?u?|s\.?a\.?)\.?$/i,'')).trim();
     if(nom.length>=6&&n.includes(nom)&&(!mejor||nom.length>mejor.n))mejor={e,n:nom.length};});
   return mejor?.e||null;
 }
@@ -2607,7 +2640,7 @@ async function ventanaLlamada({apId,empresaId,tel,nombre,marcacion=null}){
     setTimeout(()=>bw.disabled=false,6000);};
   sinCentralita();
   if(!EN_VIVO)return;
-  if(empresaId){bm.disabled=bw.disabled=true;try{await pintarOpciones(await (await fetch(API+'/empresas/'+encodeURIComponent(empresaId)+'/contactos')).json());}catch{bm.disabled=bw.disabled=!tel;}}
+  if(empresaId){bm.disabled=bw.disabled=true;try{const d=await (await fetch(API+'/empresas/'+encodeURIComponent(empresaId)+'/contactos')).json();await pintarOpciones(d);if(d.consejos?.length)modos.insertAdjacentHTML('afterend',`<details class="llam-consejos" open><summary>${TR('💡 De tus últimas llamadas')}</summary><pre>${esc(d.consejos.join('\n'))}</pre></details>`);}catch{bm.disabled=bw.disabled=!tel;}}
   try{const c=await (await fetch(API+'/llamar/consejo'+(empresaId?'?empresa_id='+encodeURIComponent(empresaId):''))).json();const el=cuerpo.querySelector('[data-llam-consejo]');if(c.texto&&el){el.textContent=TR('🕑 Cuándo llamar: ')+c.texto;el.hidden=false;}}catch{}
   if(empresaId)try{const e=await (await fetch(API+'/empresas/'+encodeURIComponent(empresaId))).json();const el=cuerpo.querySelector('[data-llam-emp]');
     const frase=(String(e.dossier||'').match(/##\s*En una frase\s*\n+([^\n]+)/i)||[])[1];
@@ -2747,8 +2780,8 @@ function htmlObjetivo(ob,pr){
     <form class="presu-form" data-obj-form><label>Quiero encontrar <input name="cantidad" type="number" min="0" max="500" step="1" value="${o?o.cantidad:''}" placeholder="sin objetivo" style="width:120px"></label><select name="periodo" aria-label="Periodo"><option value="semana"${dia?'':' selected'}>a la semana</option><option value="dia"${dia?' selected':''}>al día</option></select><button class="btn sec peq" type="submit">Guardar</button></form>
     <p class="meta" data-obj-est>${textoEstimacion(o?o.cantidad:'',ob.estimacion)}</p>
     ${llevamos?`<p class="meta">${llevamos}</p>`:''}${pr?.turbo&&o?.cantidad?TR('<p class="meta">🚀 El modo turbo pasa por encima de este objetivo mientras esté activado.</p>'):''}
-    <p class="meta"><b>Google Maps (opcional):</b> ${m?.conectado?TR`conectado con la clave que acaba en ${esc(m.final)}. Cada consulta cuenta unos ${String(m.eur_consulta).replace('.',',')} € en tu presupuesto, aunque Google regala unas cuantas al mes.`:TR('sin conectar. Sirve para que Lucía saque negocios reales por zona y sector. Usa tu propia clave de Google.')}</p>
-    ${m?.conectado?TR`<div class="acciones"><button class="btn sec peq" type="button" data-maps-quitar>Quitar la clave</button></div>`:TR`<form class="presu-form" data-maps-form><input name="clave" type="password" autocomplete="off" placeholder="AIza…" aria-label="Clave de Google Maps" required style="width:220px"><button class="btn sec peq" type="submit">Conectar</button></form>`}</div>`;
+    <p class="meta"><b>Google Maps (opcional):</b> ${textoMaps(m)}</p>
+    ${controlMaps(m)}</div>`;
 }
 function atarObjetivo(cuerpo,repintar){
   const f=cuerpo.querySelector('[data-obj-form]');if(!f)return;
@@ -3099,10 +3132,10 @@ document.getElementById('conf-con-btn').onclick=()=>{confSel='conexiones';pintar
 async function pintarConexiones(){
   const f=document.getElementById('conf-panel');verPanelConf(true);
   if(!EN_VIVO){f.innerHTML=TR('<div><h3>Conexiones</h3><p class="meta">En la demo no hay conexiones.</p></div><div class="acciones"><button class="btn sec" type="button" data-acc="cerrar">Cerrar</button></div>');f.querySelector('[data-acc=cerrar]').onclick=()=>dlg.close();return;}
-  if(!cacheMesa.telegram&&!cacheMesa.linkedin){f.innerHTML=TR('<p class="meta">Cargando…</p>');await cargarMesa(true);if(confSel!=='conexiones')return;}
+  if(!cacheMesa.telegram||!cacheMesa.facebook||!cacheMesa.chats||!cacheMesa.maps){f.innerHTML=TR('<p class="meta">Cargando…</p>');await cargarMesa(true);if(confSel!=='conexiones')return;}
   const viejo=f.querySelector('.conexiones');if(viejo&&viejo.contains(document.activeElement)&&document.activeElement.value)return;   // no borrar lo que estás escribiendo
   f.innerHTML=TR`<div class="conexiones"><div><h3>Conexiones</h3><p class="meta">Los servicios con los que trabaja la oficina. Las claves se guardan cifradas.</p></div>
-    ${bloqueBotOficina()}${bloqueLinkedin()}${bloqueFacebook()}${bloqueZadarma()}${bloqueLola()}${bloqueChats()}
+    ${bloqueBotOficina()}${bloqueLinkedin()}${bloqueFacebook()+bloqueOtrasRedes()+bloqueMaps()}${bloqueZadarma()}${bloqueLola()}${bloqueChats()}
     <div class="acciones" style="margin-top:16px"><button class="btn sec" type="button" data-acc="cerrar">Cerrar</button></div></div>`;
   f.querySelector('[data-acc=cerrar]').onclick=()=>dlg.close();
   f.querySelectorAll('[data-dueno]').forEach(b=>b.onclick=()=>accionDueno(b.dataset.dueno));
@@ -3452,7 +3485,7 @@ function ingest(ev){
       if(chatActual==='actividad'&&document.body.classList.contains('vista-chat'))anadirMensaje({id:'l'+ev.ts+ev.agente,canal:'actividad',autor:ev.agente,texto:ev.texto,creado:ev.ts,empresa_id:ev.empresa_id,informe_id:ev.informe_id,aprobacion_id:ev.aprobacion_id,url:ev.url,llamada_id:ev.llamada_id});
       // Lola lo cuenta desde recepción: si hubo recado está en la mesa; si no (equivocada, colgaron, prueba), queda apuntado en Actividad
       if(ev.agente==='lola'||ev.agente==='sistema'&&/^📞 Lola/.test(String(ev.texto||'')))decirNpc(lola,/\(\d+ (?:s|min)[^)]*\): /.test(String(ev.texto||''))?TR('Acabo de atender una llamada a la centralita. Te lo apunto en Actividad.'):TR('Acabo de atender una llamada a la centralita. Te lo dejo en la mesa.'),9000),lolaT=0,seleccionado==='lola'&&pintarDetalle();break;
-    case 'premio':premioMes={agente:ev.agente,mes:ev.mes,puntos:ev.puntos};if(porId[ev.agente]){lanzarConfeti(120);decir(ev.agente,TR('¡¿Yo?! ¡Gracias, equipo! 🏆'),{clase:'cari',ms:7000});}break;
+    case 'premio':premioMes={agente:ev.agente,mes:ev.mes,puntos:ev.puntos};if(vidaActiva&&porId[ev.agente]){lanzarConfeti(120);decir(ev.agente,TR('¡¿Yo?! ¡Gracias, equipo! 🏆'),{clase:'cari',ms:7000});}break;
     case 'embudo':if(ev.etapa in embudo){embudo[ev.etapa]=ev.valor;pintarEmbudo(ev.etapa);}
       if(document.body.classList.contains('vista-empresas')){clearTimeout(window._tEmp);window._tEmp=setTimeout(()=>{cargarEmpresas();if(empresaSel)abrirFicha(empresaSel);},1500);}break;
     case 'traspaso':caminar(ev.de,ev.a,ev.carga!==false,ev._alLlegar);break;
@@ -3461,9 +3494,10 @@ function ingest(ev){
       break;}
     case 'latido':break;
     case 'animo':pintarAnimo(ev);break;
-    case 'fiesta':if(!window._miFiesta||Date.now()-window._miFiesta>5000)fiestaEnPantalla();fiestaManual=ev.hasta;break;
+    case 'fiesta':if(!vidaActiva)break;if(!window._miFiesta||Date.now()-window._miFiesta>5000)fiestaEnPantalla();fiestaManual=ev.hasta;break;
     case 'calendario':clearTimeout(window._tCal);window._tCal=setTimeout(()=>pintarCalendario(true),400);break;
     case 'mesa_cambiada':reconectarEnVivo();break;
+    case 'transcripcion_lista':avisar({clave:'transcripcion:'+ev.empresa_id,clase:'info',titulo:TR('📞 Ya está la transcripción de tu llamada'),texto:ev.nombre||'',ver:ev.empresa_id?()=>{cambiarVista('empresas');abrirFicha(ev.empresa_id);}:null,verTexto:TR('Ver la ficha')});break;
     case 'video':{const q=pendientes.get(ev.id);if(!q)break;document.querySelector(`.aprob[data-id="${CSS.escape(ev.id)}"] video`)?.pause();q.video=ev.video;pintarBandeja();
       if(ev.video.estado==='generando')break;const mal=ev.video.estado==='error';
       avisar({clave:'video:'+ev.id,clase:mal?'':'info',img:(porId[q.agente]||DUENO).retrato,titulo:mal?TR('⚠️ No se ha podido generar el vídeo'):TR('🎬 Vídeo listo'),texto:mal?ev.video.error:q.titulo,ver:()=>ampliarTarjeta(ev.id),verTexto:TR('Verlo')});break;}
@@ -3936,6 +3970,7 @@ function aplicarVida(v){
     Object.assign(a.vida,{familia:p.familia,aficion:p.aficion,mania:p.mania,cumple:p.cumple,sust:p.sustituto,personalidad:p.personalidad});
     if(p.anecdotas?.length)ANECDOTAS[id]=p.anecdotas;});
   if(Array.isArray(v.charlas))charlasServidor=v.charlas;
+  document.body.classList.toggle('sin-vida',!vidaActiva);
   if(!vidaActiva)sinVida();
   if(seleccionado==='dueno')pintarFichaDueno(true);
   if(seleccionado&&seleccionado!=='dueno')pintarDetalle();
@@ -3943,8 +3978,8 @@ function aplicarVida(v){
 }
 function pintarConfVida(){
   const t=document.getElementById('conf-vida-txt'),b=document.getElementById('conf-vida-btn');if(!t)return;
-  t.textContent=vidaActiva?TR('Activadas: cada agente tiene su vida, su carácter y charla con los demás.'):TR('Desactivadas: los agentes solo trabajan, sin vida personal, charlas ni descansos.');
-  b.textContent=vidaActiva?TR('Desactivar personalidades'):TR('Activar personalidades');b.hidden=!EN_VIVO;
+  t.textContent=vidaActiva?TR('Activada: ánimo, personalidades, charlas, descansos, fiestas, juegos y decoración.'):TR('Desactivada: los agentes solo trabajan. Sin ánimo, personalidades, charlas, descansos, fiestas, juegos ni decoración.');
+  b.textContent=vidaActiva?TR('Dejar solo el trabajo'):TR('Activar la vida de oficina');b.hidden=!EN_VIVO;
 }
 document.getElementById('conf-vida-btn')?.addEventListener('click',()=>api('/vida',{activa:!vidaActiva}).then(aplicarVida).catch(()=>{}));
 setTimeout(pintarConfVida,0);
@@ -4241,7 +4276,7 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
   else if(b.dataset.abrirAp)verAprobacion(b.dataset.abrirAp);
   else if(b.dataset.abrirInf)abrirInforme(b.dataset.abrirInf);
   else if(b.dataset.abrirLlamada)verLlamadaVoz(b.dataset.abrirLlamada);
-  else if(b.dataset.abrirEmp){cambiarVista('empresas');abrirFicha(b.dataset.abrirEmp);}
+  else if(b.dataset.abrirEmp){document.querySelectorAll('dialog[open]').forEach(d=>d.close());cambiarVista('empresas');abrirFicha(b.dataset.abrirEmp);}
   else{cambiarVista('chat');abrirCanal(b.dataset.abrirChat);}});
 if(EN_VIVO&&!PANTALLA_ACCESO)setTimeout(cargarCanales,2500);
 
@@ -4420,7 +4455,7 @@ async function abrirFicha(id){
   ${h.correos?.length?TR`<h4>Correo</h4>${enOrden(h.correos,'fecha').map(c=>TR`<div class="msg"><b>${c.direccion==='entrada'?'📩 '+esc(c.de):TR('📤 Enviado a ')+esc(c.para)}</b> · ${new Date(c.fecha).toLocaleString(LOCALE,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}<br>${esc(c.asunto||'')}<details><summary>Ver correo</summary><pre>${enlazar(esc(c.texto||''))}</pre></details></div>`).join('')}`:''}
   ${h.mensajes?.length?TR`<h4>Mensajes preparados</h4>${enOrden(h.mensajes,'creada').map(m=>TR`<div class="msg"><b>${esc(quien(m.agente).nombre)}</b> ${esc(m.titulo)} · <span class="estado-pill">${({pendiente:TR('En tu mesa'),aprobada:TR('Enviado / aprobado'),descartada:TR('Descartado'),cambios:TR('Pediste cambios'),hecho:TR('Hecho'),aceptado:TR('Ha aceptado'),aun_no:TR('Aún no'),respondido:TR('Ha respondido'),saltar:TR('Saltado'),parar:TR('Secuencia parada'),perdida:TR('Perdida'),aparcar:TR('Aparcada'),no_localizado:TR('No localizado'),plan_b:'Plan B',sustituida:TR('Sustituida')})[m.estado]||m.estado}</span><button type="button" class="btn sec peq" data-abrir-ap="${esc(m.id)}">${m.estado==='pendiente'?TR('⤢ Abrir en grande'):TR('👁 Abrir')}</button><details><summary>Ver texto</summary><pre>${enlazar(esc(m.texto))}</pre></details></div>`).join('')}`:''}
   ${h.llamadas?.length?TR`<h4>Llamadas</h4>${enOrden(h.llamadas,'cuando').map(l=>`<div class="msg"><b>${l.via==='lola'?TR`📞 Llamó a la centralita${l.nombre?' · '+esc(l.nombre):''} (le atendió Lola)`:l.tipo==='in'?TR('📞 Te llamó'):TR('📞 Llamaste tú')}</b> · ${new Date(l.cuando).toLocaleString(LOCALE,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${l.segundos?` · ${Math.max(1,Math.round(l.segundos/60))} min`:''}
-    ${l.resumen?`<pre>${enlazar(esc(l.resumen))}</pre>`:l.via!=='centralita'?'':l.estado==='pendiente'?TR('<p class="meta">⏳ Esperando la transcripción de la centralita…</p>'):l.estado==='sin_respuesta'?TR('<p class="meta">No llegó a hablar nadie.</p>'):l.estado==='sin_transcripcion'?`<p class="meta">⚠️ ${TR('Sin transcripción')}${l.motivo?': '+esc(l.motivo):''}</p>`:TR('<p class="meta">Paula está preparando el resumen…</p>')}${l.transcripcion?TR`<details><summary>Ver la transcripción</summary><pre>${esc(l.transcripcion)}</pre></details>`:''}</div>`).join('')}`:''}
+    ${l.resumen?`<pre>${enlazar(esc(l.resumen))}</pre>`:l.via!=='centralita'?'':l.estado==='pendiente'?`<p class="meta">⏳ ${TR('Esperando la transcripción de la centralita')}${l.motivo?': '+esc(l.motivo):'…'}</p>`:l.estado==='sin_respuesta'?TR('<p class="meta">No llegó a hablar nadie.</p>'):l.estado==='sin_transcripcion'?`<p class="meta">⚠️ ${TR('Sin transcripción')}${l.motivo?': '+esc(l.motivo):''}</p>`:TR('<p class="meta">Paula está preparando el resumen…</p>')}${l.mejoras?`<details open><summary>${TR('💡 Para tu próxima llamada')}</summary><pre>${esc(l.mejoras)}</pre></details>`:''}${l.transcripcion?TR`<details><summary>Ver la transcripción</summary><pre>${esc(l.transcripcion)}</pre></details>`:''}</div>`).join('')}`:''}
   ${h.actividad?.length?TR`<h4>Historial</h4>${enOrden(h.actividad,'ts').map(l=>`<div class="linea"><img alt="" src="${quien(l.agente).retrato}"${cara(l.agente)}><span><b>${esc(quien(l.agente).nombre)}</b> ${esc(l.texto)}${enlacesLinea(l,h)}</span><time>${new Date(l.ts).toLocaleString(LOCALE,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</time></div>`).join('')}`:''}
   ${e.fuente?TR`<h4>Fuentes</h4><p class="meta">${esc(e.fuente).split(/\s+/).map(u=>/^https?:/.test(u)?`<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\/(www\.)?/,'').slice(0,60)}</a>`:u).join('<br>')}</p>`:''}`;
   atarContactos(f,e);

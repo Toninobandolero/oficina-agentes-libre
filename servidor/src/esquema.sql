@@ -446,9 +446,7 @@ ALTER TABLE llamadas ADD COLUMN IF NOT EXISTS notas_dueno TEXT;
 ALTER TABLE llamadas ADD COLUMN IF NOT EXISTS resultado TEXT;   -- hablado · no_contesta · buzon · no_esta · numero_equivocado · no_interesa · volver_a_llamar
 ALTER TABLE llamadas ADD COLUMN IF NOT EXISTS disposicion TEXT; -- lo que dice la centralita (answered, no answer, busy…)
 ALTER TABLE llamadas ADD COLUMN IF NOT EXISTS motivo TEXT;      -- por qué no hay transcripción
--- Las que se daban por perdidas antes de reintentar: atascadas para siempre, o contestadas de menos de 20 segundos
-UPDATE llamadas SET estado='sin_transcripcion', intentos=0 WHERE estado='pendiente' AND intentos >= 12;
-UPDATE llamadas SET estado='pendiente' WHERE estado='sin_respuesta' AND lower(disposicion)='answered' AND segundos > 0 AND coalesce(inicio, creada) > now() - interval '7 days';
+ALTER TABLE llamadas ADD COLUMN IF NOT EXISTS mejoras TEXT;     -- lo que Dirección puede mejorar al hablar, según lo que dijo en esta llamada
 -- Chat de la oficina (tipo Slack): #general contigo, #trabajo con lo que se encargan entre ellos, #café y un privado con cada agente
 CREATE TABLE IF NOT EXISTS chat (
   id          BIGSERIAL PRIMARY KEY,

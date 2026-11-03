@@ -205,11 +205,20 @@ export async function historial(id) {
     q(`SELECT id, agente, tipo, titulo, texto, estado, creada, resuelta FROM aprobaciones WHERE empresa_id=$1 ORDER BY creada`, [id]),
     q(`SELECT ts, datos FROM eventos WHERE datos->>'tipo'='log' AND (datos->>'empresa_id' = $3 OR datos->>'texto' ILIKE $1 OR datos->>'texto' ILIKE $2) ORDER BY ts`, [`%${e.nombre}%`, `%${e.id}%`, e.id]),
     // Llamadas: las tuyas por la centralita (con resumen y transcripción) y las que atendió Lola en el teléfono
-    q(`SELECT * FROM (SELECT 'centralita' AS via, coalesce(inicio, creada) AS cuando, segundos, tipo, resumen, transcripcion, NULL::text AS nombre, NULL::int AS llamada_id, estado, motivo FROM llamadas WHERE empresa_id=$1
-        UNION ALL SELECT 'lola', creada, segundos, 'in', coalesce(nullif(resumen,''), motivo), transcripcion, nombre, id, NULL, NULL FROM llamadas_voz WHERE empresa_id=$1) x ORDER BY cuando DESC LIMIT 20`, [id]),
+    q(`SELECT * FROM (SELECT 'centralita' AS via, coalesce(inicio, creada) AS cuando, segundos, tipo, resumen, transcripcion, NULL::text AS nombre, NULL::int AS llamada_id, estado, motivo, mejoras FROM llamadas WHERE empresa_id=$1
+        UNION ALL SELECT 'lola', creada, segundos, 'in', coalesce(nullif(resumen,''), motivo), transcripcion, nombre, id, NULL, NULL, NULL FROM llamadas_voz WHERE empresa_id=$1) x ORDER BY cuando DESC LIMIT 20`, [id]),
   ]);
   return { tareas: tareas.rows, mensajes: aprob.rows, llamadas: llamadas.rows, actividad: eventos.rows.map(r => ({ ts: r.ts, agente: r.datos.agente, texto: r.datos.texto, aprobacion_id: r.datos.aprobacion_id || null, informe_id: r.datos.informe_id || null, url: r.datos.url || null, llamada_id: r.datos.llamada_id || null })) };
 }
+
+/** Las horas que lee un agente van en Madrid y lo dicen: un «09:57Z» se leía como las 9:57 y era la 10:57 de Dirección. */
+const hMadrid = d => {
+  if (!d) return null;
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(d)).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} (hora de Madrid)`;
+};
+// Qué se sabe de cada llamada de la centralita: sin esto, una que espera su transcripción llegaba al agente sin nada y se la inventaba
+const ESTADO_LLAMADA = { pendiente: 'Esperando la transcripción: todavía NO se sabe qué se habló', transcrita: 'Transcrita; el resumen está en preparación', analizada: 'Con resumen', sin_respuesta: 'No llegó a hablar nadie', sin_transcripcion: 'Sin transcripción: NO se sabe qué se habló' };
 
 /** La ficha con todo lo que ha pasado, recortado para que quepa en una tarea. Lo que lee un agente; el panel usa historial() entero. */
 export async function expediente(id) {
@@ -219,10 +228,13 @@ export async function expediente(id) {
   const c = (t, n) => (t != null && String(t).length > n ? String(t).slice(0, n) + '…' : t);
   const contactos = await (await import('./contactos.js')).deEmpresa(id);
   return { ...e, contactos, historial: {
-    encargos: h.tareas.slice(-10).map(t => ({ agente: t.agente, encargo: c(t.instruccion, 160), estado: t.estado, resultado: c(t.resultado, 300), cuando: t.terminada || t.creada })),
-    mensajes: h.mensajes.slice(-8).map(m => ({ agente: m.agente, tipo: m.tipo, titulo: c(m.titulo, 120), texto: c(m.texto, 400), estado: m.estado, cuando: m.resuelta || m.creada })),
-    llamadas: h.llamadas.slice(0, 5).map(l => ({ via: l.via, cuando: l.cuando, resumen: c(l.resumen, 1500) })),
-    actividad: h.actividad.slice(-10).map(a => ({ agente: a.agente, texto: c(a.texto, 200), cuando: a.ts })),
+    encargos: h.tareas.slice(-10).map(t => ({ agente: t.agente, encargo: c(t.instruccion, 160), estado: t.estado, resultado: c(t.resultado, 300), cuando: hMadrid(t.terminada || t.creada) })),
+    mensajes: h.mensajes.slice(-8).map(m => ({ agente: m.agente, tipo: m.tipo, titulo: c(m.titulo, 120), texto: c(m.texto, 400), estado: m.estado, cuando: hMadrid(m.resuelta || m.creada) })),
+    llamadas: h.llamadas.slice(0, 5).map(l => ({
+      quien: l.via === 'lola' ? `Llamaron a Lola, la recepción de voz${l.nombre ? ` (${l.nombre})` : ''}` : l.tipo === 'in' ? 'Le llamaron a Dirección' : 'Llamó Dirección',
+      cuando: hMadrid(l.cuando), duracion_min: l.segundos ? Math.max(1, Math.round(l.segundos / 60)) : null,
+      estado: l.via === 'lola' ? undefined : ESTADO_LLAMADA[l.estado] || l.estado, resumen: c(l.resumen, 1500) || undefined })),
+    actividad: h.actividad.slice(-10).map(a => ({ agente: a.agente, texto: c(a.texto, 200), cuando: hMadrid(a.ts) })),
   } };
 }
 

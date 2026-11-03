@@ -121,6 +121,7 @@ export async function animo() {
 }
 /** Se recalcula en cada vuelta del planificador y solo se avisa a las pantallas si cambia. */
 export async function emitirAnimo(forzar = false) {
+  if (!activa) return null;
   const a = await animo();
   if (forzar || !animoAnterior || animoAnterior.valor !== a.valor) { animoAnterior = a; await emitir({ tipo: 'animo', ...a }); }
   return a;
