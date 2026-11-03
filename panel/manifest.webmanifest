@@ -1,0 +1,17 @@
+{
+  "name": "Oficina de agentes",
+  "short_name": "Oficina",
+  "description": "El equipo de agentes trabajando en directo.",
+  "start_url": "/?app=1",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#13203a",
+  "theme_color": "#13203a",
+  "lang": "es",
+  "icons": [
+    { "src": "/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

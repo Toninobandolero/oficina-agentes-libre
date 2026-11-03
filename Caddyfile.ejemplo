@@ -1,0 +1,13 @@
+# Añade este bloque a tu Caddyfile del VPS y reinicia Caddy.
+# La contraseña la pide la propia oficina (pantalla de acceso), no Caddy:
+# se define con PANEL_PASSWORD en el .env.
+
+oficina.tuempresa.example {
+	encode gzip zstd
+	# Caddy en Docker (misma red que el contenedor «agentes-oficina»):
+	reverse_proxy agentes-oficina:3000 {
+		flush_interval -1
+	}
+	# Caddy instalado en el servidor:
+	# reverse_proxy 127.0.0.1:3200 { flush_interval -1 }
+}

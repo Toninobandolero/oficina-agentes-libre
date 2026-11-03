@@ -1,0 +1,19 @@
+.DS_Store
+Thumbs.db
+
+# Datos de prospección: datos personales de decisores (RGPD)
+datos/
+
+# Secretos
+.env
+.env.*
+!.env.example
+
+# Dependencias
+node_modules/
+
+# Datos de Postgres en el servidor
+data/
+
+# Versión general que se comparte (servidor/exportar-plantilla.mjs)
+dist/

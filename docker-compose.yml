@@ -1,0 +1,48 @@
+# Oficina de agentes: base de datos, aplicación y puerta de entrada con HTTPS. La guía paso a paso está en INSTALAR.md.
+name: agentes
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: agentes-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agentes
+      POSTGRES_USER: agentes
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentes -d agentes"]
+      interval: 30s
+      retries: 5
+
+  oficina:
+    build: .
+    container_name: agentes-oficina
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://agentes:${DB_PASSWORD}@agentes-db:5432/agentes
+      TZ: Europe/Madrid
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Solo accesible desde el propio servidor; al público se llega por la puerta de entrada de abajo o por tu propio proxy (Caddyfile.ejemplo)
+      - "127.0.0.1:${PUERTO:-3200}:3000"
+
+  # La puerta de entrada: saca el certificado HTTPS y lo renueva sola. Se enciende con COMPOSE_PROFILES=https en .env
+  caddy:
+    image: caddy:2-alpine
+    container_name: agentes-caddy
+    restart: unless-stopped
+    profiles: [https]
+    command: caddy reverse-proxy --from ${DOMINIO:-localhost} --to oficina:3000
+    depends_on:
+      - oficina
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./data/caddy:/data

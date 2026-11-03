@@ -1,0 +1,9 @@
+.git
+datos
+data
+**/node_modules
+servidor/test
+*.md
+!skills/**/*.md
+.env
+.claude-ssh

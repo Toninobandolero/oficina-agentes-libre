@@ -1,0 +1,27 @@
+{
+  "name": "oficina-agentes",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "description": "Oficina de agentes comerciales",
+  "scripts": {
+    "start": "node src/index.js",
+    "traducir": "node traducir-panel.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "imapflow": "^2.9.1",
+    "mailparser": "^3.12.4",
+    "nodemailer": "^10.3.0",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "acorn": "^8.14.0",
+    "acorn-walk": "^8.3.4",
+    "htmlparser2": "^10.1.0"
+  }
+}
