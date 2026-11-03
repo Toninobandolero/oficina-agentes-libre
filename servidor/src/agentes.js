@@ -1,5 +1,6 @@
 // Definición del equipo. Cada agente trabaja con su skill (skills/<skill>/SKILL.md) como instrucciones.
 import fs from 'node:fs';
+import { textoParaAgentes } from './protocolo.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
@@ -69,7 +70,7 @@ Si un dato de contacto de la ficha está mal o Dirección te da uno nuevo, corr�
   },
   paula: {
     nombre: 'Paula', rol: 'seguimiento de leads', skill: 'gestionar-respuestas', icono: 'chat',
-    herramientas: ['guardar_contacto', 'listar_empresas', 'leer_empresa', 'guardar_empresas', 'actualizar_empresa', 'pedir_aprobacion', 'preparar_correo', 'leer_chat', 'responder_chat', 'encargar', 'apuntar_en_calendario', 'resultado_llamada', 'resumen_llamada', 'anotar'], web: { busquedas: 1, lecturas: 3 }, estilo: true,
+    herramientas: ['registrar_interes', 'guardar_contacto', 'listar_empresas', 'leer_empresa', 'guardar_empresas', 'actualizar_empresa', 'pedir_aprobacion', 'preparar_correo', 'leer_chat', 'responder_chat', 'encargar', 'apuntar_en_calendario', 'resultado_llamada', 'resumen_llamada', 'anotar'], web: { busquedas: 1, lecturas: 3 }, estilo: true,
     parte: `Los contactos que llegan solos (web, Google, gestorías, eventos) son lo más valioso: contéstalos el mismo día.
 Si alguien pide que le llames o contesta con interés, es lo primero de la oficina: entrega el guion o la respuesta con importancia «urgente» y el motivo, y anótalo con urgente: true.
 Si Dirección te cuenta que conoció a alguien (evento, recomendación, gestoría), créalo con guardar_empresas indicando su origen y prepara el seguimiento.
@@ -77,7 +78,7 @@ Si el lead escribió por correo, contesta con preparar_correo (en_respuesta_a: e
 Llevas las secuencias de contacto: el sistema te avisa cuando toca cada paso y tú se lo dejas a Dirección en la mesa; no tienes que hacer nada para eso.
 Cuando un lead responde, Dirección te pasa lo que ha dicho junto con lo que ya le habíamos enviado.
 Dirección te pasa respuestas de leads o te pide revisar seguimientos.
-Actualiza estado (conversacion, reunion, perdida, descartada), proximo_paso y fecha_proximo_paso con actualizar_empresa.
+Lo que diga cada contacto se registra con registrar_interes: el protocolo fija el estado, el siguiente paso y su fecha. Con actualizar_empresa, solo lo nuevo que hayas sabido de ellos.
 Si hay que contestar, prepara la respuesta con pedir_aprobacion (tipo 'respuesta').
 Si Dirección te da notas de una reunión ya hecha, encarga la propuesta a 'nuria' con encargar.
 Reseñas de Google: cuando un CLIENTE (estado cliente) esté contento —ha terminado un proyecto, ha dado las gracias, lo ha dicho en una llamada—, prepara un mensaje corto y cercano pidiéndole una reseña con el enlace de reseñas de Google de la empresa, que te dará Dirección si no está en la ficha (correo con preparar_correo si ya nos escribe por ahí; si no, pedir_aprobacion tipo 'respuesta'). Una sola vez por cliente: apúntalo con actualizar_empresa en proximo_paso para no repetirlo. Nunca a quien no es cliente ni en frío.`,
@@ -101,6 +102,7 @@ Apunta en tu libreta (guardar_nota) las ideas que no uses hoy, para otra semana.
 El diagnóstico gratis que piden desde la web es tu prioridad: tiene que estar en la mesa de Dirección el mismo día, dentro del correo de respuesta (preparar_correo).
 Si el cliente pidió la propuesta por correo, además de pedir_aprobacion puedes preparar el correo que la acompaña con preparar_correo.
 Con las notas de la reunión que te pasa Dirección, prepara diagnóstico y propuesta y entrégalos en UNA llamada a pedir_aprobacion (tipo 'propuesta').
+Todo diagnóstico o propuesta para un cliente lleva además «documento»: es lo que el dueño verá, un PDF de una página con nuestra marca. Rellénalo por partes, con un titular que le importe y las cifras solo con su fuente. Di «estimación» cuando lo sea: nunca inventes un número para que quede bonito.
 No cambies el estado a 'propuesta': lo hace el sistema cuando Dirección la aprueba.`,
   },
   pilar: {
@@ -193,7 +195,7 @@ ${config.empresa.reglaPresentacion ? `- ${config.empresa.reglaPresentacion}\n` :
 ## Tus instrucciones
 ${a.instrucciones ?? leerSkill(a.skill)}
 
-## Tu parte en este equipo
+${a.herramientas.includes('registrar_interes') ? textoParaAgentes() + '\n\n' : ''}## Tu parte en este equipo
 ${a.parte}${a.estilo ? estiloDueno() : ''}`;
 }
 

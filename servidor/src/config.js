@@ -94,6 +94,9 @@ export const config = {
 export function validar() {
   const errores = [];
   if (!config.databaseUrl) errores.push('Falta DATABASE_URL, la dirección de la base de datos (por ejemplo, postgres://localhost/oficina). Con Docker la pone docker-compose.yml.');
+  // Sin contraseña, quien llegue al panel manda sobre los agentes, las claves y los clientes: no se arranca así (solo a propósito, para probar en tu ordenador)
+  if (!config.panelPassword) { if (process.env.PANEL_SIN_CONTRASENA !== 'si') errores.push('Falta PANEL_PASSWORD en .env: es la contraseña del panel, de 10 caracteres o más. Solo para probar en tu ordenador puedes poner PANEL_SIN_CONTRASENA=si.'); }
+  else if (config.panelPassword.length < 10) errores.push('PANEL_PASSWORD es demasiado corta: usa 10 caracteres o más.');
   for (const [k, v] of Object.entries({ PRESUPUESTO_EUR: config.presupuestoEur, USD_EUR: config.usdEur, MAX_ANALISIS_DIA: config.maxAnalisisDia, CONCURRENCIA: config.concurrencia, MAX_TURNOS: config.maxTurnos, EMPRESAS_POR_BUSQUEDA: config.empresasPorBusqueda })) {
     if (!Number.isFinite(v) || v <= 0) errores.push(`${k} debe ser un número mayor que 0 (usa punto decimal, sin «€»).`);
   }

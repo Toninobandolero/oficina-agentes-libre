@@ -21,6 +21,7 @@ import * as planificador from './planificador.js';
 import * as busqueda from './busqueda.js';
 import * as boletin from './boletin.js';
 import * as contactos from './contactos.js';
+import * as protocolo from './protocolo.js';
 import * as fuentes from './fuentes.js';
 import * as telegram from './telegram.js';
 import * as acceso from './acceso.js';
@@ -130,6 +131,7 @@ async function rutas(req, res) {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), payment=()');
   res.setHeader('X-Frame-Options', 'DENY');
+  if (req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');   // 180 días: el navegador no vuelve a usar http
   if (p === '/api/entrada') {
     const permitido = cabecerasWeb(req, res);
     if (m === 'OPTIONS') { res.writeHead(permitido ? 204 : 403); return res.end(); }
@@ -237,6 +239,17 @@ async function rutas(req, res) {
     if (r.importadas) await bus.log('dueno', `ha importado ${r.importadas} empresa${r.importadas === 1 ? '' : 's'} de su cartera (${{ ganada: 'clientes', conversacion: 'con permiso o en conversación', nueva: 'lista fría' }[b.estado]}).`);
     return json(res, 200, r);
   }
+  if (m === 'GET' && p === '/api/protocolo') return json(res, 200, { niveles: protocolo.listado(), sin_hablar: protocolo.SIN_HABLAR });
+  let rInteres;
+  if (m === 'POST' && (rInteres = p.match(/^\/api\/empresas\/([\w-]+)\/interes$/))) {
+    const r = rInteres;
+    const b = await cuerpo(req);
+    try {
+      const hecho = await protocolo.registrar(r[1], b.nivel, { frase: b.frase, canal: b.canal, cuando: b.cuando, por: 'dueno' });
+      if (!protocolo.NIVELES[b.nivel].cierra && !hecho.agotado) await tareas.crear('paula', `Dirección ha apuntado lo que dijo este contacto: «${String(b.frase).trim()}». Según el protocolo: ${hecho.hacer} Prepárale lo que toque; el recordatorio ya está puesto.`, { empresa_id: r[1], origen: 'dueno' });
+      return json(res, 200, hecho);
+    } catch (e) { return json(res, 400, { error: e.message }); }
+  }
   if (m === 'GET' && p === '/api/empresas') return json(res, 200, await empresas.listar(Object.fromEntries(url.searchParams)));
   let r;
   if ((r = p.match(/^\/api\/empresas\/([\w-]+)\/contactos$/))) {
@@ -258,7 +271,7 @@ async function rutas(req, res) {
   }
   if (m === 'GET' && (r = p.match(/^\/api\/empresas\/([\w-]+)$/))) {
     const e = await empresas.leer(r[1]);
-    return e ? json(res, 200, { ...e, coste: await empresas.coste(r[1]).catch(() => null), contactos: await contactos.deEmpresa(r[1]) }) : json(res, 404, { error: 'No existe esa empresa' });
+    return e ? json(res, 200, { ...e, coste: await empresas.coste(r[1]).catch(() => null), contactos: await contactos.deEmpresa(r[1]), situacion: await protocolo.situacion(e) }) : json(res, 404, { error: 'No existe esa empresa' });
   }
   if (m === 'POST' && (r = p.match(/^\/api\/empresas\/([\w-]+)\/estado$/))) {
     const b = await cuerpo(req);
@@ -390,6 +403,24 @@ async function rutas(req, res) {
   }
   if (m === 'GET' && p === '/api/agenda') return json(res, 200, await planificador.agenda());
   if (m === 'GET' && p === '/api/informes') return json(res, 200, (await q(`SELECT id, agente, tipo, titulo, empresa_id, creada FROM informes ORDER BY id DESC LIMIT 50`)).rows);
+  if (m === 'GET' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/documento\.pdf$/))) {
+    const pdf = await (await import('./documento.js')).deAprobacion(r[1]);
+    if (!pdf) return json(res, 404, { error: 'Ese documento ya no existe' });
+    res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `${url.searchParams.has('descargar') ? 'attachment' : 'inline'}; filename="${pdf.nombre}"`, 'Cache-Control': 'no-store' });
+    return res.end(pdf.datos);
+  }
+  // Mandar el PDF por correo o rehacerlo con gráficos: lo prepara el agente que toca y sigue pasando por la mesa
+  if (m === 'POST' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/documento\/(correo|rehacer)$/))) {
+    const a = (await q(`SELECT a.id, a.titulo, a.texto, a.empresa_id, e.nombre, e.email, e.decisor FROM aprobaciones a LEFT JOIN empresas e ON e.id=a.empresa_id WHERE a.id=$1`, [r[1]])).rows[0];
+    if (!a) return json(res, 404, { error: 'Ese documento ya no existe' });
+    if (r[2] === 'correo') {
+      if (!a.email) return json(res, 400, { error: 'Esta empresa no tiene correo apuntado: ponlo en su ficha o descarga el PDF y mándalo tú.' });
+      await tareas.crear('paula', `Dirección quiere mandar a ${a.nombre} su documento en PDF. Prepara el correo con preparar_correo, para ${a.email}, con adjuntar_documento «${a.id}». El texto solo acompaña al PDF: tres frases, de tú, a ${a.decisor || 'quien corresponda'}, y proponiendo 15 minutos para comentarlo.`, { empresa_id: a.empresa_id, origen: 'dueno' });
+    } else {
+      await tareas.crear('nuria', `Rehaz este documento para ${a.nombre || 'el cliente'} con pedir_aprobacion (tipo 'propuesta') y su «documento» por partes, para que salga con gráficos. Sin inventar cifras. Lo que hay ahora:\n\n${String(a.texto || '').slice(0, 6000)}`, { empresa_id: a.empresa_id, origen: 'dueno' });
+    }
+    return json(res, 200, { ok: true });
+  }
   if (m === 'GET' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/imagen$/))) {
     const im = (await q(`SELECT png FROM imagenes WHERE aprobacion_id=$1`, [r[1]])).rows[0];
     if (!im) return json(res, 404, { error: 'Sin imagen' });

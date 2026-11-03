@@ -118,7 +118,7 @@ Muévete con las flechas y rellena estas líneas:
 |---|---|
 | `DB_PASSWORD=` | La primera contraseña inventada. **No la cambies nunca después de arrancar.** |
 | `CLAVE_CIFRADO=` | La segunda contraseña inventada. Tampoco la cambies: si cambia, tendrás que volver a pegar tus claves. |
-| `PANEL_PASSWORD=` | La contraseña con la que entrarás a la oficina. Elige una que puedas escribir y que sea larga. |
+| `PANEL_PASSWORD=` | La contraseña con la que entrarás a la oficina. Elige una que puedas escribir y que sea larga (10 caracteres o más; sin ella la oficina no arranca). |
 | `PANEL_URL=` | `https://oficina.tuempresa.com` |
 | `DOMINIO=` | `oficina.tuempresa.com`, sin `https://` |
 

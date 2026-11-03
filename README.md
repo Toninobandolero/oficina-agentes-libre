@@ -4,6 +4,8 @@ Una oficina de agentes de IA que busca empresas, las puntúa, prepara dosieres y
 
 Esta copia no lleva datos de ninguna empresa. Los pones tú.
 
+**Contribuciones:** el código es abierto para usarlo, estudiarlo y modificarlo, pero por ahora no aceptamos pull requests ([por qué](CONTRIBUTING.md)). Las incidencias y las ideas sí son bienvenidas.
+
 **Edición Libre** (licencia AGPL-3.0). La edición Pro añade a Lola (recepcionista de voz), la centralita para llamar desde la oficina y el servicio de instalación y soporte: mira [qué cambia entre ediciones](EDICIONES.md).
 
 ## Ponerla en marcha
@@ -45,6 +47,7 @@ El presupuesto por defecto es de 50 € al mes. Al llegar, el equipo se pausa so
 
 - **Revisa lo legal con un profesional.** La oficina no envía correos ni WhatsApp comerciales en frío (LSSI, art. 21) y no automatiza LinkedIn, pero el responsable de los datos que guardes y de lo que envíes eres tú. Pilar ayuda a revisar; no sustituye a un abogado.
 - **La vida de los personajes es ficción**: sus nombres, familias y anécdotas son inventados y no se envían a nadie.
+- **Seguridad:** lee [SECURITY.md](SECURITY.md) (qué protege la oficina, qué tienes que cuidar tú y cómo avisar de un fallo).
 - **Haz copias de seguridad** de `data/postgres` y guarda `CLAVE_CIFRADO` en lugar seguro: si cambia, tendrás que volver a pegar las claves del panel.
 
 ## Instalarla sin Docker

@@ -114,6 +114,17 @@ export const DEFINICIONES = {
     description: 'Deja un trabajo en la mesa de Dirección para que lo apruebe; le llega por Telegram y al panel. Nada sale fuera sin esto.',
     input_schema: { type: 'object', properties: {
       tipo: str('Qué es', { enum: ['mensaje', 'respuesta', 'post', 'video', 'articulo', 'boletin', 'anuncio', 'propuesta', 'otro'] }),
+      documento: { type: 'object', description: 'Solo para un diagnóstico o una propuesta (tipo «propuesta»): lo mismo que el texto, por partes, y sale en un PDF de una página con la marca de la empresa, imágenes y gráficos. Lo que no sepas, no lo pongas: una cifra sin fuente no sale.', properties: {
+        tipo: str('Qué documento es', { enum: ['diagnostico', 'propuesta'] }),
+        titulo: str('Titular que le importe al dueño, hasta 70 letras: su problema o lo que gana, no «Diagnóstico para X»'), para: str('Persona a la que va'),
+        gancho: str('La idea central en una o dos frases, hasta 170 letras'), situacion: str('Lo que nos cuenta, con sus palabras, hasta 420 letras'),
+        cifras: { type: 'array', description: 'Hasta 3 datos grandes', items: { type: 'object', properties: { valor: str('Corto: «40 h/mes»'), etiqueta: str('Qué es, hasta 60 letras'), fuente: str('De dónde sale: «estimación prudente», «lo que nos contaste»') }, required: ['valor', 'etiqueta', 'fuente'] } },
+        grafico: { type: 'object', description: 'Barras: cómo está hoy y cómo quedaría', properties: { titulo: str('Título'), unidad: str('h, €…'), fuente: str('De dónde salen los números'), filas: { type: 'array', items: { type: 'object', properties: { etiqueta: str('Tarea'), hoy: { type: 'number' }, despues: { type: 'number' } }, required: ['etiqueta', 'hoy'] } } }, required: ['fuente', 'filas'] },
+        esquema: { type: 'object', description: 'Antes y después sin números', properties: { hoy: { type: 'array', items: { type: 'string' }, description: 'Hasta 4 cosas cortas: «Excel de cada centro»' }, despues: { type: 'array', items: { type: 'string' }, description: 'Hasta 2' } } },
+        puntos: { type: 'array', description: 'Hasta 3 oportunidades', items: { type: 'object', properties: { titulo: str('Título'), texto: str('Hasta 170 letras') }, required: ['titulo'] } },
+        primero: { type: 'object', properties: { titulo: str('Lo primero que haríamos'), texto: str('En lenguaje de negocio'), plazo: str('Plazo'), precio: str('Solo si Dirección lo quiere: rango orientativo') }, required: ['titulo'] },
+        no_haria: str('Lo que no haríamos todavía'), siguiente: str('Siguiente paso, hasta 130 letras'), imagen: str('Trabajo nuestro que más se le parezca', { enum: ['talleres', 'gestion', 'automatizacion', 'turnos', 'reservas'] }),
+      } },
       canal: str('Contenido: dónde se publica', { enum: ['linkedin', 'facebook', 'instagram', 'youtube', 'google', 'web', 'boletin', 'anuncios'] }),
       fecha_prevista: str('Contenido: día previsto de publicación (AAAA-MM-DD)'),
       empresa_id: str('id de la empresa, si aplica'),
@@ -178,8 +189,18 @@ export const DEFINICIONES = {
     input_schema: { type: 'object', properties: {
       dia: str('Día, AAAA-MM-DD'), hora: str('Hora de Madrid, HH:MM (opcional)'), texto: str('Qué hay que hacer, en una línea'),
       tipo: str('«llamada» si es para llamar a alguien; si no, «recordatorio»', { enum: ['llamada', 'recordatorio'] }),
-      empresa_id: str('id de la empresa, si es de una (opcional)'), telefono: str('Teléfono al que llamar (opcional)'), detalle: str('Contexto breve para Dirección (opcional)'),
+      empresa_id: str('id de la empresa, si es de una (opcional)'), telefono: str('Teléfono al que llamar (opcional)'), detalle: str('Por qué: lo que dijo o lo acordado, con su fecha. Obligatorio si es de una empresa: un recordatorio sin motivo no sirve'),
     }, required: ['dia', 'texto', 'tipo'] },
+  },
+  registrar_interes: {
+    description: 'Registra lo que ha dicho un contacto, con sus palabras y por el canal que sea. El protocolo comercial fija el siguiente paso, la fecha y el recordatorio con su motivo, para la secuencia en frío y dice cuándo dejar de insistir. Te devuelve lo que toca hacer ahora.',
+    input_schema: { type: 'object', properties: {
+      empresa_id: str('id de la empresa'),
+      nivel: str('Cómo está, de lo más frío a lo más caliente', { enum: ['baja', 'rechazo', 'ahora_no', 'objecion', 'deriva', 'informacion', 'interes', 'urgente'] }),
+      frase: str('Lo que dijo, literal y entre 3 y 25 palabras. Es el motivo de lo que venga después: no lo resumas ni lo inventes'),
+      canal: str('Por dónde lo dijo: llamada, correo, chat, en persona…'),
+      cuando: str('Si dijo una fecha: AAAA-MM-DD HH:MM (hora de Madrid)'),
+    }, required: ['empresa_id', 'nivel', 'frase'] },
   },
   anotar: {
     description: 'Escribe una línea en el registro de actividad que ve Dirección. Tercera persona, empieza por verbo: «ha puntuado X: 82/100, categoría A».',
@@ -239,6 +260,7 @@ export const DEFINICIONES = {
       empresa_id: str('id de la empresa'), para: str('Dirección de correo del destinatario'),
       asunto: str('Asunto (si respondes, se pone «Re: …» solo)'), texto: str('Cuerpo del correo, sin firma (la firma se añade sola)'),
       en_respuesta_a: { type: 'integer', description: 'id del correo recibido al que contestas, si es una respuesta' },
+      adjuntar_documento: str('id de la tarjeta de un diagnóstico o propuesta: su PDF va adjunto y el texto del correo solo lo acompaña'),
     }, required: ['para', 'texto'] },
   },
   leer_boletines: {
@@ -299,7 +321,7 @@ export function paraAgente(id) {
 }
 
 const SOLO_CONTACTO = ['decisor', 'cargo', 'linkedin_url', 'linkedin_empresa', 'telefono', 'email', 'direccion', 'instagram', 'facebook', 'proximo_paso', 'fecha_proximo_paso'];
-const CON_EFECTOS = new Set(['guardar_contacto', 'proponer_plan', 'guardar_alianzas', 'actualizar_alianza', 'preparar_correo', 'guardar_empresas', 'actualizar_empresa', 'corregir_contacto', 'guardar_dossier', 'pedir_aprobacion', 'guardar_secuencia', 'anadir_paso', 'responder_chat', 'encargar', 'guardar_regla', 'aprender', 'enviar_informe', 'priorizar_tarjeta', 'mover_tarea']);
+const CON_EFECTOS = new Set(['registrar_interes', 'guardar_contacto', 'proponer_plan', 'guardar_alianzas', 'actualizar_alianza', 'preparar_correo', 'guardar_empresas', 'actualizar_empresa', 'corregir_contacto', 'guardar_dossier', 'pedir_aprobacion', 'guardar_secuencia', 'anadir_paso', 'responder_chat', 'encargar', 'guardar_regla', 'aprender', 'enviar_informe', 'priorizar_tarjeta', 'mover_tarea']);
 const MAX_ENCARGOS_TAREA = 3, MAX_ENCARGOS_DIA = 20, MAX_ENCARGOS_DIA_RAFA = 40, MAX_MAPS_TAREA = 3;
 
 /** Ejecuta una herramienta. ctx = { agente, tarea, anotado, esperando } */
@@ -388,6 +410,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
         imagen: input.imagen_titular ? { titular: input.imagen_titular, destacado: input.imagen_destacado } : null,
         perfil_url: input.perfil_url, buscar: input.buscar_linkedin });
       ctx.esperando = true;
+      if (input.documento) await q(`UPDATE aprobaciones SET documento=$2 WHERE id=$1`, [id, (await import('./documento.js')).limpiarDocumento(input.documento)]);
       const imagen = Boolean(await aprobaciones.imagenDe(id));
       const sobreImagen = input.tipo !== 'post' && !input.imagen_titular ? '' : imagen ? ' Lleva su imagen.' : ' No lleva imagen: no digas que la lleva.';
       const sobreVideo = guion ? ` El vídeo durará ${video.segundosTxt(guion.total)} s y aún no existe: lo genera Dirección desde su mesa. No digas que está hecho.` : '';
@@ -395,6 +418,11 @@ export async function ejecutar(ctx, nombre, input = {}) {
     }
     case 'guardar_secuencia': {
       (input.pasos || []).forEach(x => comprobarVeto(x?.texto));
+      const paraSecuencia = await empresas.leer(input.empresa_id || ctx.tarea.empresa_id);
+      if (paraSecuencia) {
+        const { faltan } = await (await import('./protocolo.js')).minimo({ ...paraSecuencia, linkedin_url: input.linkedin_url || paraSecuencia.linkedin_url, decisor: input.decisor || paraSecuencia.decisor });
+        if (faltan.length) return { error: `Antes de contactar con ${paraSecuencia.nombre} falta saber: ${faltan.join(', ').toLowerCase()}. Complétalo o pídeselo a quien corresponda: no le escribas sin eso.` };
+      }
       const r = await secuencias.guardar({ autor: ctx.agente, empresa_id: input.empresa_id || ctx.tarea.empresa_id, decisor: input.decisor, linkedin_url: input.linkedin_url, notas: input.notas, pasos: input.pasos, caduca: input.caduca });
       ctx.esperando = true;
       return { ok: true, ...r, nota: 'Está en la mesa de Dirección. Paula se encargará de los pasos siguientes en su fecha.' };
@@ -441,11 +469,13 @@ export async function ejecutar(ctx, nombre, input = {}) {
       const hoy = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date());
       if (String(input.dia || '') < hoy) return { error: `El día tiene que ser hoy (${hoy}) o después, en formato AAAA-MM-DD.` };
       const emp = input.empresa_id || ctx.tarea.empresa_id || null;
+      if (emp && !String(input.detalle || '').trim()) return { error: 'Di en «detalle» por qué: lo que dijo o lo acordado, con su fecha. Un recordatorio sin motivo no sirve.' };
       const id = await (await import('./agenda.js')).recordar({ dia: input.dia, hora: input.hora, texto: input.texto, clase: input.tipo === 'llamada' ? 'llamada' : null, creado_por: ctx.agente,
         empresa_id: emp, telefono: input.telefono || null, detalle: input.detalle || null });
       await log(ctx.agente, `ha apuntado en tu calendario${input.tipo === 'llamada' ? ' una llamada' : ''} para el ${input.dia}${input.hora ? ` a las ${input.hora}` : ''}: ${String(input.texto).slice(0, 160)}`, { empresa_id: emp || undefined });
       return { ok: true, id };
     }
+    case 'registrar_interes': return (await import('./protocolo.js')).registrar(input.empresa_id || ctx.tarea.empresa_id, input.nivel, { frase: input.frase, canal: input.canal, cuando: input.cuando, por: ctx.agente });
     case 'anotar': {
       const txt = String(input.texto ?? input.text ?? '').trim();
       if (!txt || txt === 'undefined') return { error: 'Falta el texto: llama a anotar con {"texto": "ha hecho…"}' };
@@ -521,7 +551,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
       return { ok: true, nota: 'Propuesta enviada a Dirección. Se aplicará cuando la apruebe. Díselo así en tu respuesta.' };
     }
     case 'preparar_correo': {
-      const r = await correo.preparar({ agente: ctx.agente, empresa_id: input.empresa_id || ctx.tarea.empresa_id, para: input.para, asunto: input.asunto, texto: input.texto, en_respuesta_a: input.en_respuesta_a });
+      const r = await correo.preparar({ agente: ctx.agente, empresa_id: input.empresa_id || ctx.tarea.empresa_id, para: input.para, asunto: input.asunto, texto: input.texto, adjuntar_documento: input.adjuntar_documento, en_respuesta_a: input.en_respuesta_a });
       ctx.esperando = true;
       return { ok: true, ...r, nota: 'Está en la mesa de Dirección con el botón «Enviar».' };
     }

@@ -22,6 +22,7 @@ const huella = ip => crypto.createHash('sha256').update('acp:' + String(ip || ''
 /** Demasiados envíos desde la misma conexión: 5 por hora. */
 function frenar(ip) {
   const h = huella(ip), ahora = Date.now();
+  if (intentos.size > 1000) for (const [k, v] of intentos) if (!v.some(t => ahora - t < 3_600_000)) intentos.delete(k);   // que la lista no crezca sin fin
   const lista = (intentos.get(h) || []).filter(t => ahora - t < 3_600_000);
   lista.push(ahora); intentos.set(h, lista);
   return lista.length > 5;

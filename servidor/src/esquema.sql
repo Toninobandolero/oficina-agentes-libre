@@ -395,6 +395,9 @@ ALTER TABLE bloqueos ADD COLUMN IF NOT EXISTS ayuda_tarea_id BIGINT;
 UPDATE bloqueos b SET ayuda_tarea_id = t.id FROM tareas t
  WHERE b.ayuda_tarea_id IS NULL AND b.resuelto IS NULL AND b.necesita <> 'dueno' AND t.agente = b.necesita AND t.origen = b.agente AND position(b.motivo IN t.instruccion) > 0;
 ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS publicar_en TIMESTAMPTZ;   -- día y hora a la que Dirección la ha programado
+ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS documento JSONB;           -- diagnóstico o propuesta con estructura, para maquetarlo en PDF (documento.js)
+ALTER TABLE correos ADD COLUMN IF NOT EXISTS adjunto TEXT;                    -- la tarjeta cuyo PDF va adjunto
+ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS llamada_en TIMESTAMPTZ;   -- cuándo se llamó por la centralita: ya no hay que marcar «Ya he llamado»
 ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS fallo_pub TIMESTAMPTZ;     -- último intento fallido de publicar (se reintenta a las 3 h)
 CREATE TABLE IF NOT EXISTS recordatorios (
   id       SERIAL PRIMARY KEY,
@@ -512,6 +515,11 @@ CREATE TABLE IF NOT EXISTS boletin_envios (
 );
 CREATE TABLE IF NOT EXISTS boletin_bajas (email TEXT PRIMARY KEY, creada TIMESTAMPTZ NOT NULL DEFAULT now());
 -- Vías de contacto que no son LinkedIn; de Google solo se guarda su identificador
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS interes TEXT;            -- cómo está, según el protocolo comercial (protocolo.js)
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS interes_frase TEXT;      -- lo que dijo, con sus palabras
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS interes_canal TEXT;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS interes_fecha TIMESTAMPTZ;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS interes_intentos INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS direccion TEXT;
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS instagram TEXT;
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS facebook TEXT;

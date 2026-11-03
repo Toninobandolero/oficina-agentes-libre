@@ -42,7 +42,7 @@ export async function puedeEscribir(para, empresa = null) {
 }
 
 /** Un agente prepara un correo: queda como borrador en la mesa de Dirección con el botón «Enviar». */
-export async function preparar({ agente, empresa_id = null, para, asunto, texto, en_respuesta_a = null }) {
+export async function preparar({ agente, empresa_id = null, para, asunto, texto, en_respuesta_a = null, adjuntar_documento = null }) {
   if (!activo()) throw new Error('El correo de la oficina no está configurado.');
   const emp = empresa_id ? await empresas.leer(empresa_id) : null;
   const permiso = await puedeEscribir(para, emp);
@@ -50,13 +50,15 @@ export async function preparar({ agente, empresa_id = null, para, asunto, texto,
   const previo = en_respuesta_a ? (await q(`SELECT * FROM correos WHERE id=$1`, [en_respuesta_a])).rows[0] : null;
   const asu = String(asunto || (previo ? `Re: ${String(previo.asunto || '').replace(/^re:\s*/i, '')}` : '')).slice(0, 200);
   if (!asu.trim() || !String(texto || '').trim()) throw new Error('El correo necesita asunto y texto.');
-  const r = await q(`INSERT INTO correos (direccion, de, para, asunto, texto, empresa_id, en_respuesta_a) VALUES ('borrador',$1,$2,$3,$4,$5,$6) RETURNING id`,
-    [config.correo.usuario, limpiarDir(para), asu, String(texto).trim(), emp?.id ?? previo?.empresa_id ?? null, previo?.message_id ?? null]);
+  const adjunto = adjuntar_documento ? await (await import('./documento.js')).deAprobacion(adjuntar_documento) : null;
+  if (adjuntar_documento && !adjunto) throw new Error('No encuentro ese documento: usa el id de su tarjeta.');
+  const r = await q(`INSERT INTO correos (direccion, de, para, asunto, texto, empresa_id, en_respuesta_a, adjunto) VALUES ('borrador',$1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+    [config.correo.usuario, limpiarDir(para), asu, String(texto).trim(), emp?.id ?? previo?.empresa_id ?? null, previo?.message_id ?? null, adjunto ? adjuntar_documento : null]);
   const id = r.rows[0].id;
   const apId = await aprobaciones.crear({
     agente, tipo: 'correo', empresa_id: emp?.id ?? previo?.empresa_id ?? null, ref: `correo:${id}`,
     titulo: `ha preparado un correo para ${para}${emp ? ` (${emp.nombre})` : ''}`,
-    texto: `Para: ${para}\nAsunto: ${asu}\n\n${String(texto).trim()}\n\n${firma()}`,
+    texto: `Para: ${para}\nAsunto: ${asu}${adjunto ? `\nAdjunto: ${adjunto.nombre}` : ''}\n\n${String(texto).trim()}\n\n${firma()}`,
     opciones: [{ r: 'enviar', t: '📧 Enviar' }, { r: 'cambios' }, { r: 'descartada', t: 'Descartar' }],
     importancia: previo ? 'alta' : null, motivo: previo ? 'Respuesta a un correo que nos han enviado' : null,
   });
@@ -93,6 +95,13 @@ export async function enviarBoletin({ para, asunto, texto, baja }) {
 }
 
 /** Dirección ha pulsado «Enviar». */
+/** El PDF que acompaña a un correo: se genera al enviar, así lleva lo último de la tarjeta. */
+export async function adjuntos(b) {
+  if (!b.adjunto) return [];
+  const a = await (await import('./documento.js')).deAprobacion(b.adjunto);
+  return a ? [{ filename: a.nombre, content: a.datos, contentType: 'application/pdf' }] : [];
+}
+
 export async function enviarBorrador(id) {
   const b = (await q(`SELECT * FROM correos WHERE id=$1 AND direccion='borrador'`, [id])).rows[0];
   if (!b) throw new Error('Ese borrador ya no existe o ya se envió.');
@@ -101,7 +110,7 @@ export async function enviarBorrador(id) {
   if (!permiso.ok) throw new Error(permiso.motivo);
   const info = await smtp().sendMail({
     from: { name: config.correo.nombre || miEmpresa.nombre(), address: config.correo.usuario }, to: b.para, subject: b.asunto,
-    text: `${b.texto}\n\n${firma()}`,
+    text: `${b.texto}\n\n${firma()}`, attachments: await adjuntos(b),
     ...(b.en_respuesta_a ? { inReplyTo: b.en_respuesta_a, references: [b.en_respuesta_a] } : {}),
   });
   await q(`UPDATE correos SET direccion='salida', message_id=$2, enviado=now() WHERE id=$1`, [id, info.messageId || null]);

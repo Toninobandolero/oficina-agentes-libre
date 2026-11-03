@@ -505,7 +505,7 @@ body.modo-oficina .leyenda{display:none}
 .acciones{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .aprob.paso{border-left:4px solid var(--azul)}
 .aprob.prio-1{box-shadow:inset 4px 0 0 var(--err)}.aprob.prio-2{box-shadow:inset 4px 0 0 #f4a261}
-.aprob-emp{margin:0 0 6px!important}.aprob-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;color:var(--muted);margin:0 0 4px!important}
+.aprob-emp{margin:0 0 6px!important}.aprob-emp small{color:var(--muted);margin-left:6px}.situacion{border:2px solid var(--line);padding:8px 12px;margin:10px 0}.situacion h4{margin:0 0 6px}.situacion p{margin:4px 0}.sit-min{list-style:none;padding:0;margin:6px 0;display:flex;flex-wrap:wrap;gap:2px 14px;font-size:13px}.sit-min .no{color:var(--wait)}.sit-form{display:grid;gap:6px;margin-top:6px}.sit-form .fila{display:flex;flex-wrap:wrap;gap:6px}.proto-n{border-bottom:1px solid var(--line);padding:8px 0}.proto-n p{margin:2px 0}.aprob-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;color:var(--muted);margin:0 0 4px!important}
 .prio{font-family:var(--pixel);font-size:12px;padding:1px 7px;background:var(--bg);color:var(--text);white-space:nowrap}
 .prio.p1{background:var(--err);color:#fff}.prio.p2{background:#f4a261;color:var(--bg)}.prio.p4{opacity:.75}
 .mesa-barra{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 12px;margin:10px 0 0}
@@ -1003,7 +1003,7 @@ html[data-tema=terminal] .logo{font-family:var(--ui)}
   </dialog>
   <dialog id="config" aria-label="Configuración de la plantilla">
     <div class="conf">
-      <nav><div class="conf-vida"><h2>Mi empresa</h2><p>Lo que el equipo sabe de tu empresa y de ti.</p><button class="btn peq" type="button" id="conf-empresa-btn">🏢 Datos de la empresa</button> <button class="btn sec peq" type="button" id="conf-marca-btn">🎨 Imagen de marca</button></div><div class="conf-vida"><h2>Departamentos</h2><p>Los que usa tu empresa y quién trabaja en ellos.</p><button class="btn sec peq" type="button" id="conf-dep-btn">🗂 Departamentos</button></div><div class="conf-vida"><h2>Diseño</h2><p>Cómo se ve todo el panel (pixel, cómic, suizo o terminal), en claro u oscuro, y la oficina.</p><button class="btn sec peq" type="button" data-abrir-diseno>🎨 Cambiar el diseño</button></div><div class="conf-vida"><h2>Conexiones</h2><p>Telegram, LinkedIn, Facebook, Google Maps, centralita, voz de Lola y chats de clientes.</p><button class="btn sec peq" type="button" id="conf-con-btn">🔌 Conexiones</button></div><div class="conf-vida"><h2>Inteligencia artificial</h2><p id="conf-ia-txt">La clave con la que trabajan los agentes.</p><button class="btn sec peq" type="button" id="conf-ia-btn">🧠 Claves de IA</button></div><div class="conf-vida"><h2>Personalidades</h2><p id="conf-vida-txt"></p><button class="btn sec peq" type="button" id="conf-vida-btn"></button></div><h2>Plantilla</h2><ul id="conf-lista"></ul></nav>
+      <nav><div class="conf-vida"><h2>Mi empresa</h2><p>Lo que el equipo sabe de tu empresa y de ti.</p><button class="btn peq" type="button" id="conf-empresa-btn">🏢 Datos de la empresa</button> <button class="btn sec peq" type="button" id="conf-marca-btn">🎨 Imagen de marca</button></div><div class="conf-vida"><h2>Departamentos</h2><p>Los que usa tu empresa y quién trabaja en ellos.</p><button class="btn sec peq" type="button" id="conf-dep-btn">🗂 Departamentos</button></div><div class="conf-vida"><h2>Diseño</h2><p>Cómo se ve todo el panel (pixel, cómic, suizo o terminal), en claro u oscuro, y la oficina.</p><button class="btn sec peq" type="button" data-abrir-diseno>🎨 Cambiar el diseño</button></div><div class="conf-vida"><h2>Conexiones</h2><p>Telegram, LinkedIn, Facebook, Google Maps, centralita, voz de Lola y chats de clientes.</p><button class="btn sec peq" type="button" id="conf-con-btn">🔌 Conexiones</button></div><div class="conf-vida"><h2>Protocolo comercial</h2><p>Qué se hace con cada cliente según lo que diga, y cuándo se deja de insistir.</p><button class="btn sec peq" type="button" id="conf-proto-btn">📋 Ver el protocolo</button></div><div class="conf-vida"><h2>Inteligencia artificial</h2><p id="conf-ia-txt">La clave con la que trabajan los agentes.</p><button class="btn sec peq" type="button" id="conf-ia-btn">🧠 Claves de IA</button></div><div class="conf-vida"><h2>Personalidades</h2><p id="conf-vida-txt"></p><button class="btn sec peq" type="button" id="conf-vida-btn"></button></div><h2>Plantilla</h2><ul id="conf-lista"></ul></nav>
       <form id="conf-form" method="dialog"></form>
       <div id="conf-panel" class="conf-panel" hidden></div>
     </div>
@@ -2155,9 +2155,10 @@ function accionDueno(acc){
 const pendientes=new Map();const ulB=document.getElementById('bandeja');
 /* Guion de vídeo: el aviso dice siempre qué hay y qué falta. El vídeo existe si se ha generado y está publicado solo si Dirección lo dice */
 // La empresa de una tarjeta: la suya o, si el agente no la dijo, la que se nombra en el título o en el texto
+const EMOJI_INTERES={baja:'🛑',rechazo:'🚫',ahora_no:'🕓',objecion:'🤔',deriva:'👉',informacion:'📄',interes:'🙂',urgente:'🔥'};
 function botonEmpresaTarjeta(p){
   const e=p.empresa_id?null:empresaEnTexto(`${p.titulo||''}\n${p.texto||''}`),id=p.empresa_id||e?.id;
-  return id?`<p class="aprob-emp"><button class="btn sec peq" type="button" data-abrir-emp="${esc(id)}">🏢 ${esc(p.empresa||e?.nombre||TR('Ver la empresa'))}</button></p>`:'';
+  return id?`<p class="aprob-emp"><button class="btn sec peq" type="button" data-abrir-emp="${esc(id)}">🏢 ${esc(p.empresa||e?.nombre||TR('Ver la empresa'))}</button>${p.interes?`<small>${EMOJI_INTERES[p.interes]||''} «${esc(String(p.interes_frase||'').slice(0,90))}»</small>`:''}</p>`:'';
 }
 function tarjetaVideo(p){
   const v=p.video||{},url=`${API}/aprobaciones/${encodeURIComponent(p.id)}/video`,hay=v.bytes>0,gen=v.estado==='generando';
@@ -2203,7 +2204,7 @@ function pintarBandeja(){
     if(g.dormidas){cab.querySelector('[data-ver-dormidas]').onclick=()=>{verDormidas=!verDormidas;pintarBandeja();};if(!verDormidas)return;}
   g.items.forEach(p=>{
     const a=porId[p.agente]||DUENO;const li=document.createElement('li');li.className='aprob'+(p.clase==='paso'?' paso':'')+` prio-${p._prio.nivel}`;li.dataset.id=p.id;
-    const ops=Array.isArray(p.opciones)?p.opciones:null;
+    const ops=Array.isArray(p.opciones)?p.opciones.filter(o=>!(p.llamada_en&&/Ya he llamado|No lo he localizado/.test(o.t||''))):null;   // ya ha salido por la centralita: lo que pasó llega con la transcripción
     const conCambios=!ops||ops.some(o=>o.r==='cambios');
     const etiquetaOk=p.clase==='mensaje'||p.clase==='respuesta'?TR('Lo he enviado'):p.clase==='post'?TR('Lo he publicado'):TR('Aprobar');
     const tv=p.clase==='video'?tarjetaVideo(p):null;
@@ -2215,16 +2216,19 @@ function pintarBandeja(){
     const extraLi=(p.perfil_url?`<a class="btn sec peq enlace" href="${esc(p.perfil_url)}" target="_blank" rel="noopener">LinkedIn ↗</a>`:'')
       +enTexto.map(u=>`<a class="btn sec peq enlace" href="${esc(u)}" target="_blank" rel="noopener">LinkedIn ↗</a>`).join('')
       +(!p.perfil_url&&!enTexto.length&&!p.linkedin_url&&!p.linkedin_empresa&&p.buscar?TR`<a class="btn sec peq enlace" href="https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(p.buscar)}" target="_blank" rel="noopener">🔎 Buscar en LinkedIn ↗</a>`:'');
-    const perfil=llamar+extraLi+(p.linkedin_url?TR`<a class="btn sec peq enlace" href="${esc(urlWeb(p.linkedin_url))}" target="_blank" rel="noopener">LinkedIn de ${esc(String(p.decisor||TR('el decisor')).split(' ')[0])} ↗</a>`:'')
+    const esDoc=p.clase==='propuesta'||p.con_documento||(p.agente==='nuria'&&/diagn[oó]stico|propuesta/i.test(p.titulo||''));
+    const docBtns=esDoc&&EN_VIVO?TR`<a class="btn peq enlace" href="${API}/aprobaciones/${encodeURIComponent(p.id)}/documento.pdf" target="_blank" rel="noopener">📄 Ver el PDF</a><a class="btn sec peq enlace" href="${API}/aprobaciones/${encodeURIComponent(p.id)}/documento.pdf?descargar=1" download>⬇ Descargar</a><button class="btn sec peq" type="button" data-doc="correo">✉️ Mandarlo por correo</button>`+(p.con_documento?'':TR`<button class="btn sec peq" type="button" data-doc="rehacer">🎨 Rehacer con gráficos</button>`):'';
+    const perfil=docBtns+llamar+extraLi+(p.linkedin_url?TR`<a class="btn sec peq enlace" href="${esc(urlWeb(p.linkedin_url))}" target="_blank" rel="noopener">LinkedIn de ${esc(String(p.decisor||TR('el decisor')).split(' ')[0])} ↗</a>`:'')
       +(p.linkedin_empresa?TR`<a class="btn sec peq enlace" href="${esc(urlWeb(p.linkedin_empresa))}" target="_blank" rel="noopener">LinkedIn empresa ↗</a>`:'');
     const abierto=p.clase==='paso'?' open':'';
     const CANAL_TXT={linkedin:'LinkedIn',facebook:'Facebook',instagram:'Instagram',youtube:'YouTube Shorts',google:'Google Business',web:'Web',boletin:TR('Boletín'),anuncios:TR('Anuncios')};
     const cuando=p.fecha_prevista?fechaCorta(String(p.fecha_prevista).slice(0,10)):'';
-    const meta=(tv?tv.aviso:'')+`<p class="aprob-meta"><span class="prio p${p._prio.nivel}" title="${esc(p._prio.motivo)}">${p._prio.emoji} ${esc(p._prio.etiqueta)}</span><span>${esc(p._prio.motivo)}</span>${p.creada?`<span>· ${esc(haceCuanto(p.creada))}</span>`:''}${dormida(p)?`<span>· 💤 vuelve ${esc(cuandoTxt(p.pospuesta))}</span>`:''}${p.canal||cuando?`<span>· 🗓 ${esc([CANAL_TXT[p.canal]||p.canal,cuando].filter(Boolean).join(' · '))}</span>`:''}${p.clase==='post'&&cuando&&['linkedin','facebook'].includes(p.canal)&&cacheMesa[p.canal]?.autopublicar&&cacheMesa[p.canal]?.conectado?TR`<span class="auto-pub">· 🤖 Se publica solo el ${esc(cuando)} a las 9:00</span>`:''}</p>`+botonEmpresaTarjeta(p);
+    const meta=(tv?tv.aviso:'')+`<p class="aprob-meta"><span class="prio p${p._prio.nivel}" title="${esc(p._prio.motivo)}">${p._prio.emoji} ${esc(p._prio.etiqueta)}</span><span>${esc(p._prio.motivo)}</span>${p.creada?`<span>· ${esc(haceCuanto(p.creada))}</span>`:''}${dormida(p)?`<span>· 💤 vuelve ${esc(cuandoTxt(p.pospuesta))}</span>`:''}${p.canal||cuando?`<span>· 🗓 ${esc([CANAL_TXT[p.canal]||p.canal,cuando].filter(Boolean).join(' · '))}</span>`:''}${p.clase==='post'&&cuando&&['linkedin','facebook'].includes(p.canal)&&cacheMesa[p.canal]?.autopublicar&&cacheMesa[p.canal]?.conectado?TR`<span class="auto-pub">· 🤖 Se publica solo el ${esc(cuando)} a las 9:00</span>`:''}</p>`+botonEmpresaTarjeta(p)+(p.llamada_en?`<p class="aprob-nota">${TR`📞 Llamada hecha a las ${new Date(p.llamada_en).toLocaleTimeString(LOCALE,{hour:'2-digit',minute:'2-digit'})}. Lo que pasó llega con la transcripción.`}</p>`:'');
     const extra=p.canal==='google'?TR`<button class="btn sec peq" type="button" data-copiar-gbp="1">📋 Copiar y abrir Google Business ↗</button>`:'';
     li.innerHTML=TR`<button type="button" class="ap-ampliar" data-ampliar title="Ampliar: verla sola y en grande" aria-label="Ampliar esta tarjeta">⤢</button>${porId[p.agente]?`<button type="button" class="ap-ag" data-ver-ag="${p.agente}" title="Ver la ficha de ${esc(nombreVisible(a))}"><img alt="" src="${a.retrato}"></button>`:`<img alt="" src="${a.retrato}">`}<div>${meta}<p>${porId[p.agente]?`<button type="button" class="lnk-ag" data-ver-ag="${p.agente}" title="Ver la ficha de ${esc(nombreVisible(a))}">${esc(nombreVisible(a))}</button>`:`<b>${esc(a.nombre)}</b>`} ${esc(p.titulo)}</p>${p.texto||p.imagen?TR`<details class="aprob-det" data-ap-det="${esc(p.id)}"${ABIERTAS_MESA.has(p.id)?' open':''}><summary>Ver ${p.imagen?TR('imagen y '):''}texto</summary>${p.imagen&&EN_VIVO?`<a class="aprob-img" href="${API}/aprobaciones/${encodeURIComponent(p.id)}/imagen" target="_blank" rel="noopener" title="Ver la imagen en grande"><img src="${API}/aprobaciones/${encodeURIComponent(p.id)}/imagen" alt="Imagen del post" loading="lazy"></a>`:''}${p.texto?textoTarjeta(p.texto,' open'):''}</details>`:''}
     <div class="acciones">${botones}${p.clase==='boletin'?TR`<button class="btn sec" type="button" data-boletin-prueba>🧪 Enviarme una prueba</button>`:''}${extra}${perfil}${dormida(p)?TR`<button class="btn sec" type="button" data-posponer="0" title="Volver a ponerlo arriba">↩ A la mesa</button>`:TR`<button class="btn sec" type="button" data-posp-abrir title="Elige para cuándo: baja al fondo hasta ese día y queda apuntado en el calendario">💤 Más tarde</button>`}<button class="btn rosa" type="button" data-r="gracias" title="Dar las gracias">💛</button></div>
     <form class="cambios" data-modo="cambios" hidden><textarea rows="3" name="t" aria-label="Texto para ${esc(a.nombre)}"></textarea><div><button class="btn peq" type="submit">Enviar</button></div></form>${ops&&ops.some(o=>o.r==='programar')?formProgramar(p,ops):''}${dormida(p)?'':formPosponer(Boolean(llamar))}</div>`;
+    li.querySelectorAll('[data-doc]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await api(`/aprobaciones/${encodeURIComponent(p.id)}/documento/${b.dataset.doc}`,{});avisar({clave:'doc:'+p.id,clase:'info',img:(b.dataset.doc==='correo'?porId.paula:porId.nuria)?.retrato,titulo:b.dataset.doc==='correo'?TR('Paula te prepara el correo con el PDF'):TR('Nuria lo rehace con gráficos'),texto:TR('Te llegará a la mesa para que lo revises.'),ms:7000});}catch(err){b.disabled=false;avisar({clave:'doc:'+p.id,clase:'error',img:DUENO.retrato,titulo:TR('No se ha podido'),texto:err.message||'',ms:9000});}});
     const gbp=li.querySelector('[data-copiar-gbp]');
     if(gbp)gbp.onclick=async()=>{try{await navigator.clipboard.writeText(textoPublicar(p.texto));gbp.textContent=TR('✔ Copiado: pégalo en «Añadir novedad»');}catch{}window.open('https://business.google.com/','_blank','noopener');};
     li.querySelectorAll('[data-ver-ag]').forEach(b=>b.onclick=()=>verAgente(b.dataset.verAg));
@@ -3128,7 +3132,22 @@ document.getElementById('conf-marca-btn').onclick=()=>{confSel='marca';pintarCon
 document.getElementById('conf-dep-btn').onclick=()=>{confSel='departamentos';pintarConfig();};
 document.getElementById('conf-ia-btn').onclick=()=>{confSel='ia';pintarConfig();};
 document.getElementById('conf-con-btn').onclick=()=>{confSel='conexiones';pintarConfig();};
+document.getElementById('conf-proto-btn').onclick=()=>{confSel='protocolo';pintarConfig();};
 /* Conexiones: lo que antes estaba en tu mesa (bot de la oficina, LinkedIn, Facebook, centralita, Lola, chats de clientes) */
+async function pintarProtocolo(){
+  const f=document.getElementById('conf-panel');verPanelConf(true);
+  if(!EN_VIVO){f.innerHTML=TR('<div><h3>Protocolo comercial</h3><p class="meta">En la demo no se puede ver.</p></div>');return;}
+  f.innerHTML=TR('<p class="meta">Cargando…</p>');
+  try{const d=await (await fetch(API+'/protocolo')).json();
+    const fila=n=>`<div class="proto-n"><p><b>${n.emoji} ${esc(n.nombre)}</b></p>${n.dice?`<p class="meta">${esc(n.dice)}</p>`:''}<p>${esc(n.hacer)}</p><p class="meta"><b>${TR('Se vuelve:')}</b> ${esc(n.vuelve)} · <b>${TR('Hasta:')}</b> ${esc(n.hasta)}</p></div>`;
+    f.innerHTML=`<div class="conexiones"><div><h3>${TR('Protocolo comercial')}</h3><p class="meta">${TR('Lo siguen todos los agentes. Cada paso lleva lo que dijo el cliente, su motivo y hasta cuándo se insiste.')}</p></div>
+      <h4 class="det-sub">${TR('Antes de contactar')}</h4><p class="det-tarea">${TR('Hay que saber cómo llegar a la persona, a qué se dedican y por qué les puede interesar: sin eso, los agentes no preparan el contacto. Si falta a quién dirigirse, se avisa: la llamada puede servir para averiguarlo.')}</p>
+      <h4 class="det-sub">${TR('Si ha hablado con nosotros')}</h4>${d.niveles.map(fila).join('')}
+      <h4 class="det-sub">${TR('Si no se ha podido hablar')}</h4>${d.sin_hablar.map(fila).join('')}
+      <div class="acciones" style="margin-top:16px"><button class="btn sec" type="button" data-acc="cerrar">${TR('Cerrar')}</button></div></div>`;
+    f.querySelector('[data-acc=cerrar]').onclick=()=>dlg.close();}
+  catch{f.innerHTML=TR('<p class="meta">No se ha podido cargar.</p>');}
+}
 async function pintarConexiones(){
   const f=document.getElementById('conf-panel');verPanelConf(true);
   if(!EN_VIVO){f.innerHTML=TR('<div><h3>Conexiones</h3><p class="meta">En la demo no hay conexiones.</p></div><div class="acciones"><button class="btn sec" type="button" data-acc="cerrar">Cerrar</button></div>');f.querySelector('[data-acc=cerrar]').onclick=()=>dlg.close();return;}
@@ -3311,12 +3330,14 @@ function pintarConfig(){
   document.getElementById('conf-dep-btn').classList.toggle('sec',confSel!=='departamentos');
   document.getElementById('conf-ia-btn').classList.toggle('sec',confSel!=='ia');
   document.getElementById('conf-con-btn').classList.toggle('sec',confSel!=='conexiones');
-  if(confSel!=='conexiones')verPanelConf(false);
+  document.getElementById('conf-proto-btn').classList.toggle('sec',confSel!=='protocolo');
+  if(confSel!=='conexiones'&&confSel!=='protocolo')verPanelConf(false);
   if(confSel==='empresa'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarPerfil();return;}
   if(confSel==='marca'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarMarca();return;}
   if(confSel==='departamentos'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarDepartamentos();return;}
   if(confSel==='ia'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarIA();return;}
   if(confSel==='conexiones'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarConexiones();return;}
+  if(confSel==='protocolo'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarProtocolo();return;}
   const p=persona(confSel),c=plantilla.agentes.find(x=>x.id===confSel);
   borrador={nombre:p.nombre,rol:c?.rol||'',modelo:c?.modelo||'',look:{...(id=>{const L={...(confSel==='dueno'?DUENO.look:p.lookBase)};delete L.__id;return L;})()}};
   const sw=(campo,cols)=>`<div class="sw">${cols.map(col=>`<button type="button" style="background:${col}" data-campo="${campo}" data-color="${col}" aria-label="${col}"${(borrador.look[campo]||'').toLowerCase()===col?' aria-pressed="true"':''}></button>`).join('')}<input type="color" data-campo="${campo}" value="${borrador.look[campo]||'#888888'}" aria-label="Otro color"></div>`;
@@ -4357,7 +4378,7 @@ function pintarListaEmpresas(){
     const tr=document.createElement('tr');if(e.id===empresaSel)tr.className='sel';tr.tabIndex=0;
     tr.innerHTML=`<td><b>${logoEmpresa(e)}${esc(e.nombre)}</b><span class="sub">${esc([e.municipio,e.sector].filter(Boolean).join(' · '))}</span></td>
       <td><span class="cat ${e.categoria||'x'}">${e.categoria||'–'}</span> ${e.puntuacion??''}</td>
-      <td><span class="estado-pill">${esc(NOMBRE_ESTADO[e.estado]||e.estado)}</span></td>
+      <td><span class="estado-pill">${EMOJI_INTERES[e.interes]?EMOJI_INTERES[e.interes]+' ':''}${esc(NOMBRE_ESTADO[e.estado]||e.estado)}</span></td>
       <td><span class="origen o-${esc(e.origen||'busqueda')}" title="${esc(e.origen_detalle||'')}">${esc(NOMBRE_ORIGEN[e.origen||'busqueda']||e.origen)}</span></td>
       <td>${esc(e.decisor||'')}<span class="sub">${esc(e.cargo||'')}</span></td>
       <td class="emp-contacto"><span class="${e.linkedin_url?'':'no'}" title="${e.linkedin_url?TR('LinkedIn del decisor verificado'):TR('Sin LinkedIn verificado')}">in</span><span class="${e.telefono?'':'no'}" title="${e.telefono?esc(e.telefono):TR('Sin teléfono')}">☎</span><span class="${e.email?'':'no'}" title="${e.email?esc(e.email):TR('Sin email')}">✉</span></td>
@@ -4422,6 +4443,23 @@ function atarContactos(f,e){
   caja.querySelectorAll('[data-c-editar]').forEach(b=>b.onclick=()=>{const c=(e.contactos||[]).find(x=>String(x.id)===idDe(b));if(!c)return;fm.closest('details').open=true;fm.id.value=c.id;fm.nombre.value=c.nombre||'';fm.cargo.value=c.cargo||'';fm.telefono.value=c.telefono||'';fm.email.value=c.email||'';fm.nombre.focus();});
   fm.onsubmit=async ev=>{ev.preventDefault();try{await api('/empresas/'+encodeURIComponent(e.id)+'/contactos',{id:fm.id.value?Number(fm.id.value):undefined,nombre:fm.nombre.value,cargo:fm.cargo.value,telefono:fm.telefono.value,email:fm.email.value});abrirFicha(e.id);}catch(err){avisar({clave:'contacto',clase:'error',img:DUENO.retrato,titulo:TR('No se ha guardado'),texto:err.message||'',ms:8000});}};
 }
+/* Cómo está esta empresa según el protocolo: qué dijo, qué toca y por qué, y qué falta por saber */
+function htmlSituacion(e){
+  const s=e.situacion;if(!s)return '';
+  const cuando=d=>new Date(d).toLocaleDateString(LOCALE,{day:'numeric',month:'short'});
+  const dijo=s.nivel?`<p><b>${s.nivel.emoji} ${esc(s.nivel.nombre)}</b>${s.frase?` · «${esc(s.frase)}»`:''} <span class="meta">${esc([s.canal,s.fecha&&cuando(s.fecha)].filter(Boolean).join(' · '))}</span></p>`:TR('<p class="meta">Todavía no ha dicho nada.</p>');
+  const toca=s.siguiente?`<p><b>${TR('Qué toca:')}</b> ${esc(s.siguiente.texto)} · ${esc(cuando(s.siguiente.dia+'T12:00:00'))}${s.siguiente.hora?' · '+esc(s.siguiente.hora):''}</p>${s.siguiente.detalle?`<p class="meta"><b>${TR('Por qué:')}</b> ${esc(s.siguiente.detalle)}</p>`:''}`:'';
+  const regla=s.nivel?`<p class="meta"><b>${TR('Protocolo:')}</b> ${esc(s.nivel.hacer)} ${esc(s.nivel.hasta)}</p>`:'';
+  const minimo=`<ul class="sit-min" aria-label="${TR('Antes de contactar')}">${s.minimo.puntos.map(p=>`<li${p.ok?'':' class="no"'}>${p.ok?'✅':'⚠️'} ${esc(p.que)}</li>`).join('')}</ul>`;
+  const form=TR`<details><summary>Apuntar lo que ha dicho</summary><form class="sit-form" data-sit-form><select name="nivel" aria-label="Cómo está">${s.niveles.map(n=>`<option value="${n.id}"${n.id===s.nivel?.id?' selected':''}>${n.emoji} ${esc(n.nombre)}</option>`).join('')}</select><input name="frase" required maxlength="300" placeholder="Lo que dijo, con sus palabras" aria-label="Lo que dijo"><div class="fila"><input name="dia" type="date" aria-label="Si dijo una fecha"><input name="hora" type="time" aria-label="Hora"><button class="btn peq" type="submit">Guardar</button></div></form></details>`;
+  return `<div class="situacion"><h4>${TR('Situación')}</h4>${dijo}${toca}${regla}${minimo}${form}</div>`;
+}
+function atarSituacion(f,e){
+  const fm=f.querySelector('[data-sit-form]');if(!fm)return;
+  fm.onsubmit=async ev=>{ev.preventDefault();const b=fm.querySelector('button');b.disabled=true;
+    try{await api('/empresas/'+encodeURIComponent(e.id)+'/interes',{nivel:fm.nivel.value,frase:fm.frase.value,cuando:fm.dia.value?[fm.dia.value,fm.hora.value].filter(Boolean).join(' '):null});cargarEmpresas();abrirFicha(e.id);}
+    catch(err){b.disabled=false;avisar({clave:'interes',clase:'error',img:DUENO.retrato,titulo:TR('No se ha guardado'),texto:err.message||'',ms:9000});}};
+}
 async function abrirFicha(id){
   empresaSel=id;pintarListaEmpresas();
   const f=document.getElementById('ficha');f.innerHTML=TR('<p class="vacio">Cargando…</p>');
@@ -4441,7 +4479,7 @@ async function abrirFicha(id){
   ${e.coste?(()=>{const f=v=>Number(v||0).toLocaleString(LOCALE,{minimumFractionDigits:2,maximumFractionDigits:2});const nom=id=>porId[id]?nombreVisible(porId[id]):id;
     return TR`<p class="meta emp-coste-ficha" title="Lo que ha costado en IA trabajar esta empresa">💶 IA en esta empresa: <b>${f(e.coste.eur)} €</b>${e.coste.por_agente?.length?` (${e.coste.por_agente.map(x=>`${esc(nom(x.agente))} ${f(x.eur)} €`).join(' · ')})`:''}${e.coste.busqueda_eur?TR` · más ~${f(e.coste.busqueda_eur)} € de búsqueda`:''}</p>`;})():''}
   ${''}<div class="contacto">${e.decisor?`<span>👤 ${esc(e.decisor)}${e.cargo?' · '+esc(e.cargo):''}</span>`:TR('<span>👤 Decisor sin identificar</span>')}${contacto.join('')||TR('<span>Sin datos de contacto todavía</span>')}</div>
-  ${htmlContactos(e)}
+  ${htmlSituacion(e)+htmlContactos(e)}
   <div class="ficha-acciones">
     <form data-f="estado"><select name="estado" aria-label="Cambiar estado">${ESTADOS_EMP.map(([v,t])=>`<option value="${v}"${v===e.estado?' selected':''}>${t}</option>`).join('')}</select><button class="btn sec peq" type="submit">Cambiar estado</button></form>
     <form data-f="encargo"><select name="agente" aria-label="Agente">${AGENTES.map(a=>`<option value="${a.id}">${a.nombre} · ${a.rol}</option>`).join('')}</select><input type="text" name="t" placeholder="Encargar algo sobre esta empresa…" aria-label="Encargo"><button class="btn peq" type="submit">Encargar</button><span class="est-coste" data-est-emp></span></form>
@@ -4453,12 +4491,12 @@ async function abrirFicha(id){
   ${pintarSecuencia(h.secuencia)}
   ${(h.correos?.length||h.mensajes?.length||h.llamadas?.length||h.actividad?.length)?`<p class="meta orden-hist">${TR('Orden del historial:')} <button type="button" class="btn sec peq" data-orden-hist>${ordenHist==='recientes'?TR('⬇ Más recientes primero'):TR('⬆ Más antiguos primero')}</button></p>`:''}
   ${h.correos?.length?TR`<h4>Correo</h4>${enOrden(h.correos,'fecha').map(c=>TR`<div class="msg"><b>${c.direccion==='entrada'?'📩 '+esc(c.de):TR('📤 Enviado a ')+esc(c.para)}</b> · ${new Date(c.fecha).toLocaleString(LOCALE,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}<br>${esc(c.asunto||'')}<details><summary>Ver correo</summary><pre>${enlazar(esc(c.texto||''))}</pre></details></div>`).join('')}`:''}
-  ${h.mensajes?.length?TR`<h4>Mensajes preparados</h4>${enOrden(h.mensajes,'creada').map(m=>TR`<div class="msg"><b>${esc(quien(m.agente).nombre)}</b> ${esc(m.titulo)} · <span class="estado-pill">${({pendiente:TR('En tu mesa'),aprobada:TR('Enviado / aprobado'),descartada:TR('Descartado'),cambios:TR('Pediste cambios'),hecho:TR('Hecho'),aceptado:TR('Ha aceptado'),aun_no:TR('Aún no'),respondido:TR('Ha respondido'),saltar:TR('Saltado'),parar:TR('Secuencia parada'),perdida:TR('Perdida'),aparcar:TR('Aparcada'),no_localizado:TR('No localizado'),plan_b:'Plan B',sustituida:TR('Sustituida')})[m.estado]||m.estado}</span><button type="button" class="btn sec peq" data-abrir-ap="${esc(m.id)}">${m.estado==='pendiente'?TR('⤢ Abrir en grande'):TR('👁 Abrir')}</button><details><summary>Ver texto</summary><pre>${enlazar(esc(m.texto))}</pre></details></div>`).join('')}`:''}
+  ${h.mensajes?.length?TR`<h4>Mensajes preparados</h4>${enOrden(h.mensajes,'creada').map(m=>TR`<div class="msg"><b>${esc(quien(m.agente).nombre)}</b> ${esc(m.titulo)+(EN_VIVO&&m.tipo==='propuesta'?` <a href="${API}/aprobaciones/${encodeURIComponent(m.id)}/documento.pdf" target="_blank" rel="noopener">📄 PDF</a>`:'')} · <span class="estado-pill">${({pendiente:TR('En tu mesa'),aprobada:TR('Enviado / aprobado'),descartada:TR('Descartado'),cambios:TR('Pediste cambios'),hecho:TR('Hecho'),aceptado:TR('Ha aceptado'),aun_no:TR('Aún no'),respondido:TR('Ha respondido'),saltar:TR('Saltado'),parar:TR('Secuencia parada'),perdida:TR('Perdida'),aparcar:TR('Aparcada'),no_localizado:TR('No localizado'),plan_b:'Plan B',sustituida:TR('Sustituida')})[m.estado]||m.estado}</span><button type="button" class="btn sec peq" data-abrir-ap="${esc(m.id)}">${m.estado==='pendiente'?TR('⤢ Abrir en grande'):TR('👁 Abrir')}</button><details><summary>Ver texto</summary><pre>${enlazar(esc(m.texto))}</pre></details></div>`).join('')}`:''}
   ${h.llamadas?.length?TR`<h4>Llamadas</h4>${enOrden(h.llamadas,'cuando').map(l=>`<div class="msg"><b>${l.via==='lola'?TR`📞 Llamó a la centralita${l.nombre?' · '+esc(l.nombre):''} (le atendió Lola)`:l.tipo==='in'?TR('📞 Te llamó'):TR('📞 Llamaste tú')}</b> · ${new Date(l.cuando).toLocaleString(LOCALE,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${l.segundos?` · ${Math.max(1,Math.round(l.segundos/60))} min`:''}
     ${l.resumen?`<pre>${enlazar(esc(l.resumen))}</pre>`:l.via!=='centralita'?'':l.estado==='pendiente'?`<p class="meta">⏳ ${TR('Esperando la transcripción de la centralita')}${l.motivo?': '+esc(l.motivo):'…'}</p>`:l.estado==='sin_respuesta'?TR('<p class="meta">No llegó a hablar nadie.</p>'):l.estado==='sin_transcripcion'?`<p class="meta">⚠️ ${TR('Sin transcripción')}${l.motivo?': '+esc(l.motivo):''}</p>`:TR('<p class="meta">Paula está preparando el resumen…</p>')}${l.mejoras?`<details open><summary>${TR('💡 Para tu próxima llamada')}</summary><pre>${esc(l.mejoras)}</pre></details>`:''}${l.transcripcion?TR`<details><summary>Ver la transcripción</summary><pre>${esc(l.transcripcion)}</pre></details>`:''}</div>`).join('')}`:''}
   ${h.actividad?.length?TR`<h4>Historial</h4>${enOrden(h.actividad,'ts').map(l=>`<div class="linea"><img alt="" src="${quien(l.agente).retrato}"${cara(l.agente)}><span><b>${esc(quien(l.agente).nombre)}</b> ${esc(l.texto)}${enlacesLinea(l,h)}</span><time>${new Date(l.ts).toLocaleString(LOCALE,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</time></div>`).join('')}`:''}
   ${e.fuente?TR`<h4>Fuentes</h4><p class="meta">${esc(e.fuente).split(/\s+/).map(u=>/^https?:/.test(u)?`<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\/(www\.)?/,'').slice(0,60)}</a>`:u).join('<br>')}</p>`:''}`;
-  atarContactos(f,e);
+  atarContactos(f,e);atarSituacion(f,e);
   f.querySelector('[data-orden-hist]')?.addEventListener('click',()=>{ordenHist=ordenHist==='recientes'?'antiguos':'recientes';try{localStorage.setItem('ordenHistorial',ordenHist);}catch{}abrirFicha(id);});
   f.querySelector('[data-f=estado]').onsubmit=async ev=>{ev.preventDefault();const est=ev.target.estado.value;
     if(EN_VIVO){await api('/empresas/'+encodeURIComponent(id)+'/estado',{estado:est}).catch(()=>{});}else{e.estado=est;anotar('dueno',TR`ha marcado ${e.nombre} como «${NOMBRE_ESTADO[est]}».`);}

@@ -37,7 +37,7 @@ export async function listar({ estado, sector, categoria, texto, origen, etapa_m
   if (texto) { p.push(`%${normalizar(texto)}%`); const a = p.length; p.push(`%${texto.toLowerCase()}%`); cond.push(`(nombre_norm LIKE $${a} OR lower(coalesce(web,'')) LIKE $${p.length})`); }
   p.push(Math.min(Number(limite) || 30, 500));
   const r = await q(`SELECT id, nombre, web, sector, municipio, estado, categoria, puntuacion, confianza, decisor, cargo,
-                            email, telefono, whatsapp, linkedin_url, origen, origen_detalle, fecha_proximo_paso, proximo_paso, (dossier IS NOT NULL) AS tiene_dossier, actualizada,
+                            email, telefono, whatsapp, linkedin_url, origen, origen_detalle, fecha_proximo_paso, proximo_paso, (dossier IS NOT NULL) AS tiene_dossier, actualizada, interes, interes_frase,
                             (SELECT coalesce(sum(g.usd),0)::float FROM gasto g JOIN tareas t ON t.id = g.tarea_id WHERE t.empresa_id = empresas.id) AS coste_usd
                        FROM empresas ${cond.length ? 'WHERE ' + cond.join(' AND ') : ''}
                       ORDER BY actualizada DESC LIMIT $${p.length}`, p);

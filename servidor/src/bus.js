@@ -66,9 +66,10 @@ const prioridadEfectiva = r => _efectiva(r, new Intl.DateTimeFormat('en-CA', { t
 export async function snapshot(extra = {}) {
   const [embudo, pend, logs] = await Promise.all([
     calcularEmbudo(),
-    q(`SELECT a.id, a.agente, a.tipo AS clase, a.titulo, a.texto, a.opciones, a.creada, a.prioridad, a.prioridad_motivo, a.caduca, a.canal, a.fecha_prevista, a.pospuesta, a.perfil_url, a.buscar,
+    q(`SELECT a.id, a.agente, a.tipo AS clase, a.titulo, a.texto, a.opciones, a.creada, a.prioridad, a.prioridad_motivo, a.caduca, a.canal, a.fecha_prevista, a.pospuesta, a.perfil_url, a.buscar, (a.documento IS NOT NULL) AS con_documento,
+              CASE WHEN a.llamada_en > now() - interval '12 hours' THEN a.llamada_en END AS llamada_en,
               EXISTS (SELECT 1 FROM imagenes i WHERE i.aprobacion_id = a.id) AS imagen,
-              e.nombre AS empresa, e.linkedin_url, e.linkedin_empresa, e.decisor, a.empresa_id,
+              e.nombre AS empresa, e.linkedin_url, e.linkedin_empresa, e.decisor, a.empresa_id, e.interes, e.interes_frase,
               coalesce(nullif(e.telefono, ''), (SELECT c.telefono FROM contactos c WHERE c.empresa_id = e.id AND NOT c.borrado AND c.telefono IS NOT NULL ORDER BY c.preferente DESC, c.id LIMIT 1)) AS telefono
          FROM aprobaciones a LEFT JOIN empresas e ON e.id = a.empresa_id
         WHERE a.estado = 'pendiente' ORDER BY a.creada`),
