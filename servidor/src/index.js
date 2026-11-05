@@ -130,7 +130,7 @@ async function rutas(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), payment=()');
-  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Frame-Options', p.endsWith('/documento.pdf') ? 'SAMEORIGIN' : 'DENY');   // el PDF se ve dentro del propio panel
   if (req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');   // 180 días: el navegador no vuelve a usar http
   if (p === '/api/entrada') {
     const permitido = cabecerasWeb(req, res);

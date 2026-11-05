@@ -86,9 +86,27 @@ export async function cargar() {
   try { claveMaps = g?.clave ? descifrar(g.clave) : null; } catch { claveMaps = null; console.error('No se pudo leer la clave de Google Maps guardada (¿ha cambiado CLAVE_CIFRADO?)'); }
 }
 
+// Por qué rechaza Google la clave, con lo que hay que tocar en su consola: el motivo viene en la respuesta
+const POR_QUE_GOOGLE = {
+  API_KEY_INVALID: 'esa clave no existe o está mal copiada. Cópiala otra vez de Google Cloud › APIs y servicios › Credenciales.',
+  SERVICE_DISABLED: 'su proyecto no tiene activada «Places API (New)». Actívala en Google Cloud › APIs y servicios › Biblioteca: la que pone «New», la antigua no vale. Tarda unos minutos en hacer efecto.',
+  API_KEY_SERVICE_BLOCKED: 'la clave solo puede usar otras API. En Google Cloud › Credenciales, entra en la clave y añade «Places API (New)» a sus restricciones de API.',
+  API_KEY_HTTP_REFERRER_BLOCKED: 'la clave está limitada a «Sitios web» y esta consulta sale del servidor, no de una web. En Google Cloud › Credenciales, entra en la clave y pon la restricción de aplicación en «Ninguna» o «Direcciones IP».',
+  API_KEY_IP_ADDRESS_BLOCKED: 'la clave está limitada a unas direcciones IP y no incluye la del servidor. En Google Cloud › Credenciales, entra en la clave y añádela.',
+  API_KEY_ANDROID_APP_BLOCKED: 'la clave está limitada a apps de móvil. En Google Cloud › Credenciales, entra en la clave y pon la restricción de aplicación en «Ninguna» o «Direcciones IP».',
+  API_KEY_IOS_APP_BLOCKED: 'la clave está limitada a apps de móvil. En Google Cloud › Credenciales, entra en la clave y pon la restricción de aplicación en «Ninguna» o «Direcciones IP».',
+  BILLING_DISABLED: 'el proyecto no tiene la facturación activada, y Google la exige aunque no llegues a pagar nada. Actívala en Google Cloud › Facturación.',
+};
+function porQueGoogle(texto) {
+  let e = null;
+  try { e = JSON.parse(texto).error; } catch { /* sin detalle: queda el mensaje general */ }
+  const razon = e?.details?.find(d => d.reason)?.reason;
+  return 'Google rechaza la clave: ' + (POR_QUE_GOOGLE[razon] || e?.message || 'no ha dicho el motivo. Mira que esté bien copiada y que «Places API (New)» esté activada en su proyecto.');
+}
+
 async function textSearch(k, cuerpo, campos) {
   const r = await pedir(`${PLACES}/v1/places:searchText`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': k, 'X-Goog-FieldMask': campos }, body: JSON.stringify({ languageCode: 'es', regionCode: 'ES', ...cuerpo }) });
-  if (r.status === 400 || r.status === 401 || r.status === 403) throw new Error('Google no acepta esa clave, o la clave no tiene activada «Places API (New)» en su proyecto.');
+  if (r.status === 400 || r.status === 401 || r.status === 403) throw new Error(porQueGoogle(r.texto));
   if (r.status === 429) throw new Error('Google Maps ha llegado al límite de consultas de esta clave. Sigue con buscar_web.');
   if (r.status !== 200) throw new Error(`Google Maps respondió ${r.status}.`);
   return JSON.parse(r.texto);
