@@ -5,6 +5,7 @@
 // aceptado, y cada seguimiento cuando llega su fecha sin respuesta. Así no se escribe nada que no
 // se vaya a usar y cada texto sale con lo último que sabemos. Paula lleva las fechas (sin gastar IA).
 import { q } from './db.js';
+import { PRO } from './modulos.js';
 import { log, emitir } from './bus.js';
 import * as empresas from './empresas.js';
 import * as miEmpresa from './empresa.js';
@@ -247,7 +248,7 @@ async function encargarPaso(sec, clave, motivo) {
     mensaje1: 'El mensaje 1 tras aceptar: agradece en media línea, una sola idea concreta sacada del dossier y una pregunta pequeña. Con «asunto» corto por si LinkedIn lo pide.',
     seguimiento1: 'Seguimiento 1: no repitas el mensaje 1. Aporta algo nuevo y útil (un dato, un caso, una idea) y deja la puerta abierta. Breve.',
     seguimiento2: 'Seguimiento 2, el último: muy corto, sin presión, cierra con elegancia («si no es el momento, lo dejo aquí»).',
-    llamada: 'Guion de llamada (plan B).',
+    llamada: `Guion de llamada (plan B)${PRO.guiones ? ', con el método de guiones de llamada' : ''}.`,
   }[clave] || '';
   await q(`UPDATE secuencias SET control=$2, control_fecha=NULL, actualizada=now() WHERE id=$1`, [sec.id, `redactando:${clave}`]);
   await tareas.crear('javi', `${motivo}\n\nEscribe ahora el ${TIPOS[clave].titulo.toLowerCase()} para ${quien(sec, emp)} (${emp.nombre}) y entrégalo con anadir_paso (empresa_id «${emp.id}», clave «${clave}»). Llegará a la mesa de Dirección al momento.\n${guia}\n\n` +

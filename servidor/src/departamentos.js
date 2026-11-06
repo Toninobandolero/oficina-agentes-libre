@@ -7,6 +7,7 @@ import { AGENTES, IDS } from './agentes.js';
 import { log, estado } from './bus.js';
 import * as telegram from './telegram.js';
 import { periodo } from './presupuesto.js';
+import { MODULOS, INSTALADO, PRO } from './modulos.js';
 
 export const DEPARTAMENTOS = [
   { id: 'investigacion', nombre: 'Investigación', agentes: ['lucia', 'mateo', 'carmen'], para: 'Busca empresas, las puntúa y prepara un dossier de cada una. Para quien vende a otras empresas.' },
@@ -58,7 +59,7 @@ export async function cargar() {
   apagados = (await ajuste('departamentos_apagados', [])) || [];
   montar((await ajuste('departamentos_propios', [])) || []);
 }
-export const agentesApagados = () => DEPARTAMENTOS.filter(d => apagados.includes(d.id)).flatMap(d => d.agentes);
+export const agentesApagados = () => [...DEPARTAMENTOS.filter(d => apagados.includes(d.id)).flatMap(d => d.agentes), ...MODULOS.filter(m => INSTALADO[m.id] && !PRO[m.id]).flatMap(m => m.agentes || [])];
 export const trabaja = agente => !agentesApagados().includes(agente);
 export const listar = () => DEPARTAMENTOS.map(d => ({ ...d, activo: !apagados.includes(d.id) }));
 
@@ -191,6 +192,6 @@ export async function agotados() {
 /** La lista de Configuración: con los nombres de cada uno y lo que lleva gastado este mes cada departamento propio. */
 export async function paraConfiguracion() {
   const gasto = propios().length ? await gastoDelMes() : {};
-  return listar().map(d => ({ ...d, agentes: d.agentes.map(id => AGENTES[id].nombre),
+  return listar().map(d => ({ ...d, agentes: d.agentes.filter(id => !MODULOS.some(m => !PRO[m.id] && m.agentes?.includes(id))).map(id => AGENTES[id].nombre),   // sin los de un módulo apagado
     ...(d.propio ? { gastado: Math.round(gastoDe(d, gasto) * 100) / 100, personas: d.personas.map(p => ({ ...p, nombre: AGENTES[p.id].nombre, rol: AGENTES[p.id].rol })) } : {}) }));
 }

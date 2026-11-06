@@ -145,7 +145,7 @@ export function eventosDeHoy(fecha /* AAAA-MM-DD */, nombres = {}) {
   if (md === '10-31') ev.push('Hoy es Halloween: todos vienen disfrazados a la oficina.');
   if (fecha === '2026-10-30') ev.push('Hoy Paula anuncia en la oficina que Dani y ella van a ser padres.');
   if (fecha > '2026-10-30' && fecha < '2026-12-14') ev.push('Paula está embarazada; cogerá la baja el 14 de diciembre.');
-  if (fecha >= '2026-12-14' && fecha <= '2027-04-04') ev.push('Paula está de baja por maternidad; la cubre Elena, que hace su mismo trabajo.');
+  if (fecha >= '2026-12-14' && fecha <= '2027-04-04') ev.push(`Paula está de baja por maternidad; la cubre ${PERSONAJES.paula.sustituto}, que hace su mismo trabajo.`);
   if (md === '12-24' || md === '12-25') ev.push('Es Navidad: hay turrón en la cocina.');
   return ev;
 }

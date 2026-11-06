@@ -12,6 +12,7 @@ import * as tareas from './tareas.js';
 import * as telegram from './telegram.js';
 import { AGENTES } from './agentes.js';
 import * as cuentas from './cuentasCorreo.js';
+import { PRO, M } from './modulos.js';
 
 export const activo = () => Boolean(cuentas.predeterminada());
 const dominio = s => String(s || '').toLowerCase().replace(/^.*@/, '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
@@ -90,6 +91,17 @@ export async function enviarBoletin({ para, asunto, texto, baja }) {
   await q(`INSERT INTO correos (direccion, de, para, asunto, texto, message_id, clase, enviado) VALUES ('salida',$1,$2,$3,$4,$5,'boletin', now())`,
     [c.direccion, limpiarDir(para), asunto, texto, info.messageId || null]);
   return info;
+}
+
+/** Dirección ha pulsado «Enviar». */
+const CID_LOGO = 'logo@oficina';
+
+/** Cómo llegará, para verlo antes de enviar. */
+export async function vista({ texto, cuenta }) {
+  if (!PRO.correoDiseno) return null;
+  const logo = (await import('./documento.js')).logoBuffer();
+  const tipo = logo?.[0] === 0x89 ? 'image/png' : 'image/jpeg';
+  return M.correoDiseno.html({ texto, firma: firma(cuentas.elegir(cuenta)), logo: logo ? `data:${tipo};base64,${logo.toString('base64')}` : '' });
 }
 
 /** Lo que dice una tarjeta que no se preparó como correo: quita las notas para Dirección y separa para quién, el asunto y el texto. */
@@ -214,9 +226,11 @@ export async function enviarBorrador(id) {
   if (!dirValida(limpiarDir(b.para))) throw new Error('La dirección no es válida.');
   const c = cuentas.elegir(b.cuenta);
   if (!c) throw new Error('No hay ninguna cuenta de correo conectada: añádela en Configuración › Conexiones.');
+  const conDiseno = PRO.correoDiseno && b.formato !== 'texto', logoAdjunto = (await import('./documento.js')).logoBuffer();
   const info = await mandar(c, {
     to: b.para, subject: b.asunto, text: `${b.texto}\n\n${firma(c)}`,
-    attachments: await adjuntos(b),
+    ...(conDiseno ? { html: M.correoDiseno.html({ texto: b.texto, firma: firma(c), logo: logoAdjunto ? `cid:${CID_LOGO}` : '' }) } : {}),
+    attachments: [...await adjuntos(b), ...(conDiseno && logoAdjunto ? [{ filename: 'logo.jpg', content: logoAdjunto, cid: CID_LOGO }] : [])],
     ...(b.en_respuesta_a ? { inReplyTo: b.en_respuesta_a, references: [b.en_respuesta_a] } : {}),
   });
   await q(`UPDATE correos SET direccion='salida', de=$3, message_id=$2, enviado=now() WHERE id=$1`, [id, info.messageId || null, c.direccion]);
@@ -227,6 +241,7 @@ export async function enviarBorrador(id) {
 
 /** Un correo que ha llegado: lo guarda, lo clasifica y avisa si es de un lead. Devuelve el id o null si ya estaba. */
 export async function procesarEntrante(m, cuenta = null) {
+  if (PRO.vigilante && String(m.subject || '').startsWith(M.vigilante.PRUEBA_CORREO)) { await M.vigilante.correoRecibido(m.subject); return null; }   // la prueba del día: ha vuelto
   const de = limpiarDir(m.from?.value?.[0]?.address);
   const nombre = m.from?.value?.[0]?.name || de;
   const mid = m.messageId || `${de}-${m.date?.toISOString?.() || Date.now()}`;

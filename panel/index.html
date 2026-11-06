@@ -1105,7 +1105,7 @@ const NOMBRE_ORIGEN={telegram:'✈️ Telegram',whatsapp:'🟢 WhatsApp',telefon
 if(params.get('linkedin'))setTimeout(()=>{const ok=params.get('linkedin')==='ok';avisar({clave:'linkedin',clase:ok?'info':'error',titulo:ok?TR('LinkedIn conectado'):TR('No se ha podido conectar LinkedIn'),texto:ok?TR('Lo que apruebes de Álex ya se puede publicar desde tu mesa.'):(params.get('motivo')||''),img:DUENO.retrato,ms:20000});history.replaceState(null,'',location.pathname);},1500);
 const PANTALLA_ACCESO=Boolean(window.PANTALLA_ACCESO);
 const EN_VIVO=!PANTALLA_ACCESO && !window.DEMO_PUBLICA && params.get('fuente')!=='demo' && location.protocol.startsWith('http') && params.get('fuente')!=='archivo';
-const PRO=window.PRO||{voz:true,centralita:true};   // módulos de pago: la edición Libre no los lleva y avisa «Solo en Pro»
+const PRO=window.PRO||{voz:true,centralita:true,guiones:true,ines:true,correoDiseno:true,vigilante:true};   // módulos de pago (servidor/src/modulos.js): la Libre no los lleva y cada empresa apaga los que no use
 let enPrimerUso=EN_VIVO&&Boolean(window.PRIMER_USO);   // mientras dura, ningún aviso por encima
 /* La demo pública enseña las mismas pantallas que la oficina: lo que le pedirían al servidor lo contesta demo-api.js con datos inventados */
 const COMPLETO=EN_VIVO||Boolean(window.DEMO_PUBLICA);
@@ -1208,7 +1208,7 @@ const AGENTES=[
   {id:'javi',nombre:'Javi',rol:TR('Redactor comercial'),x:182,y:54,skill:'mensaje-prospeccion',look:{skin:'#f3cfb0',hair:'#a8642f',style:'short',shirt:'#e0a33a',beard:true},
    vida:{cumple:'05-09',familia:TR('Recién casado con Sergio. Planean ir a Japón.'),aficion:TR('Surf en Tarifa los fines de semana.'),mania:TR('Reescribe cada frase tres veces.'),sust:'Bruno'}},
   {id:'paula',nombre:'Paula',rol:TR('Seguimiento de leads'),x:222,y:54,skill:'gestionar-respuestas',look:{skin:'#e8b48f',hair:'#5b3a24',style:'bun',shirt:'#6b5bd2'},
-   vida:{cumple:'02-18',familia:TR('Vive con Dani. Esperan su primer bebé.'),aficion:TR('Pádel los martes.'),mania:TR('Agenda de papel aunque tenga tres apps.'),sust:'Elena'}},
+   vida:{cumple:'02-18',familia:TR('Vive con Dani. Esperan su primer bebé.'),aficion:TR('Pádel los martes.'),mania:TR('Agenda de papel aunque tenga tres apps.'),sust:PRO.ines?'Inés':'Elena'}},
   {id:'alex',nombre:'Álex',rol:TR('Contenido LinkedIn'),x:322,y:54,skill:'contenido-linkedin',look:{skin:'#c98c63',hair:'#2d2a26',style:'short',shirt:'#d65a4a',glasses:true},
    vida:{cumple:'09-30',familia:TR('Vive con su abuela Remedios.'),aficion:TR('Fotografía y videojuegos retro.'),mania:TR('Pone emojis en todo (Javi se los quita).'),sust:'Noa'}},
   {id:'sara',nombre:'Sara',rol:TR('Inteligencia de mercado'),x:282,y:54,skill:'inteligencia-mercado',look:{skin:'#e9b993',hair:'#c9a15a',style:'bun',shirt:'#3aa0a8'},
@@ -1219,6 +1219,8 @@ const AGENTES=[
    vida:{cumple:'04-23',familia:TR('Madre de Marcos, de 10 años, que juega al fútbol.'),aficion:TR('Sevillanas los jueves.'),mania:TR('Lee la letra pequeña de todo, hasta de los yogures.'),sust:'Amparo'}},
   {id:'leo',nombre:'Leo',rol:TR('Web y anuncios'),x:124,y:200,skill:'web-anuncios',look:{skin:'#e0ac83',hair:'#4a2f1d',style:'curly',shirt:'#1f8a70'},
    vida:{cumple:'01-27',familia:TR('Vive en Móstoles con su hermana Clara y una tortuga, Turbo.'),aficion:TR('Le monta la web gratis al club de vóley de su barrio.'),mania:TR('Mide lo que tarda en cargar cada web que visita. Cada una.'),sust:'Iker'}},
+  {id:'ines',nombre:'Inés',rol:TR('Diseño y comunicación'),x:12,y:130,skill:'documentos-comunicacion',look:{skin:'#e8b796',hair:'#7a3b1e',style:'short',shirt:'#3f8f7a'},
+   vida:{cumple:'06-02',familia:TR('Vive con su pareja, Teo, y un perro que se llama Tipo.'),aficion:TR('Colecciona carteles antiguos de la feria de Madrid.'),mania:TR('Mide los márgenes de todo, también los de la carta del restaurante.'),sust:'Clara'}},
   {id:'marta',nombre:'Marta',rol:TR('Alianzas y eventos'),x:192,y:200,skill:'alianzas-eventos',look:{skin:'#f2c7a5',hair:'#1b1b1b',style:'long',shirt:'#c4582f'},
    vida:{cumple:'10-11',familia:TR('Casada con Andrés. Su hijo Pablo, de 8 años, colecciona acreditaciones de ferias.'),aficion:TR('Organiza cada año la cena de antiguos alumnos.'),mania:TR('Conoce a alguien en cada sitio. En todos.'),sust:'Elena'}},
   {id:'rafa',nombre:'Rafa',rol:TR('Director del equipo'),x:150,y:130,skill:'informe-embudo',look:{skin:'#e3b089',hair:'#77777f',style:'bald',shirt:'#24395f',beard:true,glasses:true},
@@ -1237,7 +1239,7 @@ const MESA_DUENO={x:300,y:130}, PIZARRA={x:198,y:116}, PUERTA={x:386,y:94}, PASI
 // En el comedor: la fuente de agua (junto a la pared) y la mesa donde se deja la pizza
 const AGUA={x:172,y:198}, MESA_PIZZA={x:84,y:210}, CAFETERA={x:152,y:196};
 // Los departamentos que esta empresa no usa no salen en la oficina (servidor/src/departamentos.js)
-(window.APAGADOS||[]).forEach(id=>{const i=AGENTES.findIndex(a=>a.id===id);if(i>=0)AGENTES.splice(i,1);});
+(window.APAGADOS||[]).concat(PRO.ines?[]:['ines']).forEach(id=>{const i=AGENTES.findIndex(a=>a.id===id);if(i>=0)AGENTES.splice(i,1);});
 // Los que ha creado ella ocupan una sala libre: la sala toma su nombre y cada persona tiene su mesa
 const PROPIOS=window.PROPIOS||[];
 const SALAS_DEP={produccion:{t:TR('Sala libre'),x:6,w:84,y:200},alianzas:{t:TR('Alianzas y web'),x:110,w:136,y:200},preventa:{t:TR('Preventa y legal'),x:6,w:92,y:130},marketing:{t:'Marketing',x:274,w:104,y:54},ventas:{t:TR('Ventas'),x:168,w:88,y:54},investigacion:{t:TR('Investigación'),x:6,w:154,y:54}};
@@ -1654,7 +1656,7 @@ function eventosHoy(){const f=hoyCal(),d=isoLocal(f);if(calCache.d!==d)calCache=
 const conEvento=k=>eventosHoy().find(e=>e[k]);
 
 // Disfraces: cada uno el suyo
-const DISFRACES={leo:'zombi',marta:'bruja2',lucia:'bruja',mateo:'zombi',carmen:'momia',javi:'esqueleto',paula:'calabaza',alex:'fantasma',sara:'gato',nuria:'bruja2',pilar:'diablo',rafa:'vampiro',dueno:'pirata',trini:'bruja3',manolo:'esqueleto',lola:'gato'};
+const DISFRACES={ines:'bruja',leo:'zombi',marta:'bruja2',lucia:'bruja',mateo:'zombi',carmen:'momia',javi:'esqueleto',paula:'calabaza',alex:'fantasma',sara:'gato',nuria:'bruja2',pilar:'diablo',rafa:'vampiro',dueno:'pirata',trini:'bruja3',manolo:'esqueleto',lola:'gato'};
 let lookId=null;
 function idDeLook(L){if(L&&L.__id)return L.__id;if(!lookId){lookId=new Map();AGENTES.forEach(a=>lookId.set(a.look,a.id));lookId.set(DUENO.look,'dueno');lookId.set(ROSI.look,'trini');lookId.set(MANOLO.look,'manolo');lookId.set(LOLA.look,'lola');}return lookId.get(L);}
 const COLOR_DISFRAZ={zombi:{skin:'#9cc48a'},momia:{skin:'#e9e2cf',shirt:'#efe8d6'},esqueleto:{skin:'#f1f1f1',shirt:'#16161d'},calabaza:{shirt:'#f28c28'},
@@ -2629,7 +2631,7 @@ function pintarBandeja(){
     <form class="cambios" data-modo="cambios" hidden><textarea rows="3" name="t" aria-label="Texto para ${esc(a.nombre)}"></textarea><div><button class="btn peq" type="submit">Enviar</button></div></form>${ops&&ops.some(o=>o.r==='programar')?formProgramar(p,ops):''}${dormida(p)?'':formPosponer(Boolean(llamar))}</div>`;
     li.querySelectorAll('[data-correo]').forEach(b=>b.onclick=()=>ventanaCorreo(p));
     li.querySelector('[data-correo-cerrar]')?.addEventListener('click',()=>ventanaCorreo(p,{cerrar:true}));
-    li.querySelectorAll('[data-doc]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await api(`/aprobaciones/${encodeURIComponent(p.id)}/documento/${b.dataset.doc}`,{});avisar({clave:'doc:'+p.id,clase:'info',img:porId.nuria?.retrato,titulo:TR('Nuria lo rehace con gráficos'),texto:TR('Te llegará a la mesa para que lo revises.'),ms:7000});}catch(err){b.disabled=false;avisar({clave:'doc:'+p.id,clase:'error',img:DUENO.retrato,titulo:TR('No se ha podido'),texto:err.message||'',ms:9000});}});
+    li.querySelectorAll('[data-doc]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await api(`/aprobaciones/${encodeURIComponent(p.id)}/documento/${b.dataset.doc}`,{});avisar({clave:'doc:'+p.id,clase:'info',img:porId[PRO.ines?'ines':'nuria']?.retrato,titulo:(PRO.ines?TR('Inés lo rehace con gráficos'):TR('Nuria lo rehace con gráficos')),texto:TR('Te llegará a la mesa para que lo revises.'),ms:7000});}catch(err){b.disabled=false;avisar({clave:'doc:'+p.id,clase:'error',img:DUENO.retrato,titulo:TR('No se ha podido'),texto:err.message||'',ms:9000});}});
     const gbp=li.querySelector('[data-copiar-gbp]');
     if(gbp)gbp.onclick=async()=>{try{await navigator.clipboard.writeText(textoPublicar(p.texto));gbp.textContent=TR('✔ Copiado: pégalo en «Añadir novedad»');}catch{}window.open('https://business.google.com/','_blank','noopener');};
     li.querySelectorAll('[data-ver-ag]').forEach(b=>b.onclick=()=>verAgente(b.dataset.verAg));
@@ -3020,13 +3022,14 @@ async function ventanaCorreo(p,{cerrar=false,documento=false}={}){
     <label>Asunto<input name="asunto" required maxlength="200" value="${esc(d.asunto)}"></label>
     <label>Texto<textarea name="texto" rows="11" required>${esc(d.texto)}</textarea></label>
     ${d.adjunto_nombre?`<p class="meta">📎 ${esc(d.adjunto_nombre)}</p>`:''}
-    <div class="correo-fila"><input type="hidden" name="formato" value="texto"><button class="btn sec peq" type="button" data-correo-vista>👁 Ver cómo queda</button></div>
+    <div class="correo-fila">${PRO.correoDiseno?`<label><input type="radio" name="formato" value="diseno"${d.formato==='texto'?'':' checked'}> Con el diseño de la empresa</label><label><input type="radio" name="formato" value="texto"${d.formato==='texto'?' checked':''}> Texto sencillo</label>`:'<input type="hidden" name="formato" value="texto">'}<button class="btn sec peq" type="button" data-correo-vista>👁 Ver cómo queda</button></div>
     <div data-correo-previa></div>
     <p class="correo-aviso" data-correo-aviso hidden></p>
     <div class="acciones"><button class="btn" type="submit">📧 Enviar ahora</button></div></form>`;
   const f=cuerpo.querySelector('[data-correo-form]'),aviso=f.querySelector('[data-correo-aviso]'),previa=f.querySelector('[data-correo-previa]');
   f.querySelector('[data-correo-vista]').onclick=async()=>{
-    previa.innerHTML=`<pre class="correo-previa">${esc(f.texto.value)}</pre>`;};
+    if(f.formato.value==='texto'){previa.innerHTML=`<pre class="correo-previa">${esc(f.texto.value)}</pre>`;return;}
+    try{const v=await api('/correo/vista',{texto:f.texto.value,cuenta:f.cuenta.value});previa.innerHTML='<iframe class="correo-previa" sandbox="allow-same-origin" title="Cómo queda el correo"></iframe>';previa.firstChild.srcdoc=v.html;}catch(err){aviso.hidden=false;aviso.textContent=err.message||'';}};
   const comprobarCuenta=async()=>{try{const c=await (await fetch(API+'/correo/cuentas/comprobar?cuenta='+encodeURIComponent(f.cuenta.value))).json();if(!c.ok){aviso.hidden=false;aviso.textContent=TR`⚠️ Ahora mismo no se puede enviar desde ${c.direccion||''}: ${c.detalle||c.motivo||''}`;}}catch{}};
   f.cuenta.onchange=comprobarCuenta;comprobarCuenta();
   f.onsubmit=async ev=>{ev.preventDefault();const b=f.querySelector('button[type=submit]'),txtB=b.textContent;b.disabled=true;b.textContent=TR('Enviando…');aviso.hidden=true;
@@ -3101,12 +3104,13 @@ const ENCARGOS_RAPIDOS={
   lucia:[[TR('🔎 Investiga más a fondo'),TR('Investiga a fondo esta empresa: locales, tamaño, novedades recientes, quién la dirige y qué herramientas usa. Guarda lo que encuentres en la empresa.')],[TR('👯 Busca empresas parecidas'),TR('Busca 5 empresas parecidas a esta (mismo sector, tamaño y zona) que aún no tengamos y guárdalas.')]],
   mateo:[[TR('📊 Vuelve a puntuarla'),TR('Vuelve a puntuar esta empresa con todo lo que sabemos ahora y explica qué ha cambiado.')]],
   carmen:[[TR('📄 Haz o actualiza el dossier'),TR('Prepara o actualiza el dossier de esta empresa: decisor, dónde le duele, gancho para el primer contacto.')],[TR('👤 Encuentra al decisor'),TR('Identifica quién decide en esta empresa y su perfil de LinkedIn verificado (que sea esa persona y esa empresa).')]],
-  javi:[[TR('✍️ Primer contacto'),TR('Prepara el primer contacto con esta empresa (notas y solicitud de conexión).')],[TR('📞 Guion de llamada'),TR('Prepara el guion de una llamada a esta empresa.')]],
+  javi:[...(PRO.guiones?[[TR('🎯 Objeciones que me pondrá'),TR('Antes de que llame a esta empresa: dime las 5 objeciones más probables que me pondrá, según lo que sabemos de ella, con las palabras que usaría y qué contestar a cada una en una frase que se pueda decir en voz alta. No inventes datos de la empresa.')],]:[]),[TR('✍️ Primer contacto'),TR('Prepara el primer contacto con esta empresa (notas y solicitud de conexión).')],[TR('📞 Guion de llamada'),TR('Prepara el guion de una llamada a esta empresa.')]],
   paula:[[TR('🧭 ¿En qué punto estamos?'),TR('Revisa en qué punto está esta empresa (mensajes, secuencia, notas) y propón el siguiente paso.')],[TR('💬 Contesta su último mensaje'),TR('Prepara la respuesta al último mensaje de esta empresa.')]],
   nuria:[[TR('🩺 Diagnóstico gratis'),TR('Prepara el diagnóstico gratis de una página para esta empresa.')],[TR('💼 Propuesta'),TR('Prepara una propuesta para esta empresa con nuestros precios.')],[TR('📋 Prepara la reunión'),TR('Tengo una reunión con esta empresa. Dame una hoja para llevar: quién es y qué le importa, qué ha pasado hasta ahora, 3 preguntas que hacerle, las objeciones probables y qué quiero conseguir al salir. Solo con lo que sabemos: lo que no sepamos, dilo.')]],
   pilar:[[TR('⚖️ ¿Podemos contactarla así?'),TR('Revisa si el contacto previsto con esta empresa cumple la LSSI y el RGPD y qué canal es seguro.')]],
   sara:[[TR('🌍 ¿Qué pasa en su sector?'),TR('Cuéntame qué está pasando ahora en el sector de esta empresa y qué nos sirve para hablar con ella.')]],
   leo:[[TR('🌐 Revisa su web'),TR('Revisa la web de esta empresa y dime qué le falta (reservas, formularios, automatizaciones) para usarlo como gancho.')]],
+  ines:[[TR('🎨 Mejora este documento'),TR('Mira el último documento de esta empresa y dime qué quitarías y qué cambiarías para que el dueño lo entienda en 30 segundos.')]],
   marta:[[TR('🤝 ¿Quién nos la presenta?'),TR('Busca qué gestoría, asociación o contacto común nos puede presentar a esta empresa.')]],
   alex:[[TR('📝 Idea de post con su caso'),TR('Propón una idea de post basada en el problema de esta empresa, sin nombrarla.')]],
   rafa:[[TR('🤔 ¿Merece la pena?'),TR('Dame tu opinión sincera: ¿merece la pena seguir con esta empresa ahora? ¿Por qué?')]],
@@ -3505,7 +3509,7 @@ function accionAgente(a,acc){
   if(acc==='bienvenida'){
     guardar(`bienvenida:${a.id}:${hoyISO()}`,true);lanzarConfeti(90);
     anotar('dueno',TR`le ha dado la bienvenida a ${a.nombre}.`,{charla:true});
-    decir(a.id,a.id==='paula'&&vida.maternidadVuelta?TR('¡Gracias! Os he traído fotos de la peque. Y ya me he puesto al día con Elena.'):TR('¡Gracias! Qué ganas tenía de volver. ¿Qué me he perdido?'),{clase:'cari',ms:8000});
+    decir(a.id,a.id==='paula'&&vida.maternidadVuelta?(PRO.ines?TR('¡Gracias! Os he traído fotos de la peque. Y ya me he puesto al día con Inés.'):TR('¡Gracias! Os he traído fotos de la peque. Y ya me he puesto al día con Elena.')):TR('¡Gracias! Qué ganas tenía de volver. ¿Qué me he perdido?'),{clase:'cari',ms:8000});
     setTimeout(()=>{const o=AGENTES.find(x=>x!==a&&x.presente);o&&decir(o.id,TR`¡Bienvenida, ${a.nombre}! Te hemos echado de menos.`,{clase:'cari'});},1200);
     pintarDetalle();
   }
@@ -3675,16 +3679,18 @@ async function pintarIA(){
 const eurDep=v=>Number(v||0).toLocaleString(LOCALE,{maximumFractionDigits:2});
 async function pintarDepartamentos(){
   const f=document.getElementById('conf-form');f.innerHTML=TR('<p class="meta">Cargando…</p>');
-  let l=[];try{l=await (await fetch(API+'/departamentos')).json();}catch{}
+  let l=[],mods=[];try{[l,mods]=await Promise.all([fetch(API+'/departamentos').then(x=>x.json()),fetch(API+'/modulos').then(x=>x.json())]);}catch{}
   f.innerHTML=`<div><h3>${TR('Departamentos')}</h3><p class="meta">${TR('Cada empresa usa los que necesita. Los apagados no reciben trabajo ni gastan IA, y no salen en la oficina. Dirección (Rafa) y Recepción (Lola) no se apagan.')}</p><p class="meta">${TR('Si tu sector necesita algo más, crea uno nuevo. Caben 6 encendidos, porque cada uno ocupa una sala.')}</p></div>
     <fieldset class="perfil"><legend>${TR('Activos en esta empresa')}</legend>${l.map(d=>`<label class="ia-op"><input type="checkbox" name="dep" value="${esc(d.id)}"${d.activo?' checked':''}><span><b>${esc(TR(d.nombre))}</b> · ${esc(d.agentes.join(', '))}. ${esc(TR(d.para))}${d.propio?` <small>${TR`Este mes: ${eurDep(d.gastado)} € de ${eurDep(d.tope_eur)} €.`}</small> <button class="btn sec peq" type="button" data-editar="${esc(d.id)}">${TR('Cambiar')}</button>`:''}</span></label>`).join('')}</fieldset>
+    ${mods.length?`<fieldset class="perfil"><legend>${TR('Módulos')}</legend><p class="meta">${TR('Lo que trae tu edición. Uno apagado deja de funcionar y de gastar; lo enciendes cuando quieras.')}</p>${mods.map(m=>`<label class="ia-op"><input type="checkbox" name="mod" value="${esc(m.id)}"${m.activo?' checked':''}><span><b>${esc(TR(m.nombre))}</b></span></label>`).join('')}</fieldset>`:''}
     <p class="conf-error" role="alert"></p>
     <div class="acciones"><button class="btn" type="submit">${TR('Guardar')}</button><button class="btn sec" type="button" data-acc="crear">${TR('＋ Crear un departamento')}</button><button class="btn sec" type="button" data-acc="cerrar">${TR('Cerrar')}</button></div>`;
   f.querySelector('[data-acc=cerrar]').onclick=()=>document.getElementById('config').close();
   f.querySelector('[data-acc=crear]').onclick=()=>pintarPropio(null);
   f.querySelectorAll('[data-editar]').forEach(b=>b.onclick=()=>pintarPropio(l.find(d=>d.id===b.dataset.editar)));
   f.onsubmit=async e=>{e.preventDefault();
-    try{await api('/departamentos',{activos:[...f.querySelectorAll('[name=dep]:checked')].map(x=>x.value)});location.reload();}
+    try{await api('/departamentos',{activos:[...f.querySelectorAll('[name=dep]:checked')].map(x=>x.value)});
+      if(mods.length)await api('/modulos',{activos:[...f.querySelectorAll('[name=mod]:checked')].map(x=>x.value)});location.reload();}
     catch(err){f.querySelector('.conf-error').textContent=err.message;}};
 }
 /* Un departamento propio: nombre, para qué sirve, quién lo forma, su tope y su trabajo semanal */
@@ -4051,7 +4057,7 @@ function calcularVida(){
   AGENTES.forEach(a=>{a.cumple=f.slice(5)===a.vida.cumple;a.sustituto=null;a.motivoAusencia='';a.vuelve=null;a.foto=false;a.excusa='';});
   // Maternidad
   const paula=porId.paula||{};   // si su departamento está apagado, su historia no se cuenta
-  if(f>=MATERNIDAD.inicio&&f<=MATERNIDAD.fin){paula.sustituto='Elena';paula.motivoAusencia=TR('está de baja por maternidad');}
+  if(f>=MATERNIDAD.inicio&&f<=MATERNIDAD.fin){paula.sustituto=PRO.ines?'Inés':'Elena';paula.motivoAusencia=TR('está de baja por maternidad');}
   if(f>MATERNIDAD.fin){paula.foto=true;}
   const diaVuelta=sigLaborable(MATERNIDAD.fin);
   if(f===diaVuelta){paula.vuelve=TR('de su baja por maternidad');v.maternidadVuelta=true;}
@@ -4106,6 +4112,7 @@ const ANECDOTAS={
   nuria:[TR('Mi hijo dice que en Lisboa se come mejor que aquí. Le he desheredado un poco.'),TR('Estoy con una novela negra. Sospecho del jardinero.'),TR('He coloreado la hoja de propuestas. Ahora es preciosa y además funciona.')],
   pilar:[TR('Marcos ha marcado de chilena el sábado. Lo tengo grabado, ¿queréis verlo?'),TR('He leído las condiciones de la app del súper. Nadie debería hacerlo.'),TR('Los jueves, sevillanas. Si alguien quiere apuntarse, hay plazas.')],
   leo:[TR('Turbo, mi tortuga, ha tardado 40 minutos en cruzar el salón. Más rápida que algunas webs que he visto hoy.'),TR('He montado la web del club de vóley en una tarde. Ya tiene más visitas que la del ayuntamiento.'),TR('Le he preguntado a tres IA quién hace lo nuestro por aquí. Todavía no nos nombran. Todavía.')],
+  ines:[TR('Le he quitado media página a un documento y ahora se entiende.'),TR('Una imagen que no pinta nada resta más que no poner ninguna.')],
   marta:[TR('Pablo ya tiene 23 acreditaciones de ferias colgadas en su cuarto. Quiere la de esta semana.'),TR('Ayer en el desayuno de empresarios conocí al cuñado del gerente de un grupo de hoteles. Todo suma.'),TR('Este año la cena de antiguos alumnos la hago en una terraza. Ya tengo 64 confirmados.')],
   rafa:[TR('Este año los tomates del huerto vienen enormes. Mañana traigo para todos.'),TR('Lola ya dice «abuelo, trabaja». Me tiene calado.'),TR('En mis tiempos esto se hacía con una libreta y un teléfono fijo. Y funcionaba, ¿eh?')],
 };
@@ -4143,6 +4150,7 @@ const RESPUESTAS_GRACIAS={
   sara:[TR('Gracias. ¿Tienes la fuente de ese «buen trabajo»? Es broma 😄'),TR('¡Gracias! El viernes te traigo más novedades.')],
   pilar:[TR('Gracias, Dirección. Que conste en acta.'),TR('¡Gracias! Y recuerda: nada de WhatsApp en frío.')],
   leo:[TR('¡Gracias! Lo apunto en la analítica: +1 jefe contento.'),TR('Gracias, Dirección. Y la web carga en menos de un segundo, que conste.')],
+  ines:[TR('¡Gracias! Lo imprimo y lo mido, por si acaso.')],
   marta:[TR('¡Gracias! Se lo cuento a la gestoría, que también se alegrará.'),TR('Gracias, Dirección. Ya sabes que en el próximo evento te presento a medio Madrid.')],
   rafa:[TR('Gracias, Dirección. El mérito es del equipo.'),TR('Eso, eso. Y en mis tiempos ni se daban las gracias.')],
 };
@@ -4528,7 +4536,7 @@ function rutina(){
     decir('paula',TR('¡Tengo una noticia! Dani y yo vamos a ser padres 💛'),{clase:'cari',ms:9000});lanzarConfeti(80);anotar('paula',TR('anuncia: «¡Dani y yo vamos a ser padres!»'),{charla:true});
     setTimeout(()=>decir('rafa',TR('¡Enhorabuena, Paula! Esto hay que celebrarlo.'),{clase:'cari'}),2500);setTimeout(()=>decir('alex',TR('¡¡Felicidades!! 🍼✨'),{clase:'cari'}),4200);}
   if(hoyISO()===sigLaborable(isoDe(new Date(new Date(MATERNIDAD.inicio+'T12:00:00').getTime()-86400000*3)))&&porId.paula&&!hechoHoy('despedida')){
-    marcarHoy('despedida');decir('paula',TR('Mañana empiezo la baja. Elena os va a cuidar el embudo. ¡Os voy a echar de menos!'),{clase:'cari',ms:9000});anotar('paula',TR('se despide antes de su baja por maternidad. La cubrirá Elena.'),{charla:true});}
+    marcarHoy('despedida');decir('paula',(PRO.ines?TR('Mañana empiezo la baja. Inés os va a cuidar el embudo. ¡Os voy a echar de menos!'):TR('Mañana empiezo la baja. Elena os va a cuidar el embudo. ¡Os voy a echar de menos!')),{clase:'cari',ms:9000});anotar('paula',(PRO.ines?TR('se despide antes de su baja por maternidad. La cubrirá Inés.'):TR('se despide antes de su baja por maternidad. La cubrirá Elena.')),{charla:true});}
 }
 
 /* Ánimo del equipo (visual) */
@@ -5311,7 +5319,7 @@ document.querySelectorAll('textarea,input[type=text][name=t]').forEach(devolverB
    solo cambia cómo se pinta. Cada vista cumple el mismo contrato: {montar(el), quitar(), cambio(a)}.
    Para añadir otra vista basta con otra entrada en VISTAS_OFI y un botón en .vistas.
    ========================================================================= */
-const DEPTOS_OFI=[[TR('Tú y dirección'),['dueno','rafa']],[TR('Recepción'),['lola']],[TR('Investigación'),['lucia','mateo','carmen']],[TR('Ventas'),['javi','paula']],['Marketing',['alex','sara']],[TR('Preventa y legal'),['nuria','pilar']],[TR('Alianzas y web'),['leo','marta']],...PROPIOS.map(d=>[d.nombre,d.agentes.map(p=>p.id)])];
+const DEPTOS_OFI=[[TR('Tú y dirección'),['dueno','rafa']],[TR('Recepción'),['lola']],[TR('Investigación'),['lucia','mateo','carmen']],[TR('Ventas'),['javi','paula']],['Marketing',['alex','sara']],[TR('Preventa y legal'),['nuria','pilar','ines']],[TR('Alianzas y web'),['leo','marta']],...PROPIOS.map(d=>[d.nombre,d.agentes.map(p=>p.id)])];
 const vistaAlt=document.getElementById('vista-alt');
 var vistaViva=null;   // var: pintarEtiqueta la consulta desde el arranque, antes de llegar aquí
 let vistaOfi='oficina',gastoAgentes={},gastoAgentesT=0;
@@ -5436,7 +5444,7 @@ function vista3D(){
   /* Pantallas de ordenador de verdad: escritorio de Mac o de Windows con la ventana de la app de cada uno (editor de código,
      hoja de cálculo, correo, navegador, documento, chat de equipo). Se redibujan unas tres veces por segundo: el código avanza,
      las filas se rellenan, el texto se escribe. En pausa, el escritorio; con error, aviso rojo; esperando tu visto bueno, aviso amarillo. */
-  const APP_DE={lucia:'web',mateo:'hoja',carmen:'doc',javi:'correo',paula:'correo',alex:'web',sara:'web',nuria:'doc',pilar:'doc',leo:'codigo',marta:'chat',rafa:'hoja',dueno:'codigo'};
+  const APP_DE={lucia:'web',mateo:'hoja',carmen:'doc',javi:'correo',paula:'correo',alex:'web',sara:'web',nuria:'doc',pilar:'doc',leo:'codigo',marta:'chat',ines:'doc',rafa:'hoja',dueno:'codigo'};
   const TITULO={codigo:'app.js — Código',hoja:'Empresas.xlsx',doc:'Dossier.docx',correo:'Correo',web:'linkedin.com',chat:'# ventas'};
   const sistemaDe=id=>['javi','mateo','pilar','marta','rafa','sara'].includes(id)?'win':'mac';
   const azar=n=>{const x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x);};

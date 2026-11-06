@@ -1,6 +1,7 @@
 // La mesa tiene que decir la verdad de hoy. Cuando pasa algo con una empresa (se habla con ella, contesta, dice algo),
 // lo que estaba pendiente de antes se retira, y Paula rehace con los datos de hoy lo que siga haciendo falta. A Dirección nunca le llega nada antiguo.
 import { q } from './db.js';
+import { PRO } from './modulos.js';
 import { emitir, log } from './bus.js';
 
 const fechaCorta = d => new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric', timeZone: 'Europe/Madrid' });
@@ -21,7 +22,7 @@ export async function ocurrio(empresa_id, { cuando = new Date(), que = 'lo últi
   if (retiradas.length) await log('paula', `ha retirado de tu mesa lo que ya no toca tras ${que}: ${retiradas.map(r => `«${String(r.titulo).slice(0, 80)}»`).join(', ').slice(0, 300)}.`, { empresa_id });
   // Lo preparado para mandar: Paula decide con lo de hoy si hay que rehacerlo. Dirección solo ve el resultado
   const preparado = retiradas.filter(r => !['paso', 'ctl', 'sec'].includes(String(r.ref || '').split(':')[0]) && r.tipo !== 'llamada');
-  if (preparado.length) await (await import('./tareas.js')).crear('paula', `Tras ${String(que).slice(0, 300)} he retirado de la mesa de Dirección: ${preparado.map(r => `«${String(r.titulo).slice(0, 100)}»`).join(', ')}. Lee la empresa y lo último hablado. Si algo sigue haciendo falta, vuelve a prepararlo con los datos de hoy (lo que sea un PDF, encárgaselo a Nuria). Lo de antes solo puede aparecer como añadido a lo actual: «ahora es así; antes era de esta forma». Si no hace falta nada, no hagas nada y no avises a Dirección.`, { empresa_id, origen: 'sistema', animar: false });
+  if (preparado.length) await (await import('./tareas.js')).crear('paula', `Tras ${String(que).slice(0, 300)} he retirado de la mesa de Dirección: ${preparado.map(r => `«${String(r.titulo).slice(0, 100)}»`).join(', ')}. Lee la empresa y lo último hablado. Si algo sigue haciendo falta, vuelve a prepararlo con los datos de hoy (lo que sea un PDF, encárgaselo a ${PRO.ines ? 'Inés' : 'Nuria'}). Lo de antes solo puede aparecer como añadido a lo actual: «ahora es así; antes era de esta forma». Si no hace falta nada, no hagas nada y no avises a Dirección.`, { empresa_id, origen: 'sistema', animar: false });
   return { retiradas: retiradas.length };
 }
 

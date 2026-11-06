@@ -1,6 +1,6 @@
 // Rutinas programadas (hora de Madrid). Cada una se ejecuta como mucho una vez al día.
 import { config } from './config.js';
-import { PRO } from './modulos.js';
+import { PRO, M } from './modulos.js';
 import { empezada } from './arranque.js';
 import { q, ajuste, fijarAjuste } from './db.js';
 import { log } from './bus.js';
@@ -115,6 +115,9 @@ export async function tick() {
   unaVez('dolores-rellenos', rellenarDolores).catch(e => console.error('Dolores:', e.message));
   unaVez('contactos-arreglados', async () => (await import('./contactos.js')).arreglarRecogidos()).catch(e => console.error('Contactos:', e.message));
   import('./motor.js').then(x => x.revisarCredito()).catch(e => console.error('Crédito de IA:', e.message));   // parado sin crédito: cada 15 minutos como mucho
+  if (PRO.vigilante && Date.now() - ultimoVigilante > 30 * 60_000) { ultimoVigilante = Date.now(); M.vigilante.revisar().catch(e => console.error('Vigilante:', e.message)); }
+  if (PRO.vigilante && m.hora >= '08:30') await unaVez('pruebaCorreo:' + m.fecha, () => M.vigilante.probarCorreo());
+  if (PRO.vigilante && m.hora >= '09:10') await unaVez('repasoDatos:' + m.fecha, () => M.vigilante.repasarDatos());
   if (Date.now() - ultimoRepasoMesa > 10 * 60_000) { ultimoRepasoMesa = Date.now(); import('./mesaViva.js').then(x => x.repasar()).catch(e => console.error('Mesa viva:', e.message)); }
   boletin.revisar().catch(e => console.error('Boletín:', e.message));      // uno por vuelta
   if (m.hora >= '08:30') await unaVez('analisis:' + m.fecha, encolarAnalisisPendientes);
@@ -134,7 +137,7 @@ export async function tick() {
   await captacion(m, vac);
 }
 
-let ultimoFlujo = 0;
+let ultimoFlujo = 0, ultimoVigilante = 0;
 /** Cada 15 minutos en horario de oficina (en turbo, en cada vuelta y a cualquier hora): si la cadena se queda sin trabajo, se le da a quien toca. */
 async function flujo() {
   const tp = await topes();
@@ -248,7 +251,7 @@ export async function llamadasDelDia() {
       : e.ultimo_paso ? `aceptaron la conexión en LinkedIn y ya les escribimos (${e.ultimo_paso}) hace más de 3 días sin respuesta`
       : `llegaron por ${e.origen} (nos conocen)`;
     const telefonos = await (await import('./contactos.js')).lineaTelefonos(e.id);
-    await encargar('nuria', `Llamada del día (en caliente): ${e.nombre} (id ${e.id}). A quién se puede llamar: ${telefonos || e.telefono}. Di en el guion a quién y a qué número, mejor al de quien decide que al general. Por qué se le llama: ${porque}. Lee la empresa, su dossier y lo que ya se ha hablado con leer_empresa y escribe el guion de la llamada para Dirección con guardar_secuencia (un solo paso: clave «llamada», canal «telefono»): abriendo por lo que ya hay entre nosotros (el mensaje, la conexión, su consulta). Si es un autónomo o un particular, no se llama: díselo a Dirección con anotar.`, { empresa_id: e.id, origen: 'sistema' });
+    await encargar('nuria', `Llamada del día (en caliente): ${e.nombre} (id ${e.id}). A quién se puede llamar: ${telefonos || e.telefono}. Di en el guion a quién y a qué número, mejor al de quien decide que al general. Por qué se le llama: ${porque}. Lee la empresa, su dossier y lo que ya se ha hablado con leer_empresa y escribe el guion de la llamada para Dirección con guardar_secuencia (un solo paso: clave «llamada», canal «telefono»):${PRO.guiones ? ' con el método de guiones de llamada,' : ''} abriendo por lo que ya hay entre nosotros (el mensaje, la conexión, su consulta). Si es un autónomo o un particular, no se llama: díselo a Dirección con anotar.`, { empresa_id: e.id, origen: 'sistema' });
   }
   return r.rows.length;
 }

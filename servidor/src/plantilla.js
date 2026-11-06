@@ -6,7 +6,10 @@ import * as departamentos from './departamentos.js';
 import { config } from './config.js';
 import { emitir, log } from './bus.js';
 
-const FIJOS = Object.fromEntries(IDS.map(id => [id, { nombre: AGENTES[id].nombre, rol: AGENTES[id].rol, modelo: config.modelos[id] }]));
+const FIJOS = {};
+/** Lo de fábrica de un agente, para volver a ello. Los de un módulo (ines.js) se apuntan al montarse. */
+export const fijo = id => { FIJOS[id] = { nombre: AGENTES[id].nombre, rol: AGENTES[id].rol, modelo: config.modelos[id] }; };
+IDS.forEach(fijo);
 const BASE = id => FIJOS[id] || departamentos.basePropia(id);
 const ESTILOS = ['short', 'long', 'curly', 'bun', 'rapado', 'bald'];
 const HEX = /^#[0-9a-f]{6}$/i;

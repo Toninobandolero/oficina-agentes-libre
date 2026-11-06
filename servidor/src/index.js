@@ -37,7 +37,8 @@ import * as perfil from './perfil.js';
 import * as marca from './marca.js';
 import * as disenio from './disenio.js';
 import * as video from './video.js';
-import { PRO } from './modulos.js';
+import { PRO, M } from './modulos.js';
+import * as modulos from './modulos.js';
 import * as chats from './chats.js';
 import * as vida from './vida.js';
 import * as reunion from './reunion.js';
@@ -427,6 +428,13 @@ async function rutas(req, res) {
   if (m === 'POST' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/correo$/))) {
     try { const b = await cuerpo(req); await (b.documento ? correo.enviarDocumento(r[1], b) : correo.enviarDesdeTarjeta(r[1], b)); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); }
   }
+  if (m === 'POST' && p === '/api/correo/vista') { const b = await cuerpo(req); return json(res, 200, { html: await correo.vista(b) }); }
+  if (PRO.vigilante && m === 'GET' && p === '/api/vigilante') return json(res, 200, { ultimo: await ajuste('vigilante_ultimo', null), correo: await ajuste('vigilante_correo', null), cambios: await ajuste('cambios_rafa', []), fallos: await ajuste('fallos_app', []) });
+  if (PRO.vigilante && m === 'POST' && p === '/api/vigilante') {
+    const v = M.vigilante;
+    if ((await cuerpo(req)).correo) await v.probarCorreo();
+    return json(res, 200, await v.revisar());
+  }
   if (m === 'GET' && p === '/api/correo/cuentas/comprobar') return json(res, 200, await cuentasCorreo.comprobar(url.searchParams.get('cuenta')));
   if (m === 'GET' && p === '/api/correo/cuentas') return json(res, 200, cuentasCorreo.listar());
   if (m === 'POST' && p === '/api/correo/cuentas') { try { return json(res, 200, await cuentasCorreo.guardar(await cuerpo(req))); } catch (e) { return json(res, 400, { error: e.message }); } }
@@ -437,7 +445,7 @@ async function rutas(req, res) {
   if (m === 'POST' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/documento\/rehacer$/))) {
     const a = (await q(`SELECT a.id, a.titulo, a.texto, a.empresa_id, e.nombre, e.email, e.decisor FROM aprobaciones a LEFT JOIN empresas e ON e.id=a.empresa_id WHERE a.id=$1`, [r[1]])).rows[0];
     if (!a) return json(res, 404, { error: 'Ese documento ya no existe' });
-    await tareas.crear('nuria', `Rehaz este documento para ${a.nombre || 'el cliente'} con pedir_aprobacion (tipo 'propuesta') y su «documento» por partes, para que salga con gráficos. Sin inventar cifras. Lo que hay ahora:\n\n${String(a.texto || '').slice(0, 6000)}`, { empresa_id: a.empresa_id, origen: 'dueno' });
+    await tareas.crear(PRO.ines ? 'ines' : 'nuria', `Rehaz este documento para ${a.nombre || 'el cliente'} con pedir_aprobacion (tipo 'propuesta') y su «documento» por partes, para que salga con gráficos. Sin inventar cifras. Lo que hay ahora:\n\n${String(a.texto || '').slice(0, 6000)}`, { empresa_id: a.empresa_id, origen: 'dueno' });
     return json(res, 200, { ok: true });
   }
   if (m === 'GET' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/imagen$/))) {
@@ -528,6 +536,14 @@ async function rutas(req, res) {
   }
   if (m === 'POST' && p === '/api/departamentos/quitar') {
     try { const d = await departamentos.quitarPropio((await cuerpo(req)).id); await bus.log('dueno', `ha borrado el departamento «${d.nombre}». Lo que tenía pendiente pasa a Rafa.`); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); }
+  }
+  if (m === 'GET' && p === '/api/modulos') return json(res, 200, modulos.listar());
+  if (m === 'POST' && p === '/api/modulos') {
+    const { activos } = await cuerpo(req);
+    if (!Array.isArray(activos)) return json(res, 400, { error: 'Faltan los módulos.' });
+    await modulos.guardar(activos);
+    await bus.log('dueno', 'ha cambiado los módulos que usa la empresa.');
+    return json(res, 200, modulos.listar());
   }
   if (m === 'POST' && p === '/api/departamentos') {
     try { await departamentos.guardar((await cuerpo(req)).activos); } catch (e) { return json(res, 400, { error: e.message }); }
@@ -820,6 +836,7 @@ export async function arrancar({ conMotor = true } = {}) {
   if (errores.length) throw new Error('Configuración no válida:\n- ' + errores.join('\n- '));
   await migrar();
   await ia.cargar();
+  await modulos.cargar();
   await departamentos.cargar();
   await fuentes.cargar();
   await plantilla.cargar();

@@ -8,6 +8,7 @@ import { paraPrompt as perfilEmpresa, idiomaEquipo, IDIOMAS } from './perfil.js'
 import { paraPrompt as marcaEmpresa } from './marca.js';
 import * as miEmpresa from './empresa.js';
 import * as departamentos from './departamentos.js';
+import { PRO, M } from './modulos.js';
 
 export const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -200,8 +201,15 @@ ${config.empresa.reglaPresentacion ? `- ${config.empresa.reglaPresentacion}\n` :
 ## Tus instrucciones
 ${a.instrucciones ?? leerSkill(a.skill)}
 
-${a.herramientas.includes('registrar_interes') ? textoParaAgentes() + '\n\n' : ''}## Tu parte en este equipo
-${a.parte}${a.estilo ? estiloDueno() : ''}`;
+${a.herramientas.includes('registrar_interes') ? textoParaAgentes() + '\n\n' : ''}${PRO.guiones && ['javi', 'nuria', 'paula'].includes(id) ? M.guiones.METODO + '\n\n' : ''}## Tu parte en este equipo
+${PRO.guiones && id === 'javi' ? M.guiones.ENSAYO + '\n' : ''}${parteDe(id)}${a.estilo ? estiloDueno() : ''}`;
+}
+
+/** Su parte, con lo que cambia si están los módulos (ines.js). */
+function parteDe(id) {
+  let t = AGENTES[id].parte;
+  if (PRO.ines) for (const [libre, pro] of M.ines.CAMBIOS[id] || []) t = t.replace(libre, pro);
+  return t;
 }
 
 /** Por dónde pasa el trabajo este agente: una frase para sus instrucciones. */

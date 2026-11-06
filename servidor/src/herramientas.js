@@ -1,7 +1,7 @@
 // Herramientas que los agentes pueden usar. Cada agente solo recibe las que tiene en agentes.js.
 import { q, ajuste, fijarAjuste } from './db.js';
 import { config } from './config.js';
-import { PRO } from './modulos.js';
+import { PRO, M } from './modulos.js';
 import { emitir, log, calcularEmbudo, guardarInforme } from './bus.js';
 import { AGENTES, IDS, puedeEncargar } from './agentes.js';
 import * as empresas from './empresas.js';
@@ -347,6 +347,13 @@ const CON_EFECTOS = new Set(['registrar_interes', 'guardar_contacto', 'proponer_
 const MAX_ENCARGOS_TAREA = 3, MAX_ENCARGOS_DIA = 20, MAX_ENCARGOS_DIA_RAFA = 40, MAX_MAPS_TAREA = 3;
 
 /** Ejecuta una herramienta. ctx = { agente, tarea, anotado, esperando } */
+/** ¿Ya se ha hablado con esta empresa? Entonces un guion parte de lo que contaron, no de cero. */
+async function yaHablado(id) {
+  if (!id) return false;
+  const e = await empresas.leer(id);
+  return Boolean(e && (e.interes || ['conversacion', 'reunion', 'propuesta', 'cliente'].includes(e.estado)));
+}
+
 export async function ejecutar(ctx, nombre, input = {}) {
   if (!nombresDe(ctx.agente).includes(nombre)) throw new Error(`No tienes la herramienta ${nombre}`);
   if (CON_EFECTOS.has(nombre)) { ctx.efectos = true; await tareas.marcarEfectos(ctx.tarea.id); }
@@ -424,7 +431,13 @@ export async function ejecutar(ctx, nombre, input = {}) {
     }
     case 'pedir_aprobacion': {
       comprobarVeto(input.texto);
+      if (PRO.guiones && /^\s*(GUION|GUIÓN)\b/m.test(String(input.texto || '')) && input.tipo !== 'video') {
+        const faltan = M.guiones.revisar(input.texto, { hablado: await yaHablado(input.empresa_id || ctx.tarea?.empresa_id) });
+        if (faltan.length) return { error: M.guiones.motivoRechazo(faltan) };
+        input.texto = M.guiones.completar(input.texto);
+      }
       if (input.documento) {
+        if (PRO.ines && ctx.agente !== 'ines') return { error: 'Los documentos para clientes los hace Inés: pásale el contenido con encargar (agente «ines»), o a quien os lleve hasta ella.' };
         const doc = await import('./documento.js');
         const fallos = doc.revisarDocumento(input.documento);
         if (!fallos.length && !doc.cabeEnUnaPagina(doc.limpiarDocumento(input.documento))) fallos.push('no cabe en una página: quita lo que menos aporte');
@@ -452,11 +465,21 @@ export async function ejecutar(ctx, nombre, input = {}) {
         const { faltan } = await (await import('./protocolo.js')).minimo({ ...paraSecuencia, linkedin_url: input.linkedin_url || paraSecuencia.linkedin_url, decisor: input.decisor || paraSecuencia.decisor });
         if (faltan.length) return { error: `Antes de contactar con ${paraSecuencia.nombre} falta saber: ${faltan.join(', ').toLowerCase()}. Complétalo o pídeselo a quien corresponda: no le escribas sin eso.` };
       }
+      if (PRO.guiones) for (const p of input.pasos || []) if (p?.clave === 'llamada' || p?.canal === 'telefono') {
+        const faltan = M.guiones.revisar(p.texto, { hablado: await yaHablado(input.empresa_id || ctx.tarea?.empresa_id) });
+        if (faltan.length) return { error: M.guiones.motivoRechazo(faltan) };
+        p.texto = M.guiones.completar(p.texto);
+      }
       const r = await secuencias.guardar({ autor: ctx.agente, empresa_id: input.empresa_id || ctx.tarea.empresa_id, decisor: input.decisor, linkedin_url: input.linkedin_url, notas: input.notas, pasos: input.pasos, caduca: input.caduca });
       ctx.esperando = true;
       return { ok: true, ...r, nota: 'Está en la mesa de Dirección. Paula se encargará de los pasos siguientes en su fecha.' };
     }
     case 'anadir_paso': {
+      if (PRO.guiones && input.clave === 'llamada') {
+        const faltan = M.guiones.revisar(input.texto, { hablado: await yaHablado(input.empresa_id || ctx.tarea?.empresa_id) });
+        if (faltan.length) return { error: M.guiones.motivoRechazo(faltan) };
+        input.texto = M.guiones.completar(input.texto);
+      }
       const r = await secuencias.anadirPaso({ empresa_id: input.empresa_id || ctx.tarea.empresa_id, clave: input.clave, texto: input.texto, asunto: input.asunto });
       ctx.esperando = true;
       return { ok: true, ...r, nota: 'Está en la mesa de Dirección.' };
