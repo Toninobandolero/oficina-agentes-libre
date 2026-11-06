@@ -36,7 +36,7 @@ const CAMPOS_EMPRESA = {
   direccion: str('Dirección postal de la empresa o de su local principal, para una visita'), instagram: str('Instagram de la empresa (para informarse, no para escribir en frío)'), facebook: str('Facebook de la empresa (para informarse, no para escribir en frío)'),
   google_place_id: str('Identificador de Google Maps (place_id), si salió de buscar_maps'),
   fuente: str('URL(s) donde se comprobó, separadas por espacios'), notas: str('Señales y evidencias, breve'),
-  origen: str('De dónde viene el contacto (por defecto «busqueda»: lo encontramos nosotros)', { enum: empresas.ORIGENES }),
+  origen: str('De dónde viene el contacto. Si lo has encontrado tú, en internet o donde sea, es «busqueda» (por defecto)', { enum: empresas.ORIGENES.filter(o => !empresas.SOLO_ENTRADA.includes(o)) }),
   origen_detalle: str('Detalle del origen: qué evento, qué gestoría, qué página…'),
   alianza_id: { type: 'integer', description: 'id de la alianza (gestoría, asociación o evento) por la que llegó, si aplica' },
 };
@@ -399,7 +399,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
       return e;
     }
     case 'guardar_empresas': {
-      const res = await empresas.crear(input.empresas || []);
+      const res = await empresas.crear((input.empresas || []).map(e => empresas.SOLO_ENTRADA.includes(e.origen) ? { ...e, origen: 'busqueda' } : e));
       if (!departamentos.trabaja('mateo')) return res;   // Sin Investigación no se puntúa: pasárselo a Rafa solo gastaría IA
       const topeMateo = (await (await import('./planificador.js')).topes()).mateo;
       let encargadas = 0;

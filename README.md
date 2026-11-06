@@ -2,6 +2,8 @@
 
 Una oficina de agentes de IA que busca empresas, las puntúa, prepara dosieres y primeros contactos y te lo deja todo en tu mesa para que tú apruebes, llames y cierres. Lo que se envía a un tercero pasa antes por ti.
 
+![La oficina en marcha: cada agente en su mesa, por departamentos](docs/oficina.gif)
+
 Esta copia no lleva datos de ninguna empresa. Los pones tú.
 
 **Contribuciones:** el código es abierto para usarlo, estudiarlo y modificarlo, pero por ahora no aceptamos pull requests ([por qué](CONTRIBUTING.md)). Las incidencias y las ideas sí son bienvenidas.

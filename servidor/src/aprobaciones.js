@@ -29,6 +29,7 @@ const sumarDias = n => { const d = new Date(); d.setDate(d.getDate() + n); retur
 
 /** Botones de un post de redes según lo que esté conectado. */
 export async function opcionesPost(canal, { auto = false } = {}) {
+  if (canal === 'instagram') return [{ r: 'aprobada', t: '✅ Ya lo he publicado' }, { r: 'cambios' }, { r: 'descartada', t: 'Descartar' }];
   const li = (await linkedin.estado().catch(() => ({}))).conectado, fb = (await facebook.estado().catch(() => ({}))).conectado;
   if (canal === 'facebook') return [...(fb ? [{ r: 'publicar', t: auto ? '🚀 Publicar ya' : '🚀 Publicar en Facebook ya' }, { r: 'programar', t: '📅 Programar' }] : [{ r: 'aprobada', t: '✅ Ya lo he publicado' }]), { r: 'cambios' }, { r: 'descartada', t: 'Descartar' }];
   return [...(li ? [{ r: 'publicar', t: auto ? '🚀 Publicar ya' : '🚀 Publicar en LinkedIn ya' }, ...(fb ? [{ r: 'publicar_ambas', t: '🚀 LinkedIn + Facebook ya' }] : []), { r: 'programar', t: '📅 Programar' }] : [{ r: 'aprobada', t: '✅ Ya lo he publicado' }]),
@@ -112,7 +113,7 @@ export async function crear({ agente, tipo, titulo, texto, empresa_id = null, re
   const auto = tipo === 'post' && red && (await red.autopublicar()) && (await red.estado()).conectado;
   if (auto && (!prevista || prevista < hoyMadrid())) prevista = siguienteLaborable();
   // Un post se publica desde la mesa (ya o programado). «Ya lo he publicado» solo si esa red no está conectada
-  if (tipo === 'post' && ['linkedin', 'facebook'].includes(canal) && !opciones) opciones = await opcionesPost(canal, { auto });
+  if (tipo === 'post' && ['linkedin', 'facebook', 'instagram'].includes(canal) && !opciones) opciones = await opcionesPost(canal, { auto });
   if (tipo === 'boletin' && !opciones) opciones = await (await import('./boletin.js')).opciones();
   const id = crypto.randomBytes(5).toString('hex');
   const emp = empresa_id ? await empresas.leer(empresa_id) : null;
@@ -523,7 +524,7 @@ export async function posponer(id, { dias = 7, hasta = null, llamada = false } =
   }
   const d = Math.max(0, Math.min(60, Number(dias ?? 7)));
   const r = (await q(`UPDATE aprobaciones SET pospuesta = CASE WHEN $2::int = 0 THEN NULL ELSE now() + make_interval(days => $2::int) END WHERE id=$1 AND estado='pendiente' RETURNING pospuesta`, [id, d])).rows[0];
-  if (d === 0) await q(`UPDATE recordatorios SET hecho=now() WHERE aprobacion_id=$1 AND hecho IS NULL`, [id]);
+  await q(`UPDATE recordatorios SET hecho=now() WHERE aprobacion_id=$1 AND hecho IS NULL`, [id]);   // sin fecha y hora, el aviso de antes ya no vale
   await emitir({ tipo: 'aprobacion_pospuesta', id, pospuesta: r.pospuesta });
   return { ok: true, pospuesta: r.pospuesta };
 }

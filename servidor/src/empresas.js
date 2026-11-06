@@ -2,8 +2,11 @@
 import { config } from './config.js';
 import { q } from './db.js';
 import { emitir, emitirEmbudo } from './bus.js';
+import { fijarDecisor } from './contactos.js';
 
 export const ORIGENES = ['busqueda', 'web', 'google', 'gestoria', 'asociacion', 'evento', 'recomendacion', 'linkedin', 'redes', 'anuncio', 'telegram', 'whatsapp', 'telefono', 'otro'];
+/** Los pone el formulario de la web, cuando alguien nos escribe de verdad. Lo que un agente encuentra buscando en internet es «busqueda». */
+export const SOLO_ENTRADA = ['web', 'google', 'anuncio'];
 export const ESTADOS = ['nueva', 'puntuada', 'dossier', 'contactada', 'conversacion', 'reunion', 'propuesta', 'ganada', 'perdida', 'descartada'];
 export const ETAPA = { nueva: 0, puntuada: 1, dossier: 2, contactada: 3, conversacion: 4, reunion: 5, propuesta: 6, ganada: 7 };
 
@@ -76,6 +79,7 @@ export async function crear(lista = [], alRepetir = null) {
         Number.isFinite(+e.facturacion_eur) && e.facturacion_eur != null && e.facturacion_eur !== '' ? +e.facturacion_eur : null,
         e.fuente || null, e.decisor || null, e.cargo || null, li.linkedin_url || null, e.notas || null,
         li.linkedin_empresa || null, e.email || null, e.telefono || null, e.whatsapp || null, origen, e.origen_detalle || null, Number.isInteger(+e.alianza_id) && e.alianza_id ? +e.alianza_id : null, e.direccion || null, e.instagram || null, e.facebook || null, e.google_place_id || null]);
+    if (e.decisor) await fijarDecisor(id, { nombre: e.decisor, cargo: e.cargo });
     creadas.push({ id, nombre: e.nombre.trim() });
   }
   if (creadas.length) await emitirEmbudo();
@@ -108,6 +112,7 @@ export async function actualizar(id, campos = {}, { desdeAgente = false } = {}) 
     if (k === 'estado' && !ESTADOS.includes(v)) throw new Error(`Estado no válido: ${v}. Usa uno de: ${ESTADOS.join(', ')}`);
     if (k === 'categoria' && v && !['A', 'B', 'C', 'D'].includes(v)) throw new Error('La categoría debe ser A, B, C o D');
     if (k === 'origen' && !ORIGENES.includes(v)) throw new Error(`Origen no válido: ${v}. Usa uno de: ${ORIGENES.join(', ')}`);
+    if (k === 'origen' && desdeAgente && SOLO_ENTRADA.includes(v)) continue;
     p.push(k === 'web' ? normalizarWeb(v) : (v === '' ? null : v));
     sets.push(`${k} = $${p.length}`);
     if (k === 'nombre') { p.push(normalizar(v)); sets.push(`nombre_norm = $${p.length}`); }
@@ -118,7 +123,8 @@ export async function actualizar(id, campos = {}, { desdeAgente = false } = {}) 
   if (!sets.length) return actual;
   p.push(id);
   const r = await q(`UPDATE empresas SET ${sets.join(', ')}, actualizada = now() WHERE id = $${p.length} RETURNING *`, p);
-  const nueva = r.rows[0];
+  let nueva = r.rows[0];
+  if ('decisor' in campos || ('cargo' in campos && nueva.decisor)) { await fijarDecisor(id, { nombre: nueva.decisor, cargo: nueva.cargo }); nueva = await leer(id); }   // quien decide vive en contactos
   if (campos.estado === 'ganada' && actual.estado !== 'ganada') await emitir({ tipo: 'cliente', empresa: nueva.nombre });
   // Primera vez que llega a esta etapa: cuenta para el premio del mes
   if (campos.estado && ETAPA[campos.estado] >= 4 && ETAPA[campos.estado] > (actual.etapa_max ?? 0)) await emitir({ tipo: 'avance', empresa_id: id, empresa: nueva.nombre, estado: campos.estado, origen: nueva.origen });

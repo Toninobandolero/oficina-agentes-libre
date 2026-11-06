@@ -529,3 +529,7 @@ ALTER TABLE empresas ADD COLUMN IF NOT EXISTS facebook TEXT;
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS google_place_id TEXT;
 ALTER TABLE tareas ADD COLUMN IF NOT EXISTS paso INTEGER;
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS dolores TEXT;   -- lo que le duele, dicho por ellos
+
+-- Quien decide en cada empresa vive en contactos (decide); la ficha solo enseña su nombre y cargo, y los escribe contactos.fijarDecisor
+ALTER TABLE contactos ADD COLUMN IF NOT EXISTS decide BOOLEAN NOT NULL DEFAULT false;
+CREATE UNIQUE INDEX IF NOT EXISTS contactos_decide ON contactos (empresa_id) WHERE decide AND NOT borrado;

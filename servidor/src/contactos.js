@@ -25,10 +25,20 @@ export function telefonosEnTexto(texto) {
 
 const delDecisor = (contexto, decisor) => { const pila = normal(String(decisor || '').split(/\s+/)[0]); return pila.length >= 3 && normal(contexto).split(/[^a-zñ]+/).includes(pila); };
 
+/** Una persona que ya está sin teléfono (quien decide, apuntado antes que su número) se queda con él en vez de salir dos veces. */
+async function conSuNumero(empresa_id, nombre, telefono) {
+  const k = clave(telefono);
+  if (!nombre || !k || (await q(`SELECT 1 FROM contactos WHERE empresa_id=$1 AND clave=$2`, [empresa_id, k])).rows.length) return null;
+  const sin = (await q(`SELECT id, nombre FROM contactos WHERE empresa_id=$1 AND NOT borrado AND telefono IS NULL AND nombre IS NOT NULL ORDER BY decide DESC, id`, [empresa_id])).rows.find(c => normal(c.nombre) === normal(nombre));
+  if (!sin) return null;
+  await q(`UPDATE contactos SET telefono=$2, clave=$3 WHERE id=$1`, [sin.id, String(telefono).trim().slice(0, 40), k]);
+  return sin.id;
+}
+
 /** Recoge lo que ya sabemos en otros sitios. No machaca nada: si ese número ya está, o se quitó a propósito, se queda como está. */
 async function rescatar(e) {
   const general = clave(e.telefono);
-  const nuevo = (telefono, datos) => q(`INSERT INTO contactos (empresa_id, telefono, clave, nombre, cargo, notas, origen) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (empresa_id, clave) WHERE clave IS NOT NULL DO NOTHING`,
+  const nuevo = async (telefono, datos) => (await conSuNumero(e.id, datos.nombre, telefono)) || q(`INSERT INTO contactos (empresa_id, telefono, clave, nombre, cargo, notas, origen) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (empresa_id, clave) WHERE clave IS NOT NULL DO NOTHING`,
     [e.id, telefono, clave(telefono), datos.nombre || null, datos.cargo || null, datos.notas || null, datos.origen]);
   for (const { telefono, contexto } of telefonosEnTexto(`${e.notas || ''}\n${e.dossier || ''}`)) {
     if (clave(telefono) === general) continue;
@@ -64,9 +74,8 @@ export async function deEmpresa(id) {
   const e = (await q(`SELECT id, telefono, decisor, cargo, notas, dossier FROM empresas WHERE id=$1`, [id])).rows[0];
   if (!e) return [];
   await rescatar(e);
-  const filas = (await q(`SELECT id, nombre, cargo, telefono, email, linkedin_url, preferente, notas, origen FROM contactos WHERE empresa_id=$1 AND NOT borrado ORDER BY id`, [id])).rows;
-  const decisor = normal(e.decisor);
-  const puntos = c => (c.preferente ? 1000 : 0) + (decisor && normal(c.nombre) === decisor ? 100 : 0) + (c.nombre ? 50 : 0) + (c.telefono && esMovil(c.telefono) ? 20 : 0);
+  const filas = (await q(`SELECT id, nombre, cargo, telefono, email, linkedin_url, preferente, decide, notas, origen FROM contactos WHERE empresa_id=$1 AND NOT borrado ORDER BY id`, [id])).rows;
+  const puntos = c => (c.preferente ? 1000 : 0) + (c.decide ? 100 : 0) + (c.nombre ? 50 : 0) + (c.telefono && esMovil(c.telefono) ? 20 : 0);
   return filas.map(c => ({ ...c, movil: esMovil(c.telefono) })).sort((a, b) => puntos(b) - puntos(a) || a.id - b.id);
 }
 
@@ -89,6 +98,34 @@ export async function lineaTelefonos(id) {
   return (await opciones(id)).map(o => `${o.etiqueta}${o.detalle && o.etiqueta !== 'Teléfono general de la empresa' ? ` (${o.detalle})` : ''}: ${o.telefono}`).join('; ');
 }
 
+/** Quien decide en la empresa es un contacto marcado (decide). La ficha lleva su nombre y cargo solo para enseñarlos: los escribe esta función.
+ *  Si es la misma persona, se completa; si es otra, pasa a ser ella; sin nombre, la empresa se queda sin decisor. */
+export async function fijarDecisor(empresa_id, { nombre, cargo } = {}) {
+  nombre = String(nombre ?? '').trim().slice(0, 120) || null; cargo = String(cargo ?? '').trim().slice(0, 120) || null;
+  if (!nombre) {
+    await q(`UPDATE contactos SET decide=false WHERE empresa_id=$1`, [empresa_id]);
+    await q(`UPDATE empresas SET decisor=NULL, cargo=NULL WHERE id=$1`, [empresa_id]);
+    return null;
+  }
+  // La misma persona apuntada dos veces: se queda la más completa y la copia vacía (sin teléfono ni correo) se quita
+  const mismas = (await q(`SELECT id, nombre, telefono, email FROM contactos WHERE empresa_id=$1 AND NOT borrado AND nombre IS NOT NULL
+    ORDER BY preferente DESC, (telefono IS NOT NULL) DESC, (email IS NOT NULL) DESC, decide DESC, id`, [empresa_id])).rows.filter(c => normal(c.nombre) === normal(nombre));
+  let id = mismas[0]?.id;
+  const vacias = mismas.slice(1).filter(c => !c.telefono && !c.email).map(c => c.id);
+  if (vacias.length) await q(`UPDATE contactos SET borrado=true, decide=false, preferente=false WHERE id = ANY($1)`, [vacias]);
+  if (!id) id = (await q(`INSERT INTO contactos (empresa_id, nombre, cargo, origen) VALUES ($1,$2,$3,'equipo') RETURNING id`, [empresa_id, nombre, cargo])).rows[0].id;
+  await q(`UPDATE contactos SET decide=false WHERE empresa_id=$2 AND decide AND id <> $1`, [id, empresa_id]);   // en dos pasos: la base no deja dos marcadas ni un instante
+  await q(`UPDATE contactos SET decide=true WHERE id=$1 AND NOT decide`, [id]);
+  const c = (await q(`UPDATE contactos SET cargo=coalesce($2, cargo) WHERE id=$1 RETURNING nombre, cargo`, [id, cargo])).rows[0];
+  await q(`UPDATE empresas SET decisor=$2, cargo=$3 WHERE id=$1`, [empresa_id, c.nombre, c.cargo]);
+  return id;
+}
+
+/** Una vez: cada decisor que solo estaba en la ficha pasa a sus contactos. */
+export async function migrarDecisores() {
+  for (const e of (await q(`SELECT id, decisor, cargo FROM empresas WHERE coalesce(decisor,'') <> ''`)).rows) await fijarDecisor(e.id, { nombre: e.decisor, cargo: e.cargo });
+}
+
 /** Guarda una persona. Si ese número ya estaba en esta empresa, completa lo que había. Con preferente, es a quien se llama primero. */
 export async function guardar(empresa_id, datos = {}, { origen = 'equipo' } = {}) {
   const texto = (v, n) => { const t = String(v ?? '').trim(); return t ? t.slice(0, n) : null; };
@@ -98,7 +135,8 @@ export async function guardar(empresa_id, datos = {}, { origen = 'equipo' } = {}
   if (!(await q(`SELECT 1 FROM empresas WHERE id=$1`, [empresa_id])).rows.length) throw new Error(`No existe la empresa ${empresa_id}`);
   const k = telefono ? clave(telefono) : null;
   const previo = datos.id ? (await q(`SELECT id FROM contactos WHERE id=$1 AND empresa_id=$2`, [datos.id, empresa_id])).rows[0]
-    : k ? (await q(`SELECT id FROM contactos WHERE empresa_id=$1 AND clave=$2`, [empresa_id, k])).rows[0] : null;
+    : (k ? (await q(`SELECT id FROM contactos WHERE empresa_id=$1 AND clave=$2`, [empresa_id, k])).rows[0] : null)
+      || (nombre ? (await q(`SELECT id, nombre FROM contactos WHERE empresa_id=$1 AND NOT borrado AND nombre IS NOT NULL AND (telefono IS NULL OR $2::text IS NULL) ORDER BY decide DESC, id`, [empresa_id, k])).rows.find(c => normal(c.nombre) === normal(nombre)) : null);   // la misma persona, aún sin ese teléfono
   let fila;
   if (previo) {
     fila = (await q(`UPDATE contactos SET nombre=coalesce($2,nombre), cargo=coalesce($3,cargo), telefono=coalesce($4,telefono), clave=coalesce($5,clave), email=coalesce($6,email),
@@ -107,6 +145,7 @@ export async function guardar(empresa_id, datos = {}, { origen = 'equipo' } = {}
     fila = (await q(`INSERT INTO contactos (empresa_id, nombre, cargo, telefono, clave, email, linkedin_url, notas, origen) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`, [empresa_id, nombre, cargo, telefono, k, email, linkedin_url, notas, origen])).rows[0];
   }
   if (datos.preferente === true) await hacerPreferente(fila.id);
+  if (fila.decide) await q(`UPDATE empresas e SET decisor=c.nombre, cargo=c.cargo FROM contactos c WHERE c.id=$1 AND e.id=c.empresa_id`, [fila.id]);   // la ficha enseña lo de esta persona
   return (await q(`SELECT * FROM contactos WHERE id=$1`, [fila.id])).rows[0];
 }
 
@@ -118,6 +157,7 @@ export async function hacerPreferente(id) {
 
 /** Se marca como quitado en vez de borrarlo: así un número equivocado que sigue en las notas no vuelve a salir. */
 export async function quitar(id) {
-  const r = await q(`UPDATE contactos SET borrado=true, preferente=false WHERE id=$1 RETURNING id`, [id]);
+  const r = await q(`UPDATE contactos SET borrado=true, preferente=false WHERE id=$1 RETURNING id, empresa_id, decide`, [id]);
   if (!r.rows.length) throw new Error('Ese contacto ya no existe.');
+  if (r.rows[0].decide) await fijarDecisor(r.rows[0].empresa_id, {});   // era quien decide: la ficha se queda sin decisor
 }

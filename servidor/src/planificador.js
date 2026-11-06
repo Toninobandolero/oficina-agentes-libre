@@ -113,7 +113,10 @@ export async function tick() {
   const m = madrid();
   correo.revisarBuzon().catch(e => console.error('Correo:', e.message));   // cada 5 minutos como mucho
   unaVez('dolores-rellenos', rellenarDolores).catch(e => console.error('Dolores:', e.message));
+  unaVez('decisores-a-contactos-2', async () => (await import('./contactos.js')).migrarDecisores()).catch(e => console.error('Decisores:', e.message));
   unaVez('contactos-arreglados', async () => (await import('./contactos.js')).arreglarRecogidos()).catch(e => console.error('Contactos:', e.message));
+  unaVez('guiones-con-presentacion', async () => (await import('./mesaViva.js')).presentarseEnLosGuiones()).catch(e => console.error('Guiones con presentación:', e.message));
+  unaVez('mesa-puesta-al-dia', async () => (await import('./mesaViva.js')).ponerAlDia()).catch(e => console.error('Mesa al día:', e.message));
   import('./motor.js').then(x => x.revisarCredito()).catch(e => console.error('Crédito de IA:', e.message));   // parado sin crédito: cada 15 minutos como mucho
   if (PRO.vigilante && Date.now() - ultimoVigilante > 30 * 60_000) { ultimoVigilante = Date.now(); M.vigilante.revisar().catch(e => console.error('Vigilante:', e.message)); }
   if (PRO.vigilante && m.hora >= '08:30') await unaVez('pruebaCorreo:' + m.fecha, () => M.vigilante.probarCorreo());
@@ -242,7 +245,7 @@ export async function llamadasDelDia() {
                           AND NOT EXISTS (SELECT 1 FROM recordatorios r WHERE r.empresa_id=e.id AND r.hecho IS NULL AND r.dia > CURRENT_DATE)
                           AND NOT EXISTS (SELECT 1 FROM llamadas l WHERE l.empresa_id=e.id AND coalesce(l.inicio, l.creada) > now() - interval '3 days')
                           AND (e.estado IN ('conversacion','reunion','propuesta')
-                               OR e.origen IN ('web','google','gestoria','asociacion','evento','recomendacion','telegram','whatsapp','telefono')
+                               OR e.origen IN ('gestoria','asociacion','evento','recomendacion','telegram','whatsapp','telefono')
                                OR EXISTS (SELECT 1 FROM secuencias s JOIN pasos p ON p.secuencia_id=s.id WHERE s.empresa_id=e.id
                                             AND p.clave IN ('mensaje1','seguimiento1') AND p.estado='hecho' AND p.hecho < now() - interval '3 days'))))
                       ORDER BY x.acordada DESC, (e.estado IN ('conversacion','reunion','propuesta')) DESC, coalesce(e.puntuacion,0) DESC LIMIT 5`);
@@ -270,7 +273,7 @@ const sumar = (f, n) => { const d = new Date(f + 'T12:00:00Z'); d.setUTCDate(d.g
 /** El encargo de contenido de los lunes. Un guion de vídeo cada vez: mientras haya uno en tu mesa, no se prepara otro. */
 export async function encargoContenido(fecha) {
   const hayGuion = (await q(`SELECT 1 FROM aprobaciones WHERE tipo='video' AND estado='pendiente' LIMIT 1`)).rows.length > 0;
-  return `Prepara el contenido de esta semana: ${hayGuion ? '' : `el guion del vídeo (tipo 'video') y `}2 publicaciones de LinkedIn (martes ${sumar(fecha, 1)} y jueves ${sumar(fecha, 3)}). Cada pieza con su canal y fecha_prevista.`;
+  return `Prepara el contenido de esta semana: ${hayGuion ? '' : `el guion del vídeo (tipo 'video') y `}2 ideas para redes (martes ${sumar(fecha, 1)} y jueves ${sumar(fecha, 3)}), cada una en un post para LinkedIn, otro para Facebook y otro para Instagram. Cada pieza con su canal y fecha_prevista.`;
 }
 
 /** El trabajo semanal de los departamentos propios, a la primera persona de cada uno. */

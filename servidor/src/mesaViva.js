@@ -1,8 +1,9 @@
 // La mesa tiene que decir la verdad de hoy. Cuando pasa algo con una empresa (se habla con ella, contesta, dice algo),
 // lo que estaba pendiente de antes se retira, y Paula rehace con los datos de hoy lo que siga haciendo falta. A Dirección nunca le llega nada antiguo.
 import { q } from './db.js';
-import { PRO } from './modulos.js';
+import { PRO, M } from './modulos.js';
 import { emitir, log } from './bus.js';
+import { SOLO_ENTRADA } from './empresas.js';
 
 const fechaCorta = d => new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric', timeZone: 'Europe/Madrid' });
 
@@ -35,6 +36,45 @@ export async function cerrada(empresa_id, estado) {
   const retiradas = (await q(`UPDATE aprobaciones SET estado='superada', resuelta=now() WHERE empresa_id=$1 AND estado='pendiente' RETURNING id`, [empresa_id])).rows;
   for (const r of retiradas) await emitir({ tipo: 'aprobacion_resuelta', id: r.id, resultado: 'superada' });
   return retiradas.length;
+}
+
+/** Una sola vez: lo que se marcó como «nos han escrito» sin que nadie escribiera vuelve a ser de búsqueda. Su llamada «en caliente» se retira, o se rehace si la empresa da para llamarla, y también se rehacen los guiones de antes del método actual. La tarjeta sigue hasta que llega la nueva. */
+export async function ponerAlDia() {
+  const falsas = (await q(`UPDATE empresas e SET origen='busqueda' WHERE e.origen = ANY($1) AND NOT EXISTS (SELECT 1 FROM entradas x WHERE x.empresa_id=e.id) RETURNING e.id`, [SOLO_ENTRADA])).rows.map(e => e.id);
+  await q(`UPDATE tareas SET estado='error', resultado='Cancelada: no nos han escrito, la encontramos buscando', terminada=now() WHERE agente='nuria' AND estado='pendiente' AND instruccion LIKE 'Llamada del día%' AND empresa_id = ANY($1)`, [falsas]);
+  const tarjetas = (await q(`SELECT a.id, a.agente, a.texto, a.empresa_id, e.nombre, e.categoria, e.dossier IS NOT NULL AS con_dossier FROM aprobaciones a JOIN empresas e ON e.id=a.empresa_id
+    WHERE a.estado='pendiente' AND a.opciones::text LIKE '%Ya he llamado%'`)).rows;
+  const tareas = await import('./tareas.js');
+  let retiradas = 0, rehechas = 0;
+  for (const t of tarjetas) {
+    const enCalienteFalsa = t.agente === 'nuria' && falsas.includes(t.empresa_id);
+    if (enCalienteFalsa && !(['A', 'B'].includes(t.categoria) && t.con_dossier)) {
+      await q(`UPDATE aprobaciones SET estado='superada', resuelta=now() WHERE id=$1`, [t.id]);
+      await q(`UPDATE secuencias SET estado='descartada', actualizada=now() WHERE empresa_id=$1 AND estado='borrador'`, [t.empresa_id]);
+      await q(`UPDATE empresas SET estado='puntuada' WHERE id=$1 AND estado='dossier' AND dossier IS NULL`, [t.empresa_id]);   // así vuelve al camino normal, con su dossier primero
+      await emitir({ tipo: 'aprobacion_resuelta', id: t.id, resultado: 'superada' });
+      retiradas++;
+    } else if (enCalienteFalsa || (PRO.guiones && M.guiones.esAntiguo(t.texto))) {
+      // Con la mesa llena tampoco espera: sustituye a la que hay, no añade otra
+      await tareas.crear(enCalienteFalsa ? 'javi' : t.agente, `Rehaz el guion de la llamada a ${t.nombre} (id ${t.empresa_id}): el que tiene Dirección en la mesa es de antes del método actual${enCalienteFalsa ? ' y da por hecho que nos conocen, pero no nos han escrito: la encontramos buscando' : ''}. Lee con leer_empresa la empresa, su dossier y lo hablado, comprueba en su web qué usan hoy y entrégalo con guardar_secuencia (un solo paso: clave «llamada», canal «telefono»): sustituye al anterior. Si ya no tiene sentido llamarla, díselo a Dirección con anotar.`, { empresa_id: t.empresa_id, origen: 'secuencia' });
+      rehechas++;
+    }
+  }
+  if (retiradas || rehechas) await log('rafa', `ha puesto la mesa al día: ${retiradas} llamadas retiradas porque no eran en caliente y ${rehechas} guiones antiguos para rehacer.`);
+  return { falsas: falsas.length, retiradas, rehechas };
+}
+
+/** Una vez (6-nov): los guiones de la mesa que no se presentan primero, como empresa y para esa empresa, se rehacen. La tarjeta vieja sigue hasta que llega la nueva. */
+export async function presentarseEnLosGuiones() {
+  if (!PRO.guiones) return 0;   // sin el módulo de guiones no hay método que cumplir
+  const tarjetas = (await q(`SELECT a.id, a.agente, a.texto, a.empresa_id, e.nombre FROM aprobaciones a JOIN empresas e ON e.id=a.empresa_id
+    WHERE a.estado='pendiente' AND a.opciones::text LIKE '%Ya he llamado%'
+      AND NOT EXISTS (SELECT 1 FROM tareas t WHERE t.empresa_id=a.empresa_id AND t.estado IN ('pendiente','en_curso') AND t.instruccion LIKE 'Rehaz el guion%')`)).rows
+    .filter(t => !M.guiones.esAntiguo(t.texto) && M.guiones.revisar(t.texto).some(f => /presentarse/.test(f)));
+  const tareas = await import('./tareas.js');
+  for (const t of tarjetas) await tareas.crear(t.agente, `Rehaz el guion de la llamada a ${t.nombre} (id ${t.empresa_id}): el que tiene Dirección en la mesa entra hablando de su web sin presentarse. Dirección se presenta primero, como empresa y en plural, con lo que hacemos dicho para este tipo de empresa. Lee con leer_empresa la empresa, su dossier y lo hablado y entrégalo con guardar_secuencia (un solo paso: clave «llamada», canal «telefono»): sustituye al anterior.`, { empresa_id: t.empresa_id, origen: 'secuencia' });
+  if (tarjetas.length) await log('rafa', `ha pedido rehacer ${tarjetas.length} guiones de la mesa para que Dirección se presente primero, como empresa.`);
+  return tarjetas.length;
 }
 
 /** Red de seguridad, cada poco: repasa lo que haya quedado atrás, también lo acumulado de antes de existir esto. */

@@ -3094,7 +3094,7 @@ async function ventanaLlamada({apId,empresaId,tel,nombre,marcacion=null}){
     setTimeout(()=>bw.disabled=false,6000);};
   sinCentralita();
   if(!COMPLETO)return;
-  if(empresaId){bm.disabled=bw.disabled=true;try{const d=await (await fetch(API+'/empresas/'+encodeURIComponent(empresaId)+'/contactos')).json();await pintarOpciones(d);if(d.consejos?.length)modos.insertAdjacentHTML('afterend',`<details class="llam-consejos" open><summary>${TR('💡 De tus últimas llamadas')}</summary><pre>${esc(d.consejos.join('\n'))}</pre></details>`);}catch{bm.disabled=bw.disabled=!tel;}}
+  if(empresaId){bm.disabled=bw.disabled=true;try{const d=await (await fetch(API+'/empresas/'+encodeURIComponent(empresaId)+'/contactos')).json();await pintarOpciones(d);if(d.consejos?.length)modos.insertAdjacentHTML('afterend',`<details class="llam-consejos" open><summary>${TR('💡 Cómo decirlo mejor')}</summary><pre>${esc(d.consejos.join('\n').split('\n').filter(l=>l.trim()).map(l=>l.replace(/\s*\((?:en vez de|dijiste)[^)]*\)\s*$/i,'')).join('\n'))}</pre></details>`);}catch{bm.disabled=bw.disabled=!tel;}}
   try{const c=await (await fetch(API+'/llamar/consejo'+(empresaId?'?empresa_id='+encodeURIComponent(empresaId):''))).json();const el=cuerpo.querySelector('[data-llam-consejo]');if(c.texto&&el){el.textContent=TR('🕑 Cuándo llamar: ')+c.texto;el.hidden=false;}}catch{}
   if(empresaId)try{const e=await (await fetch(API+'/empresas/'+encodeURIComponent(empresaId))).json();const el=cuerpo.querySelector('[data-llam-emp]');
     const frase=(String(e.dossier||'').match(/##\s*En una frase\s*\n+([^\n]+)/i)||[])[1];

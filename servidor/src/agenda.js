@@ -56,14 +56,23 @@ export async function recordar({ dia, hora, texto, creado_por = 'dueno', clase =
   return r.id;
 }
 /** Cambia el día o la hora (p. ej. una llamada que Dirección prefiere devolver más tarde). Vuelve a avisar a la nueva hora. */
+/** El aviso de una tarjeta pospuesta y la tarjeta van juntos: lo que se hace en el calendario se hace también en la mesa.
+ *  cuando = SQL de la nueva fecha (r. es el aviso) o NULL para que vuelva ya a la mesa. */
+async function conSuTarjeta(id, cuando) {
+  const r = await q(`UPDATE aprobaciones a SET pospuesta=${cuando} FROM recordatorios r WHERE r.id=$1 AND a.id=r.aprobacion_id AND a.estado='pendiente' RETURNING a.id, a.pospuesta`, [id]);
+  for (const a of r.rows) await emitir({ tipo: 'aprobacion_pospuesta', id: a.id, pospuesta: a.pospuesta });
+}
+
 export async function mover(id, { dia, hora }) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dia || ''))) throw new Error('Elige el día.');
   await q(`UPDATE recordatorios SET dia=$2, hora=$3, avisado=NULL WHERE id=$1`, [id, dia, /^\d{2}:\d{2}$/.test(String(hora || '')) ? hora : null]);
+  await conSuTarjeta(id, `(r.dia + coalesce(r.hora, '09:00')::time) AT TIME ZONE 'Europe/Madrid'`);
   await emitir({ tipo: 'calendario' });
 }
 /** Marcar hecho una llamada desde el calendario también quita su recado de la mesa (y al revés: ver aprobaciones.resolver). */
 export async function marcarHecho(id, hecho = true, { desdeMesa = false } = {}) {
   await q(`UPDATE recordatorios SET hecho=${hecho ? 'now()' : 'NULL'} WHERE id=$1`, [id]);
+  if (hecho && !desdeMesa) await conSuTarjeta(id, 'NULL');
   // Hecha la llamada de ese día, no queda otro aviso igual para la misma empresa
   if (hecho) await q(`UPDATE recordatorios o SET hecho=now() FROM recordatorios r WHERE r.id=$1 AND r.clase='llamada' AND r.empresa_id IS NOT NULL AND o.empresa_id=r.empresa_id AND o.dia=r.dia AND o.clase='llamada' AND o.hecho IS NULL`, [id]);
   await emitir({ tipo: 'calendario' });
@@ -72,7 +81,7 @@ export async function marcarHecho(id, hecho = true, { desdeMesa = false } = {}) 
     if (ap) await aprobaciones.resolver(ap.id, 'aprobada').catch(e => console.error('Recado (mesa):', e.message));
   }
 }
-export async function borrar(id) { await q(`DELETE FROM recordatorios WHERE id=$1`, [id]); await emitir({ tipo: 'calendario' }); }
+export async function borrar(id) { await conSuTarjeta(id, 'NULL'); await q(`DELETE FROM recordatorios WHERE id=$1`, [id]); await emitir({ tipo: 'calendario' }); }
 
 /** Cada vuelta del planificador: los recordatorios que llegan a su hora (o a las 9:00 si son de todo el día) avisan a Dirección. */
 export async function avisarRecordatorios() {
