@@ -5,11 +5,11 @@ import { emitir, emitirEmbudo } from './bus.js';
 
 export const ORIGENES = ['busqueda', 'web', 'google', 'gestoria', 'asociacion', 'evento', 'recomendacion', 'linkedin', 'redes', 'anuncio', 'telegram', 'whatsapp', 'telefono', 'otro'];
 export const ESTADOS = ['nueva', 'puntuada', 'dossier', 'contactada', 'conversacion', 'reunion', 'propuesta', 'ganada', 'perdida', 'descartada'];
-const ETAPA = { nueva: 0, puntuada: 1, dossier: 2, contactada: 3, conversacion: 4, reunion: 5, propuesta: 6, ganada: 7 };
+export const ETAPA = { nueva: 0, puntuada: 1, dossier: 2, contactada: 3, conversacion: 4, reunion: 5, propuesta: 6, ganada: 7 };
 
 const EDITABLES = ['nombre', 'cif', 'web', 'sector', 'municipio', 'empleados', 'facturacion_eur', 'fuente',
   'puntuacion', 'encaje', 'necesidad', 'capacidad', 'acceso', 'categoria', 'confianza',
-  'decisor', 'cargo', 'linkedin_url', 'linkedin_empresa', 'email', 'telefono', 'whatsapp', 'direccion', 'instagram', 'facebook', 'google_place_id', 'estado', 'ultimo_contacto', 'proximo_paso', 'fecha_proximo_paso', 'notas', 'dossier', 'origen', 'origen_detalle', 'alianza_id'];
+  'decisor', 'cargo', 'linkedin_url', 'linkedin_empresa', 'email', 'telefono', 'whatsapp', 'direccion', 'instagram', 'facebook', 'google_place_id', 'estado', 'ultimo_contacto', 'proximo_paso', 'fecha_proximo_paso', 'notas', 'dossier', 'dolores', 'origen', 'origen_detalle', 'alianza_id'];
 
 export function normalizar(nombre = '') {
   return nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -57,14 +57,14 @@ export async function coste(id) {
   return { eur: Math.round(trabajo * cambio * 100) / 100, por_agente: r.map(x => ({ agente: x.agente, eur: eur(x.usd) })), busqueda_eur: b.n ? eur(b.usd / b.n) : 0 };
 }
 
-/** Crea empresas nuevas. Devuelve {creadas:[{id,nombre}], duplicadas:[nombre]} */
-export async function crear(lista = []) {
+/** Crea empresas nuevas. Devuelve {creadas:[{id,nombre}], duplicadas:[nombre]}. alRepetir(empresa, id) se llama con cada una que ya estaba. */
+export async function crear(lista = [], alRepetir = null) {
   const creadas = [], duplicadas = [];
   for (const e of lista) {
     if (!e?.nombre) continue;
     const norm = normalizar(e.nombre), web = normalizarWeb(e.web);
     const dup = await q(`SELECT id FROM empresas WHERE nombre_norm=$1 ${web ? 'OR lower(web)=$2' : ''} LIMIT 1`, web ? [norm, web] : [norm]);
-    if (dup.rows.length) { duplicadas.push(e.nombre); continue; }
+    if (dup.rows.length) { duplicadas.push(e.nombre); await alRepetir?.(e, dup.rows[0].id); continue; }
     let id = slug(e.nombre);
     for (let i = 2; (await q('SELECT 1 FROM empresas WHERE id=$1', [id])).rows.length; i++) id = `${slug(e.nombre)}-${i}`;
     const li = repartirLinkedin(e);
@@ -123,6 +123,7 @@ export async function actualizar(id, campos = {}, { desdeAgente = false } = {}) 
   // Primera vez que llega a esta etapa: cuenta para el premio del mes
   if (campos.estado && ETAPA[campos.estado] >= 4 && ETAPA[campos.estado] > (actual.etapa_max ?? 0)) await emitir({ tipo: 'avance', empresa_id: id, empresa: nueva.nombre, estado: campos.estado, origen: nueva.origen });
   if (campos.estado && campos.estado !== actual.estado) await emitirEmbudo();
+  if (['perdida', 'descartada'].includes(campos.estado) && campos.estado !== actual.estado) await (await import('./mesaViva.js')).cerrada(id, campos.estado);
   return nueva;
 }
 
@@ -143,66 +144,13 @@ export async function csv() {
   return [COLUMNAS_CSV.join(','), ...r.rows.map(f => COLUMNAS_CSV.map(c => esc(f[c])).join(','))].join('\n') + '\n';
 }
 
-/** Lee un CSV (separado por «,» o «;», con comillas al estilo de Excel). Devuelve las filas como listas de textos. */
-export function leerCsv(texto) {
-  const t = String(texto || '').replace(/^\uFEFF/, '');
-  const primera = t.split(/\r?\n/, 1)[0];
-  const sep = (primera.match(/;/g) || []).length > (primera.match(/,/g) || []).length ? ';' : ',';
-  const filas = []; let fila = [], campo = '', entreComillas = false;
-  for (let i = 0; i < t.length; i++) {
-    const c = t[i];
-    if (entreComillas) {
-      if (c !== '"') campo += c;
-      else if (t[i + 1] === '"') { campo += '"'; i++; }
-      else entreComillas = false;
-    } else if (c === '"') entreComillas = true;
-    else if (c === sep) { fila.push(campo); campo = ''; }
-    else if (c === '\n' || c === '\r') {
-      if (c === '\r' && t[i + 1] === '\n') i++;
-      fila.push(campo); filas.push(fila); fila = []; campo = '';
-    } else campo += c;
-  }
-  if (campo || fila.length) { fila.push(campo); filas.push(fila); }
-  return filas;
-}
-
-export const MAX_IMPORTAR = 2000;
-const ESTADOS_IMPORTAR = ['ganada', 'conversacion', 'nueva'];
-// Columnas que se reconocen en la cabecera (comparadas en minúsculas y sin acentos ni signos: «Teléfono» vale). «persona» va a decisor.
-const COLUMNAS_IMPORTAR = { nombre: 'nombre', name: 'nombre', persona: 'decisor', decisor: 'decisor', contact: 'decisor', cargo: 'cargo', role: 'cargo', email: 'email',
-  telefono: 'telefono', phone: 'telefono', whatsapp: 'whatsapp', web: 'web', website: 'web', municipio: 'municipio', city: 'municipio', sector: 'sector', notas: 'notas', notes: 'notas' };
-
-/** Importa la cartera de una empresa desde un CSV. Una fila sin nombre está mal; las que ya existen (mismo nombre o web) se cuentan como repetidas.
- *  Los clientes y los contactos con permiso entran ya en su estado, sin fiesta ni puntos: no son avances del equipo. */
-export async function importar(texto, estado) {
-  if (!ESTADOS_IMPORTAR.includes(estado)) throw new Error(`Di qué es la lista: ${ESTADOS_IMPORTAR.join(', ')}.`);
-  const [cabecera = [], ...filas] = leerCsv(texto);
-  const cols = cabecera.map(c => COLUMNAS_IMPORTAR[c.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '')] || null);
-  if (!cols.includes('nombre')) throw new Error('La primera fila tiene que llevar los nombres de las columnas, y una de ellas «nombre».');
-  if (filas.length > MAX_IMPORTAR) throw new Error(`Como mucho ${MAX_IMPORTAR} filas por archivo (este tiene ${filas.length}): pártelo en varios.`);
-  const lista = []; let mal = 0;
-  for (const f of filas) {
-    if (f.every(v => !v.trim())) continue;   // líneas en blanco
-    const e = {};
-    cols.forEach((k, i) => { if (k && f[i]?.trim()) e[k] = f[i].trim(); });
-    if (!e.nombre) { mal++; continue; }
-    lista.push({ ...e, origen: 'otro', origen_detalle: 'Importada de la cartera' });
-  }
-  const r = await crear(lista);
-  if (r.creadas.length && estado !== 'nueva') {
-    await q(`UPDATE empresas SET estado=$1, etapa_max=GREATEST(etapa_max,$2), actualizada=now() WHERE id = ANY($3)`, [estado, ETAPA[estado], r.creadas.map(e => e.id)]);
-    await emitirEmbudo();
-  }
-  return { importadas: r.creadas.length, repetidas: r.duplicadas.length, mal };
-}
-
 /** Todo lo que ha pasado con una empresa: tareas, mensajes preparados y actividad. */
 export async function historial(id) {
   const e = await leer(id);
   if (!e) return null;
   const [tareas, aprob, eventos, llamadas] = await Promise.all([
     q(`SELECT id, agente, tipo, instruccion, estado, resultado, creada, terminada FROM tareas WHERE empresa_id=$1 ORDER BY creada`, [id]),
-    q(`SELECT id, agente, tipo, titulo, texto, estado, creada, resuelta FROM aprobaciones WHERE empresa_id=$1 ORDER BY creada`, [id]),
+    q(`SELECT id, agente, tipo, titulo, texto, estado, creada, resuelta, (documento IS NOT NULL) AS con_documento FROM aprobaciones WHERE empresa_id=$1 ORDER BY creada`, [id]),
     q(`SELECT ts, datos FROM eventos WHERE datos->>'tipo'='log' AND (datos->>'empresa_id' = $3 OR datos->>'texto' ILIKE $1 OR datos->>'texto' ILIKE $2) ORDER BY ts`, [`%${e.nombre}%`, `%${e.id}%`, e.id]),
     // Llamadas: las tuyas por la centralita (con resumen y transcripción) y las que atendió Lola en el teléfono
     q(`SELECT * FROM (SELECT 'centralita' AS via, coalesce(inicio, creada) AS cuando, segundos, tipo, resumen, transcripcion, NULL::text AS nombre, NULL::int AS llamada_id, estado, motivo, mejoras FROM llamadas WHERE empresa_id=$1

@@ -5,7 +5,8 @@
 //  · #café: las charlas de la vida de oficina (si está activa).
 //  · Un privado con cada agente: lo que le preguntas aquí, en su ficha o por Telegram, y lo que te contesta.
 // Todo queda guardado y llega al panel al momento.
-import { q } from './db.js';
+import { config } from './config.js';
+import { q, ajuste } from './db.js';
 import { emitir } from './bus.js';
 import { AGENTES, IDS } from './agentes.js';
 import * as departamentos from './departamentos.js';
@@ -33,8 +34,18 @@ export async function escribir({ canal, autor, texto, para = null, via = null, t
   return r.rows[0];
 }
 
-/** Quién está contestando en un canal (tiene una pregunta tuya pendiente). */
+/** En pausa nadie coge tareas: se le dice a Dirección, en vez de dejarle esperando una respuesta. */
+export const textoPausa = async ag => (await ajuste('pausado', config.pausadoInicial))
+  ? `El equipo está en pausa: ${AGENTES[ag]?.nombre ?? ag} te contestará cuando lo reanudes.` : null;
+export async function avisarPausa(canal, ag) {
+  const texto = await textoPausa(ag);
+  if (texto) await escribir({ canal, autor: 'sistema', para: 'dueno', texto });
+  return texto;
+}
+
+/** Quién está contestando en un canal (tiene una pregunta tuya pendiente). En pausa, nadie. */
 async function escribiendo(canal) {
+  if (await ajuste('pausado', config.pausadoInicial)) return [];
   const r = IDS.includes(canal)
     ? await q(`SELECT DISTINCT agente FROM tareas WHERE estado IN ('pendiente','en_curso') AND agente=$1 AND (canal=$1 OR (canal IS NULL AND tipo='pregunta'))`, [canal])
     : await q(`SELECT DISTINCT agente FROM tareas WHERE estado IN ('pendiente','en_curso') AND canal=$1`, [canal]);
@@ -71,12 +82,31 @@ export async function canales({ vida = true } = {}) {
 }
 
 /** Lo que llevabais hablado en ese canal, para que quien contesta siga el hilo. */
-export async function contexto(canal, hasta = null, n = 8) {
+export async function contexto(canal, hasta = null, n = 20) {
   if (!esCanal(canal)) return '';
-  const r = await q(`SELECT autor, para, texto FROM chat WHERE canal=$1 AND creado < coalesce($2::timestamptz, now()) ORDER BY creado DESC, id DESC LIMIT $3`, [canal, hasta, n]);
+  const r = await q(`SELECT autor, para, texto, to_char(creado AT TIME ZONE 'Europe/Madrid', 'DD/MM HH24:MI') AS cuando FROM chat WHERE canal=$1 AND creado < coalesce($2::timestamptz, now()) ORDER BY creado DESC, id DESC LIMIT $3`, [canal, hasta, n]);
   if (!r.rows.length) return '';
   const quien = a => (a === 'dueno' ? 'Dirección' : AGENTES[a]?.nombre || a);
-  return `Lo último que se ha hablado en ${nombreCanal(canal)} (de más antiguo a más reciente):\n${r.rows.reverse().map(m => `- ${quien(m.autor)}${m.para && m.para !== 'dueno' && AGENTES[m.para] ? ` → ${quien(m.para)}` : ''}: ${recortar(m.texto.replace(/\s+/g, ' '), 400)}`).join('\n')}`;
+  return `Lo último que se ha hablado en ${nombreCanal(canal)} (de más antiguo a más reciente):\n${r.rows.reverse().map(m => `- ${m.cuando} ${quien(m.autor)}${m.para && m.para !== 'dueno' && AGENTES[m.para] ? ` → ${quien(m.para)}` : ''}: ${recortar(m.texto.replace(/\s+/g, ' '), 700)}`).join('\n')}`;
+}
+
+// Lo que no lleva ni una palabra (el gato en el teclado) no se le pasa a nadie: cada respuesta cuesta IA. Un número corto sí, puede contestar a una pregunta
+export const esTeclazo = t => !/^\d{1,3}$/.test(t) && (t.match(/\p{L}/gu) || []).length < 2;
+
+const GENERICAS = new Set(['grupo', 'talleres', 'taller', 'restaurante', 'restaurantes', 'productos', 'hotel', 'hoteles', 'clinica', 'servicios', 'empresa', 'gestion', 'consulting', 'hermanos', 'costa', 'madrid']);
+/** De qué empresa habláis: la que se nombra (ella o quien la dirige) o, si no, la última de esta conversación. Así el agente la tiene delante sin tener que preguntarlo. */
+export async function empresaDeLaConversacion(canal, texto) {
+  const { normalizar } = await import('./empresas.js');
+  const dicho = ` ${normalizar(texto)} `;
+  const lista = (await q(`SELECT id, nombre_norm, decisor FROM empresas WHERE estado NOT IN ('descartada')`)).rows;
+  const nombra = (lista.filter(e => dicho.includes(` ${e.nombre_norm} `)))[0];
+  if (nombra) return nombra.id;
+  const porPartes = lista.filter(e => {
+    const persona = normalizar(e.decisor || '').split(' ').slice(0, 2).join(' ');
+    return (persona.length >= 8 && persona.includes(' ') && dicho.includes(` ${persona} `)) || e.nombre_norm.split(' ').some(p => p.length >= 6 && !GENERICAS.has(p) && dicho.includes(` ${p} `));
+  });
+  if (porPartes.length === 1) return porPartes[0].id;
+  return (await q(`SELECT empresa_id FROM chat WHERE canal=$1 AND empresa_id IS NOT NULL AND creado > now() - interval '3 hours' ORDER BY id DESC LIMIT 1`, [canal])).rows[0]?.empresa_id || null;
 }
 
 /** Lo que escribes tú en el chat del panel. */
@@ -87,19 +117,27 @@ export async function deDueno(canal, texto) {
   const c = CANALES.find(x => x.id === canal);
   if (!c && !IDS.includes(canal)) throw new Error('Ese canal no existe.');
   if (c?.soloLectura) throw new Error(`En #${c.nombre} escriben ellos solos. Escríbeles en #general o por privado.`);
+  if (esTeclazo(texto)) return escribir({ canal, autor: 'dueno', para: IDS.includes(canal) ? canal : 'rafa', texto, via: 'panel' });
+  const empresa_id = await empresaDeLaConversacion(canal, texto);
   if (IDS.includes(canal)) {
-    const t = await tareas.crear(canal, texto, { origen: 'dueno', tipo: 'pregunta', canal });
-    return escribir({ canal, autor: 'dueno', para: canal, texto, via: 'panel', tarea_id: t.id });
+    const t = await tareas.crear(canal, texto, { origen: 'dueno', tipo: 'pregunta', canal, empresa_id });
+    const mensaje = await escribir({ canal, autor: 'dueno', para: canal, texto, via: 'panel', tarea_id: t.id, empresa_id });
+    await avisarPausa(canal, canal);
+    return mensaje;
   }
   // #general: «@Mateo …» o «Mateo, …» → contesta ese agente aquí, delante de todos; si no, Rafa
   const m = texto.match(/^\s*@([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)[\s,:]+([\s\S]+)$/) || texto.match(/^\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)\s*[,:]\s*([\s\S]+)$/);
   const ag = m && idPorNombre(m[1]);
   if (ag && ag !== 'rafa') {
-    const t = await tareas.crear(ag, m[2].trim(), { origen: 'dueno', tipo: 'pregunta', canal: 'general' });
-    return escribir({ canal: 'general', autor: 'dueno', para: ag, texto, via: 'panel', tarea_id: t.id });
+    const t = await tareas.crear(ag, m[2].trim(), { origen: 'dueno', tipo: 'pregunta', canal: 'general', empresa_id });
+    const mensaje = await escribir({ canal: 'general', autor: 'dueno', para: ag, texto, via: 'panel', tarea_id: t.id, empresa_id });
+    await avisarPausa('general', ag);
+    return mensaje;
   }
-  const t = await tareas.crear('rafa', `Dirección escribe en #general, el canal del chat de la oficina que leéis todos:\n«${texto}»\n\nContéstale ahí mismo, breve (2–5 frases) y en tono de chat. Si hace falta que alguien haga algo, encárgaselo y dile a quién y qué. Si lo que plantea es un objetivo grande, prepárale un plan con proponer_plan solo si tiene número de objetivo; si no, dile que lo lance con el botón 🎯 Objetivo. No uses enviar_informe: tu respuesta final es lo que se publica en el chat.`, { origen: 'dueno', canal: 'general' });
-  return escribir({ canal: 'general', autor: 'dueno', para: 'rafa', texto, via: 'panel', tarea_id: t.id });
+  const t = await tareas.crear('rafa', `Dirección escribe en #general, el canal del chat de la oficina que leéis todos:\n«${texto}»\n\nContéstale ahí mismo, breve (2–5 frases) y en tono de chat. Si hace falta que alguien haga algo, encárgaselo y dile a quién y qué. Si lo que plantea es un objetivo grande, prepárale un plan con proponer_plan solo si tiene número de objetivo; si no, dile que lo lance con el botón 🎯 Objetivo. No uses enviar_informe: tu respuesta final es lo que se publica en el chat.`, { origen: 'dueno', canal: 'general' , empresa_id });
+  const mensaje = await escribir({ canal: 'general', autor: 'dueno', para: 'rafa', texto, via: 'panel', tarea_id: t.id, empresa_id });
+  await avisarPausa('general', 'rafa');
+  return mensaje;
 }
 
 /** Charlas de la vida de oficina → #café, repartidas a lo largo del día (de 9:30 a 18:30, o desde ahora). */

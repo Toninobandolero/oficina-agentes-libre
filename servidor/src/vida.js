@@ -7,6 +7,7 @@ import { config } from './config.js';
 import * as miEmpresa from './empresa.js';
 import { emitir, log } from './bus.js';
 import { llamar } from './llm.js';
+import { idiomaEquipo } from './perfil.js';
 import * as presupuesto from './presupuesto.js';
 import { PERSONAJES, paraPrompt, eventosDeHoy } from './personajes.js';
 
@@ -64,7 +65,7 @@ Hoy: ${eventosDeHoy(f, n).join(' ') || 'un día normal'}
 Lo que ha pasado en el trabajo en las últimas horas (puedes comentarlo, sin inventar cifras ni empresas):
 ${ayer.map(l => `- ${n[l.agente] || l.agente}: ${l.texto}`).join('\n') || '- (nada destacable)'}
 
-Reglas: español de España, natural y con humor amable; cada frase de menos de 140 caracteres; mezcla vida personal (coherente con las fichas, sin cambiar hechos) y comentarios del trabajo; nada ofensivo; sin emojis salvo Álex.
+Reglas: en ${idiomaEquipo()}, natural y con humor amable; cada frase de menos de 140 caracteres; mezcla vida personal (coherente con las fichas, sin cambiar hechos) y comentarios del trabajo; nada ofensivo; sin emojis salvo Álex.
 Responde SOLO con JSON: {"charlas":[{"de":"id","a":"id","texto":"...","respuesta":"..."}]} usando los id de la lista.`;
   const modelo = config.modelos.rafa;
   const r = await llamar({ modelo, messages: [{ role: 'user', content: prompt }], maxTokens: 8000, razonamiento: { max_tokens: 800 } });

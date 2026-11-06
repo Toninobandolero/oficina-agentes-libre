@@ -88,7 +88,8 @@ export async function toqueClientes() {
 }
 
 // Qué buscar: lo configurado o, si no, lo que diga la ficha de la empresa
-function objetivosBusqueda() {
+function objetivosBusqueda(obj) {
+  if (obj?.focos?.length) return obj.focos;
   if (config.busquedasAuto.length) return config.busquedasAuto;
   const e = perfil.leer().empresa || {};
   return [e.cliente_ideal, e.sectores].map(x => String(x || '').trim()).filter(Boolean).map(x => (e.zona ? `${x} en ${e.zona}` : x));
@@ -97,19 +98,24 @@ function objetivosBusqueda() {
 export async function lanzarBusqueda() {
   const obj = await busqueda.leer();
   if (obj?.cantidad === 0) return;   // esta oficina no busca
-  const n = objetivosBusqueda().length;
+  const focos = objetivosBusqueda(obj), n = focos.length;
   if (!n) return;
   const i = Number(await ajuste('busqueda_idx', 0)) || 0;
   await fijarAjuste('busqueda_idx', i + 1);
-  const objetivo = objetivosBusqueda()[i % n];
+  const objetivo = focos[i % n];
   const cuantas = obj ? Math.min(config.empresasPorBusqueda, (await busqueda.progreso(obj)).falta_hoy) : config.empresasPorBusqueda;
   if (cuantas > 0) await encargar('lucia', `Busca ${cuantas} empresas nuevas: ${objetivo}. Prioriza las que mejor encajen con el cliente ideal.`, { origen: 'sistema' });
 }
 
 let ultimaVoz = 0;
+let ultimoRepasoMesa = 0;
 export async function tick() {
   const m = madrid();
   correo.revisarBuzon().catch(e => console.error('Correo:', e.message));   // cada 5 minutos como mucho
+  unaVez('dolores-rellenos', rellenarDolores).catch(e => console.error('Dolores:', e.message));
+  unaVez('contactos-arreglados', async () => (await import('./contactos.js')).arreglarRecogidos()).catch(e => console.error('Contactos:', e.message));
+  import('./motor.js').then(x => x.revisarCredito()).catch(e => console.error('Crédito de IA:', e.message));   // parado sin crédito: cada 15 minutos como mucho
+  if (Date.now() - ultimoRepasoMesa > 10 * 60_000) { ultimoRepasoMesa = Date.now(); import('./mesaViva.js').then(x => x.repasar()).catch(e => console.error('Mesa viva:', e.message)); }
   boletin.revisar().catch(e => console.error('Boletín:', e.message));      // uno por vuelta
   if (m.hora >= '08:30') await unaVez('analisis:' + m.fecha, encolarAnalisisPendientes);
   if (m.hora >= '09:00') await unaVez('seguimientos:' + m.fecha, avisoSeguimientos);
@@ -153,7 +159,7 @@ async function flujo() {
   else if (tp.turbo) hayQueBuscar = nuevas < 15 && stock < tp.stock;
   else if (obj) { cuantas = Math.min(cuantas, (await busqueda.progreso(obj)).falta_hoy); hayQueBuscar = cuantas > 0 && stock < tp.stock; }
   else hayQueBuscar = (nuevas === 0 || cadenaParada) && stock < tp.stock;
-  const focos = objetivosBusqueda();
+  const focos = objetivosBusqueda(obj);
   if (hayQueBuscar && !(await ocupado('lucia')) && (await tareas.creadasHoy('lucia')) < tp.lucia && focos.length) {
     const i = Number(await ajuste('busqueda_idx', 0)) || 0;
     await fijarAjuste('busqueda_idx', i + 1);
@@ -203,23 +209,46 @@ export async function arrancarTurbo() {
 // la conexión y ya recibieron un mensaje, o vienen recomendadas). El primer contacto lo lleva Javi en la secuencia:
 // solicitud de LinkedIn y llamada al día siguiente sin esperar a que acepte (solo sociedades). Desde el 17/10/2026
 // las llamadas comerciales deben salir de un número 400: pedírselo a Zadarma para esas llamadas.
-async function llamadasDelDia() {
-  const r = await q(`SELECT e.id, e.nombre, e.telefono, e.estado, e.origen,
+/** Rafa, una vez al día: lo que le toca a Dirección hoy. Lo demás no le escribe. */
+async function resumenDeHoy() {
+  const r = (await q(`SELECT count(DISTINCT coalesce(empresa_id, id)) FILTER (WHERE split_part(coalesce(ref, ''), ':', 1) IN ('sec','paso') OR tipo IN ('mensaje','correo'))::int AS contactos,
+                             count(DISTINCT coalesce(empresa_id, id)) FILTER (WHERE split_part(coalesce(ref, ''), ':', 1) NOT IN ('sec','paso') AND tipo NOT IN ('mensaje','correo') AND prioridad <= 2)::int AS importantes
+                        FROM aprobaciones WHERE estado='pendiente' AND (pospuesta IS NULL OR pospuesta < now())`)).rows[0];
+  if (!r.contactos && !r.importantes) return;
+  await (await import('./telegram.js')).avisar(`☀️ Buenos días, Dirección. Hoy tienes ${r.contactos} empresa${r.contactos === 1 ? '' : 's'} para contactar${r.importantes ? ` y ${r.importantes} cosa${r.importantes === 1 ? '' : 's'} que solo puedes resolver tú` : ''}.${config.panelUrl ? `\n${config.panelUrl}` : ''}`);
+}
+
+/** Una sola vez: lo que ya contaron en llamadas de antes pasa a «Lo que nos ha contado» de su ficha. */
+export async function rellenarDolores() {
+  const r = await q(`SELECT DISTINCT e.id, e.nombre FROM empresas e JOIN llamadas l ON l.empresa_id=e.id WHERE e.dolores IS NULL AND l.resumen IS NOT NULL AND coalesce(l.segundos,0) >= 60 AND e.estado NOT IN ('perdida','descartada')`);
+  for (const e of r.rows) await tareas.crear('paula', `Solo esto, sin preparar nada para Dirección ni escribir a nadie: lee con leer_empresa lo hablado con ${e.nombre} (id ${e.id}) y apunta en el campo dolores, con actualizar_empresa, lo que le duele con sus palabras: una línea por punto, con la fecha de la llamada. Si no contó nada, no apuntes nada.`, { empresa_id: e.id, origen: 'sistema' });
+  return r.rows.length;
+}
+
+export async function llamadasDelDia() {
+  const r = await q(`SELECT e.id, e.nombre, e.telefono, e.estado, e.origen, x.acordada,
                             (SELECT p.clave FROM secuencias s JOIN pasos p ON p.secuencia_id=s.id WHERE s.empresa_id=e.id AND p.clave IN ('mensaje1','seguimiento1','seguimiento2') AND p.estado='hecho' ORDER BY p.hecho DESC LIMIT 1) AS ultimo_paso
-                       FROM empresas e
-                      WHERE e.telefono IS NOT NULL AND e.telefono <> '' AND e.estado NOT IN ('ganada','perdida','descartada','nueva')
-                        AND NOT EXISTS (SELECT 1 FROM tareas t WHERE t.empresa_id=e.id AND t.agente='nuria' AND t.instruccion LIKE 'Llamada del día%' AND t.creada > now() - interval '30 days')
-                        AND (e.estado IN ('conversacion','reunion','propuesta')
-                             OR e.origen IN ('web','google','gestoria','asociacion','evento','recomendacion','telegram','whatsapp','telefono')
-                             OR EXISTS (SELECT 1 FROM secuencias s JOIN pasos p ON p.secuencia_id=s.id WHERE s.empresa_id=e.id
-                                          AND p.clave IN ('mensaje1','seguimiento1') AND p.estado='hecho' AND p.hecho < now() - interval '3 days'))
-                      ORDER BY (e.estado IN ('conversacion','reunion','propuesta')) DESC, coalesce(e.puntuacion,0) DESC LIMIT 3`);
+                       FROM empresas e, LATERAL (SELECT EXISTS (SELECT 1 FROM recordatorios r WHERE r.empresa_id=e.id AND r.hecho IS NULL AND r.clase='llamada' AND r.dia = CURRENT_DATE) AS acordada) x
+                      WHERE e.estado NOT IN ('ganada','perdida','descartada','nueva') AND (x.acordada OR (e.telefono IS NOT NULL AND e.telefono <> ''))
+                        AND NOT EXISTS (SELECT 1 FROM tareas t WHERE t.empresa_id=e.id AND t.agente='nuria' AND t.instruccion LIKE 'Llamada del día%' AND t.creada > now() - interval '12 hours')
+                        AND NOT EXISTS (SELECT 1 FROM aprobaciones a WHERE a.empresa_id=e.id AND a.estado='pendiente' AND a.opciones::text LIKE '%Ya he llamado%')
+                        AND (x.acordada OR (
+                          NOT EXISTS (SELECT 1 FROM tareas t WHERE t.empresa_id=e.id AND t.agente='nuria' AND t.instruccion LIKE 'Llamada del día%' AND t.creada > now() - interval '30 days')
+                          -- Con fecha acordada o recién hablado, llamar hoy sería adelantarse
+                          AND (e.fecha_proximo_paso IS NULL OR e.fecha_proximo_paso <= CURRENT_DATE)
+                          AND NOT EXISTS (SELECT 1 FROM recordatorios r WHERE r.empresa_id=e.id AND r.hecho IS NULL AND r.dia > CURRENT_DATE)
+                          AND NOT EXISTS (SELECT 1 FROM llamadas l WHERE l.empresa_id=e.id AND coalesce(l.inicio, l.creada) > now() - interval '3 days')
+                          AND (e.estado IN ('conversacion','reunion','propuesta')
+                               OR e.origen IN ('web','google','gestoria','asociacion','evento','recomendacion','telegram','whatsapp','telefono')
+                               OR EXISTS (SELECT 1 FROM secuencias s JOIN pasos p ON p.secuencia_id=s.id WHERE s.empresa_id=e.id
+                                            AND p.clave IN ('mensaje1','seguimiento1') AND p.estado='hecho' AND p.hecho < now() - interval '3 days'))))
+                      ORDER BY x.acordada DESC, (e.estado IN ('conversacion','reunion','propuesta')) DESC, coalesce(e.puntuacion,0) DESC LIMIT 5`);
   for (const e of r.rows) {
-    const porque = ['conversacion', 'reunion', 'propuesta'].includes(e.estado) ? `ya estamos en conversación con ellos (estado «${e.estado}»)`
+    const porque = e.acordada ? 'tenéis una llamada acordada para hoy: parte de lo que ya contaron y proponle algo concreto' : ['conversacion', 'reunion', 'propuesta'].includes(e.estado) ? `ya estamos en conversación con ellos (estado «${e.estado}»)`
       : e.ultimo_paso ? `aceptaron la conexión en LinkedIn y ya les escribimos (${e.ultimo_paso}) hace más de 3 días sin respuesta`
       : `llegaron por ${e.origen} (nos conocen)`;
     const telefonos = await (await import('./contactos.js')).lineaTelefonos(e.id);
-    await encargar('nuria', `Llamada del día (en caliente): ${e.nombre} (id ${e.id}). A quién se puede llamar: ${telefonos || e.telefono}. Di en el guion a quién y a qué número, mejor al de quien decide que al general. Por qué se le llama: ${porque}. Lee la empresa, su dossier y lo que ya se ha hablado con leer_empresa y escribe el guion de la llamada para Dirección con guardar_secuencia (un solo paso: clave «llamada», canal «telefono»): empieza recordando de qué nos conocen (el mensaje, la conexión, su consulta), una pregunta para abrir conversación, el siguiente paso que se propone y qué decir si no es buen momento o sale el contestador. Si es un autónomo o un particular, no se llama: díselo a Dirección con anotar.`, { empresa_id: e.id, origen: 'sistema' });
+    await encargar('nuria', `Llamada del día (en caliente): ${e.nombre} (id ${e.id}). A quién se puede llamar: ${telefonos || e.telefono}. Di en el guion a quién y a qué número, mejor al de quien decide que al general. Por qué se le llama: ${porque}. Lee la empresa, su dossier y lo que ya se ha hablado con leer_empresa y escribe el guion de la llamada para Dirección con guardar_secuencia (un solo paso: clave «llamada», canal «telefono»): abriendo por lo que ya hay entre nosotros (el mensaje, la conexión, su consulta). Si es un autónomo o un particular, no se llama: díselo a Dirección con anotar.`, { empresa_id: e.id, origen: 'sistema' });
   }
   return r.rows.length;
 }
@@ -250,6 +279,15 @@ export async function semanales(m, vac) {
 export const revisarGerencia = () => tareas.crear('rafa', 'Revisión del gerente. Mira ver_mesa, ver_cola y resumen_embudo. Lo primero, los contactos calientes: si alguien espera algo de Dirección hoy (ha pedido que le llamen, ha contestado con interés) y su tarjeta no está en urgente, súbela con priorizar_tarjeta; si no hay tarjeta, encárgasela a quien toque. Si algo importante espera detrás de trabajo que no corre prisa, adelántalo con mover_tarea. Si un trabajo ya no hace falta, cancélalo. Si algo lleva días parado y falta quien lo haga, encárgalo. No le escribas a Dirección por esto salvo que te necesite. Si no hay nada que cambiar, termina con «Sin cambios».', { origen: 'sistema' });
 
 /** Captación: contenido, web, alianzas y eventos. No se programa nada nuevo para tu mesa si estás de vacaciones. */
+/** Lo que gasta IA sin que nadie lo pida: en pausa, no. Si Dirección reanuda ese mismo lunes, la reunión se celebra. */
+export async function reunionYCharlas(m, vac) {
+  if (await ajuste('pausado', config.pausadoInicial)) return;
+  // Reunión de equipo: los lunes a las 10:00 (después del informe del embudo)
+  if (!vac && m.dia === config.reunionDia && m.hora >= config.reunionHora) await unaVez('reunion:' + m.fecha, () => reunion.celebrar().catch(e => console.error('Reunión:', e.message)));
+  // Vida de oficina: las charlas del día, una sola llamada barata por la mañana
+  if (vida.estaActiva() && m.hora >= '07:45' && m.hora < '20:00') await vida.charlasSiFaltan().catch(e => console.error('Charlas:', e.message));
+}
+
 async function captacion(m, vac) {
   const dm = Number(m.fecha.slice(8, 10));
   if (!vac && m.dia === 1 && m.hora >= '09:15') await unaVez('contenido:' + m.fecha, async () => encargar('alex', await encargoContenido(m.fecha), { origen: 'sistema' }));
@@ -285,6 +323,7 @@ async function captacion(m, vac) {
   if (!vac && (deOficina || (await topes()).turbo)) await flujo().catch(e => console.error('Flujo:', e.message));
   // Atascos: si un agente lleva horas parado esperando algo, se avisa a Dirección
   (await import('./atascos.js')).revisar().catch(e => console.error('Atascos:', e.message));
+  if (!vac && m.dia >= 1 && m.dia <= 5 && m.hora >= '09:00') await unaVez('hoy:' + m.fecha, resumenDeHoy);
   // Llamadas del día: de lunes a viernes, Nuria prepara el guion de hasta 3 llamadas en caliente (empresas que ya nos conocen)
   if (!vac && m.dia >= 1 && m.dia <= 5 && m.hora >= '09:20') await unaVez('llamadas:' + m.fecha, llamadasDelDia);
   // Los viernes, Paula repasa cómo ha llamado Dirección esta semana
@@ -293,10 +332,7 @@ async function captacion(m, vac) {
   if (m.dia === 2 && m.hora >= '10:30') await unaVez('licitaciones:' + m.fecha, () => encargar('sara',
     'Busca licitaciones y contratos menores abiertos de lo que vende la empresa (mira la ficha «La empresa y su dueño») en su zona (ayuntamientos, diputación, universidades, empresas públicas): Plataforma de Contratación del Sector Público, perfiles del contratante y boletines. ' +
     'Solo las que estén abiertas y un autónomo pueda presentarse (importe, solvencia, plazo). Si hay alguna, cuéntasela a Dirección con enviar_informe: qué piden, importe, plazo y enlace. Si no hay ninguna que encaje, no envíes nada.', { origen: 'sistema' }));
-  // Reunión de equipo: los lunes a las 10:00 (después del informe del embudo)
-  if (!vac && m.dia === config.reunionDia && m.hora >= config.reunionHora) await unaVez('reunion:' + m.fecha, () => reunion.celebrar().catch(e => console.error('Reunión:', e.message)));
-  // Vida de oficina: las charlas del día, una sola llamada barata por la mañana
-  if (vida.estaActiva() && m.hora >= '07:45' && m.hora < '20:00') await vida.charlasSiFaltan().catch(e => console.error('Charlas:', e.message));
+  await reunionYCharlas(m, vac);
   // Premio del mes: el día 1 se entrega el del mes anterior
   if (dm === 1 && m.hora >= '09:05') await unaVez('premio:' + m.fecha, async () => {
     const g = await premios.entregar(premios.mesAnterior());

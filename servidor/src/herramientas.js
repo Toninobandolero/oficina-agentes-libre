@@ -1,8 +1,8 @@
 // Herramientas que los agentes pueden usar. Cada agente solo recibe las que tiene en agentes.js.
-import { q } from './db.js';
+import { q, ajuste, fijarAjuste } from './db.js';
 import { config } from './config.js';
 import { PRO } from './modulos.js';
-import { log, calcularEmbudo, guardarInforme } from './bus.js';
+import { emitir, log, calcularEmbudo, guardarInforme } from './bus.js';
 import { AGENTES, IDS, puedeEncargar } from './agentes.js';
 import * as empresas from './empresas.js';
 import * as tareas from './tareas.js';
@@ -33,7 +33,7 @@ const CAMPOS_EMPRESA = {
   linkedin_url: str('Perfil personal de LinkedIn del decisor (linkedin.com/in/...), SOLO si coincide nombre y empresa o cargo'),
   linkedin_empresa: str('Página de la empresa en LinkedIn (linkedin.com/company/...)'),
   email: str('Email de contacto de la empresa publicado en su web'), telefono: str('Teléfono GENERAL de la empresa (el móvil de una persona concreta va con guardar_contacto)'), whatsapp: str('Número o enlace de WhatsApp publicado por la empresa'),
-  direccion: str('Dirección postal de la empresa o de su local principal, para una visita o una carta'), instagram: str('Instagram de la empresa (para informarse, no para escribir en frío)'), facebook: str('Facebook de la empresa (para informarse, no para escribir en frío)'),
+  direccion: str('Dirección postal de la empresa o de su local principal, para una visita'), instagram: str('Instagram de la empresa (para informarse, no para escribir en frío)'), facebook: str('Facebook de la empresa (para informarse, no para escribir en frío)'),
   google_place_id: str('Identificador de Google Maps (place_id), si salió de buscar_maps'),
   fuente: str('URL(s) donde se comprobó, separadas por espacios'), notas: str('Señales y evidencias, breve'),
   origen: str('De dónde viene el contacto (por defecto «busqueda»: lo encontramos nosotros)', { enum: empresas.ORIGENES }),
@@ -50,7 +50,7 @@ const CAMPOS_ALIANZA = {
 export const DEFINICIONES = {
   buscar_web: {
     description: 'Busca en internet (cada búsqueda cuesta dinero: piensa bien la consulta). Devuelve URLs, títulos y extractos.',
-    input_schema: { type: 'object', properties: { consulta: str('Qué buscar, en español y concreto: «grupo restauración Getafe varios locales gerente»') }, required: ['consulta'] },
+    input_schema: { type: 'object', properties: { consulta: str('Qué buscar, concreto y en el idioma de las empresas que buscas: «grupo restauración Getafe varios locales gerente»') }, required: ['consulta'] },
   },
   leer_web: {
     description: 'Lee el texto de una página web (gratis). Úsala con URLs de resultados de búsqueda o de la ficha de la empresa.',
@@ -69,7 +69,7 @@ export const DEFINICIONES = {
     input_schema: { type: 'object', properties: { consulta: str('Sector y zona: «clínicas dentales en Madrid»') }, required: ['consulta'] },
   },
   consultar_oficina: {
-    description: 'Consulta lo que sabe la oficina: informes (de cualquiera), actividad (lo que ha hecho cada uno), trabajo (encargos entre compañeros), notas (las libretas de todos), aprendido (reglas y correcciones de Dirección), planes (objetivos de Dirección) y reunion (la última acta). Mírala antes de decidir o de preguntar lo que ya se sabe.',
+    description: 'Consulta lo que sabe la oficina: informes (de cualquiera), actividad (lo que ha hecho cada uno), conversaciones (lo que Dirección ha hablado con cualquier compañero), trabajo (encargos entre compañeros), notas (las libretas de todos), aprendido (reglas y correcciones de Dirección), planes (objetivos de Dirección) y reunion (la última acta). Mírala antes de decidir o de preguntar lo que ya se sabe.',
     input_schema: { type: 'object', properties: { que: str('Qué consultar', { enum: oficina.CONSULTAS }), texto: str('Filtra por este texto'), limite: { type: 'integer', description: 'Cuántos, hasta 30 (por defecto 10)' } }, required: ['que'] },
   },
   listar_empresas: {
@@ -96,6 +96,7 @@ export const DEFINICIONES = {
         categoria: str('A, B, C o D', { enum: ['A', 'B', 'C', 'D'] }), confianza: str('alta, media o baja', { enum: ['alta', 'media', 'baja'] }),
         estado: str('Estado del embudo', { enum: empresas.ESTADOS }),
         proximo_paso: str('Siguiente acción'), fecha_proximo_paso: str('AAAA-MM-DD'), ultimo_contacto: str('AAAA-MM-DD'),
+        dolores: str('Lo que le duele, dicho por ellos y con sus palabras: una línea por punto, con la fecha. Pasa la lista entera, lo de antes y lo nuevo'),
       } } }, required: ['id', 'campos'] },
   },
   corregir_contacto: {
@@ -123,7 +124,7 @@ export const DEFINICIONES = {
         esquema: { type: 'object', description: 'Antes y después sin números', properties: { hoy: { type: 'array', items: { type: 'string' }, description: 'Hasta 4 cosas cortas: «Excel de cada centro»' }, despues: { type: 'array', items: { type: 'string' }, description: 'Hasta 2' } } },
         puntos: { type: 'array', description: 'Hasta 3 oportunidades', items: { type: 'object', properties: { titulo: str('Título'), texto: str('Hasta 170 letras') }, required: ['titulo'] } },
         primero: { type: 'object', properties: { titulo: str('Lo primero que haríamos'), texto: str('En lenguaje de negocio'), plazo: str('Plazo'), precio: str('Solo si Dirección lo quiere: rango orientativo') }, required: ['titulo'] },
-        no_haria: str('Lo que no haríamos todavía'), siguiente: str('Siguiente paso, hasta 130 letras'), imagen: str('Trabajo nuestro que más se le parezca', { enum: ['talleres', 'gestion', 'automatizacion', 'turnos', 'reservas'] }),
+        no_haria: str('Lo que no haríamos todavía'), siguiente: str('Siguiente paso, hasta 130 letras'), imagen: str('Un trabajo nuestro, solo si se parece de verdad a su negocio. Si no, no pongas ninguna', { enum: ['talleres', 'gestion', 'automatizacion', 'turnos', 'reservas'] }),
       } },
       canal: str('Contenido: dónde se publica', { enum: ['linkedin', 'facebook', 'instagram', 'youtube', 'google', 'web', 'boletin', 'anuncios'] }),
       fecha_prevista: str('Contenido: día previsto de publicación (AAAA-MM-DD)'),
@@ -140,7 +141,7 @@ export const DEFINICIONES = {
     }, required: ['tipo', 'titulo', 'texto'] },
   },
   guardar_secuencia: {
-    description: 'Entrega el PRIMER CONTACTO con una empresa: notas para Dirección y solicitud de conexión (o, si no hay LinkedIn, la llamada, la visita, la carta o la presentación). Solo un paso: el mensaje 1 y los seguimientos se te piden después, cuando acepte o cuando toque. Sustituye a pedir_aprobacion para los mensajes de prospección.',
+    description: 'Entrega el PRIMER CONTACTO con una empresa: notas para Dirección y solicitud de conexión (o, si no hay LinkedIn, la llamada, el correo o la presentación). Solo un paso: el mensaje 1 y los seguimientos se te piden después, cuando acepte o cuando toque. Sustituye a pedir_aprobacion para los mensajes de prospección.',
     input_schema: { type: 'object', properties: {
       empresa_id: str('id de la empresa'),
       decisor: str('Nombre del decisor al que va dirigida (vacío si no se sabe: «la gerencia»)'),
@@ -149,7 +150,7 @@ export const DEFINICIONES = {
       caduca: str('Opcional. Fecha (AAAA-MM-DD) en que el gancho deja de valer (p. ej. «abren el 5 de noviembre»)'),
       pasos: { type: 'array', description: 'El primer contacto: «conexion» (solicitud de LinkedIn) y, si hay teléfono, también «llamada» (el guion para llamar al día siguiente, sin esperar a que acepte). Sin LinkedIn, el paso de la vía que haya: «llamada», «visita», «carta» o «presentacion». Lo demás no se guarda: se escribe cuando toque.', items: { type: 'object', properties: {
         clave: str('Qué paso es', { enum: secuencias.CLAVES }),
-        canal: str('Por dónde', { enum: ['linkedin', 'telefono', 'visita', 'carta', 'email', 'whatsapp', 'presentacion'] }),
+        canal: str('Por dónde', { enum: ['linkedin', 'telefono', 'visita', 'email', 'whatsapp', 'presentacion'] }),
         texto: str('El texto exacto listo para copiar (en llamada, el guion)'),
         asunto: str('LinkedIn: asunto corto (máx. 60 caracteres) por si LinkedIn lo pide (InMail o mensaje a quien aún no es contacto). Si no lo pones, se pone uno por defecto.'),
         dias: { type: 'integer', description: 'Días que hay que esperar desde el paso anterior (llamada: 1, al día siguiente de la solicitud, o 0 el mismo día; seguimiento 1: 4–5; seguimiento 2: 5–6). Opcional.' },
@@ -160,7 +161,7 @@ export const DEFINICIONES = {
     description: 'Entrega el siguiente mensaje de una secuencia que ya está en marcha (mensaje 1 cuando acepta, seguimiento 1 o 2 si no contesta, guion de llamada). Va a la mesa de Dirección al momento.',
     input_schema: { type: 'object', properties: {
       empresa_id: str('id de la empresa'),
-      clave: str('Qué paso es', { enum: ['mensaje1', 'seguimiento1', 'seguimiento2', 'llamada', 'carta', 'visita', 'presentacion', 'otro'] }),
+      clave: str('Qué paso es', { enum: ['mensaje1', 'seguimiento1', 'seguimiento2', 'llamada', 'visita', 'presentacion', 'otro'] }),
       texto: str('El texto exacto listo para copiar (en llamada, el guion)'),
       asunto: str('LinkedIn: asunto corto (máx. 60 caracteres) por si LinkedIn lo pide. Opcional.'),
     }, required: ['empresa_id', 'clave', 'texto'] },
@@ -214,6 +215,14 @@ export const DEFINICIONES = {
       preferente: { type: 'boolean', description: 'true si es a quien hay que llamar primero' }, notas: str('De dónde sale el dato o cuándo se le localiza'),
     } },
   },
+  retirar_tarjeta: {
+    description: 'Quita de la mesa de Dirección una tarjeta que ya no toca (id de ver_mesa). No sirve para rechazar trabajo: solo para lo que han dejado atrás los hechos. Di por qué: Dirección lo ve en Actividad.',
+    input_schema: { type: 'object', properties: { id: str('id de la tarjeta'), motivo: str('Por qué ya no toca, en una frase') }, required: ['id', 'motivo'] },
+  },
+  limpiar_empresa: {
+    description: 'Ha cambiado algo con una empresa y lo pendiente se ha quedado viejo: retira sus pasos de contacto y los avisos de llamar que apuntó el equipo, y marca lo preparado para que Dirección lo revise. Los avisos de Dirección no se tocan.',
+    input_schema: { type: 'object', properties: { empresa_id: str('id de la empresa'), que: str('Qué ha cambiado: «tu llamada con el dueño»') }, required: ['empresa_id', 'que'] },
+  },
   ver_mesa: {
     description: 'Lo que espera en la mesa de Dirección: cada tarjeta con su id, quién la preparó, empresa, prioridad y desde cuándo.',
     input_schema: { type: 'object', properties: {} },
@@ -254,8 +263,13 @@ export const DEFINICIONES = {
     description: 'Propone a Dirección guardar una preferencia suya sobre cómo debe trabajar el equipo (o un agente). Le llega para aprobar; solo se aplica cuando la aprueba. Úsala solo si Dirección expresa una preferencia estable, no para encargos puntuales.',
     input_schema: { type: 'object', properties: { texto: str('La regla, en imperativo y breve: «No envíes nada antes de las 9:00»'), agente: str('id del agente si solo le aplica a uno; vacío = todo el equipo', { enum: IDS }) }, required: ['texto'] },
   },
+  ver_normas: { description: 'Las normas de trabajo que tiene el equipo ahora, con su id.', input_schema: { type: 'object', properties: {} } },
+  quitar_norma: { description: 'Quita una norma de trabajo. Solo si te lo pide Dirección.', input_schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] } },
+  cambiar_objetivo: { description: 'Cambia cuántas empresas busca el equipo y de qué tipo. Solo si te lo pide Dirección.', input_schema: { type: 'object', properties: { cantidad: { type: 'integer' }, periodo: str('dia o semana', { enum: ['dia', 'semana'] }), focos: { type: 'array', items: { type: 'string' }, description: 'Opcional. Tipos de empresa a buscar, con tamaño y zona. Sin esto se mantienen los de ahora.' } }, required: ['cantidad', 'periodo'] } },
+  deshacer_cambio: { description: 'Deshace tu último cambio de normas u objetivo. Solo si te lo pide Dirección.', input_schema: { type: 'object', properties: {} } },
+  apuntar_fallo: { description: 'Apunta un fallo de la aplicación que no puedes arreglar tú (un botón que no funciona, algo que se ve mal), con lo que le ha pasado a Dirección, para que se arregle.', input_schema: { type: 'object', properties: { texto: str('Qué falla, dónde y qué esperaba Dirección') }, required: ['texto'] } },
   preparar_correo: {
-    description: 'Prepara un correo desde el buzón de la oficina. Llega a la mesa de Dirección con el botón «Enviar»; no sale sin él. Solo a quien ya nos ha escrito o a una empresa en conversación (nunca en frío: LSSI).',
+    description: 'Prepara un correo desde el buzón de la oficina. Llega a la mesa de Dirección con el botón «Enviar»; no sale sin él. A quién se escribe lo decide Dirección: a quien aún no nos conoce, solo si te lo pide.',
     input_schema: { type: 'object', properties: {
       empresa_id: str('id de la empresa'), para: str('Dirección de correo del destinatario'),
       asunto: str('Asunto (si respondes, se pone «Re: …» solo)'), texto: str('Cuerpo del correo, sin firma (la firma se añade sola)'),
@@ -308,12 +322,20 @@ export const DEFINICIONES = {
 };
 
 /** Las herramientas de un agente: las suyas, la web si la tiene, Google Maps si está conectado, y las comunes (la información de todos, la libreta y el atasco). Una sola lista para ofrecerlas y para permitirlas. */
+// Rafa solo cambia cómo trabaja el equipo si se lo pide Dirección: nunca por lo que lea en una web, un correo o un encargo automático
+const pideDueno = ctx => ctx.tarea?.origen === 'dueno';
+const SOLO_DUENO = 'Esto solo se cambia si te lo pide Dirección directamente.';
+async function apuntarCambio(c) {
+  const lista = await ajuste('cambios_rafa', []);
+  lista.push({ cuando: new Date().toISOString(), ...c });
+  await fijarAjuste('cambios_rafa', lista.slice(-50));
+}
 // Los de un departamento propio solo ven empresas e informes con su permiso «clientes»
-const COMUNES = ['leer_empresa', 'listar_empresas', 'consultar_oficina'], SIEMPRE = ['guardar_nota', 'olvidar_nota', 'aprender', 'estoy_atascado'];
+const COMUNES = ['ver_mesa', 'leer_empresa', 'listar_empresas', 'consultar_oficina'], SIEMPRE = ['guardar_nota', 'olvidar_nota', 'aprender', 'estoy_atascado'];
 export function nombresDe(id) {
   const a = AGENTES[id];
   const SOLO_CENTRALITA = ['resultado_llamada', 'resumen_llamada'];   // el análisis de llamadas es de la edición Pro
-  return [...new Set([...(a.web ? ['buscar_web', 'leer_web'] : []), ...(a.maps && fuentes.mapsActivo() ? ['buscar_maps'] : []), ...a.herramientas, ...(a.skill ? COMUNES : []), ...SIEMPRE])]
+  return [...new Set([...(a.web ? [...(a.web.busquedas > 0 ? ['buscar_web'] : []), 'leer_web'] : []), ...(a.maps && fuentes.mapsActivo() ? ['buscar_maps'] : []), ...a.herramientas, ...(a.skill ? COMUNES : []), ...SIEMPRE])]
     .filter(n => PRO.centralita || !SOLO_CENTRALITA.includes(n));
 }
 export function paraAgente(id) {
@@ -402,6 +424,12 @@ export async function ejecutar(ctx, nombre, input = {}) {
     }
     case 'pedir_aprobacion': {
       comprobarVeto(input.texto);
+      if (input.documento) {
+        const doc = await import('./documento.js');
+        const fallos = doc.revisarDocumento(input.documento);
+        if (!fallos.length && !doc.cabeEnUnaPagina(doc.limpiarDocumento(input.documento))) fallos.push('no cabe en una página: quita lo que menos aporte');
+        if (fallos.length) return { error: `Este documento no cabe bien: ${fallos.join('; ')}. Recórtalo y vuelve a entregarlo.` };
+      }
       if (input.tipo === 'boletin') { const b = (await import('./boletin.js')).leerBoletin(input.texto); if (b.error) throw new Error(`${b.error} Corrígelo y vuelve a entregarlo.`); }
       const guion = input.tipo === 'video' ? video.leerEscenas(input.texto) : null;
       if (guion?.error) throw new Error(`${guion.error} Sin el bloque ESCENAS DEL VÍDEO, con una escena por línea («frase | frase en color | segundos»), Dirección no puede generar el vídeo. Corrígelo y vuelve a entregarlo.`);
@@ -419,6 +447,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
     case 'guardar_secuencia': {
       (input.pasos || []).forEach(x => comprobarVeto(x?.texto));
       const paraSecuencia = await empresas.leer(input.empresa_id || ctx.tarea.empresa_id);
+      if (['perdida', 'descartada'].includes(paraSecuencia?.estado)) return { error: `${paraSecuencia.nombre} está ${paraSecuencia.estado}: no se le prepara contacto. Si ha cambiado algo, díselo a Dirección.` };
       if (paraSecuencia) {
         const { faltan } = await (await import('./protocolo.js')).minimo({ ...paraSecuencia, linkedin_url: input.linkedin_url || paraSecuencia.linkedin_url, decisor: input.decisor || paraSecuencia.decisor });
         if (faltan.length) return { error: `Antes de contactar con ${paraSecuencia.nombre} falta saber: ${faltan.join(', ').toLowerCase()}. Complétalo o pídeselo a quien corresponda: no le escribas sin eso.` };
@@ -469,6 +498,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
       const hoy = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date());
       if (String(input.dia || '') < hoy) return { error: `El día tiene que ser hoy (${hoy}) o después, en formato AAAA-MM-DD.` };
       const emp = input.empresa_id || ctx.tarea.empresa_id || null;
+      if (emp && input.tipo === 'llamada' && ['perdida', 'descartada'].includes((await q(`SELECT estado FROM empresas WHERE id=$1`, [emp])).rows[0]?.estado)) return { error: 'Esa empresa está perdida o descartada: no se apunta llamarla.' };
       if (emp && !String(input.detalle || '').trim()) return { error: 'Di en «detalle» por qué: lo que dijo o lo acordado, con su fecha. Un recordatorio sin motivo no sirve.' };
       const id = await (await import('./agenda.js')).recordar({ dia: input.dia, hora: input.hora, texto: input.texto, clase: input.tipo === 'llamada' ? 'llamada' : null, creado_por: ctx.agente,
         empresa_id: emp, telefono: input.telefono || null, detalle: input.detalle || null });
@@ -493,6 +523,14 @@ export async function ejecutar(ctx, nombre, input = {}) {
       await log(ctx.agente, `ha apuntado a ${c.nombre || c.telefono || c.email}${c.cargo ? `, ${c.cargo},` : ''} en los contactos de la empresa.`, { empresa_id: id });
       return { ok: true, contacto: c.id };
     }
+    case 'retirar_tarjeta': {
+      const r = (await q(`UPDATE aprobaciones SET estado='superada', resuelta=now() WHERE id=$1 AND estado='pendiente' RETURNING id, titulo, empresa_id`, [String(input.id || '')])).rows[0];
+      if (!r) return { error: 'Esa tarjeta ya no está en la mesa: míralo con ver_mesa.' };
+      await emitir({ tipo: 'aprobacion_resuelta', id: r.id, resultado: 'superada' });
+      await log(ctx.agente, `ha retirado de tu mesa «${String(r.titulo).slice(0, 100)}»: ${String(input.motivo || '').slice(0, 200)}`, { empresa_id: r.empresa_id || undefined });
+      return { ok: true };
+    }
+    case 'limpiar_empresa': return { ok: true, ...(await (await import('./mesaViva.js')).ocurrio(input.empresa_id || ctx.tarea.empresa_id, { que: input.que })) };
     case 'ver_mesa': {
       const pend = await aprobaciones.pendientes();
       return pend.map(a => ({ a, p: aprobaciones.prioridadDe(a) })).sort((x, y) => x.p.nivel - y.p.nivel)
@@ -544,11 +582,51 @@ export async function ejecutar(ctx, nombre, input = {}) {
     }
     case 'guardar_regla': {
       // Las reglas que propone un agente no se activan hasta que Dirección las aprueba
+      // Si es Dirección quien se lo pide a Rafa, se aplica ya: Rafa es quien manda en cómo trabaja el equipo, y se puede deshacer
+      if (ctx.agente === 'rafa' && pideDueno(ctx)) {
+        const r = await aprendizajes.nuevaRegla(input.texto, input.agente || null, { activa: true });
+        await apuntarCambio({ tipo: 'norma', id: r.id, que: r.texto });
+        await log('rafa', `ha aplicado una norma nueva${input.agente ? ` para ${AGENTES[input.agente].nombre}` : ''}: «${r.texto}»`);
+        return { ok: true, nota: 'Ya se aplica. Díselo en una línea y recuérdale que se puede deshacer.' };
+      }
       const r = await aprendizajes.nuevaRegla(input.texto, input.agente || null, { activa: false });
       const para = input.agente ? ` para ${AGENTES[input.agente].nombre}` : ' para todo el equipo';
       await aprobaciones.crear({ agente: ctx.agente, tipo: 'regla', titulo: `propone esta regla${para}`, texto: r.texto, ref: String(r.id) });
       ctx.esperando = true;
       return { ok: true, nota: 'Propuesta enviada a Dirección. Se aplicará cuando la apruebe. Díselo así en tu respuesta.' };
+    }
+    case 'quitar_norma': {
+      if (!pideDueno(ctx)) return { error: SOLO_DUENO };
+      if (!(await aprendizajes.quitar(Number(input.id)))) return { error: 'Esa norma no existe o ya no está activa. Míralas con ver_normas.' };
+      await apuntarCambio({ tipo: 'norma_quitada', id: Number(input.id) });
+      return { ok: true };
+    }
+    case 'ver_normas': return { normas: await aprendizajes.reglas() };
+    case 'cambiar_objetivo': {
+      if (!pideDueno(ctx)) return { error: SOLO_DUENO };
+      const busqueda = await import('./busqueda.js');
+      const antes = await busqueda.leer();
+      const o = await busqueda.fijar({ cantidad: input.cantidad, periodo: input.periodo, ...(input.focos?.length ? { focos: input.focos } : {}) });
+      await apuntarCambio({ tipo: 'objetivo', antes });
+      await log('rafa', `ha cambiado el objetivo de empresas: ${o?.cantidad ?? 'sin objetivo'}${o ? ` al ${o.periodo === 'dia' ? 'día' : 'semana'}` : ''}.`);
+      return { ok: true, objetivo: o };
+    }
+    case 'deshacer_cambio': {
+      if (!pideDueno(ctx)) return { error: SOLO_DUENO };
+      const lista = await ajuste('cambios_rafa', []), c = lista.pop();
+      if (!c) return { error: 'No hay ningún cambio que deshacer.' };
+      if (c.tipo === 'norma') await aprendizajes.quitar(c.id);
+      if (c.tipo === 'norma_quitada') await aprendizajes.activar(c.id);
+      if (c.tipo === 'objetivo') await (await import('./busqueda.js')).fijar(c.antes ? { ...c.antes } : { cantidad: '' });
+      await fijarAjuste('cambios_rafa', lista);
+      await log('rafa', `ha deshecho su último cambio (${c.tipo}).`);
+      return { ok: true, deshecho: c };
+    }
+    case 'apuntar_fallo': {
+      const fallos = await ajuste('fallos_app', []);
+      fallos.push({ cuando: new Date().toISOString(), texto: String(input.texto).slice(0, 1000) });
+      await fijarAjuste('fallos_app', fallos.slice(-100));
+      return { ok: true, nota: 'Apuntado para arreglarlo. Díselo a Dirección en una línea.' };
     }
     case 'preparar_correo': {
       const r = await correo.preparar({ agente: ctx.agente, empresa_id: input.empresa_id || ctx.tarea.empresa_id, para: input.para, asunto: input.asunto, texto: input.texto, adjuntar_documento: input.adjuntar_documento, en_respuesta_a: input.en_respuesta_a });

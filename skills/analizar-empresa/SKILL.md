@@ -15,7 +15,7 @@ Lo que vendemos, a quién y en qué zona está en la ficha «La empresa y su due
 Nombre y/o web de una empresa, o varias empresas de la base con `estado=nueva`.
 
 ## Investigación
-No hay una fuente obligatoria: hay cinco preguntas. Cada una se contesta con lo más barato que sirva, y se para en cuanto hay bastante para decidir.
+No hay una fuente obligatoria: hay seis preguntas. Cada una se contesta con lo más barato que sirva, y se para en cuanto hay bastante para decidir.
 
 | Pregunta | Dónde mirar, de lo más barato a lo más caro |
 |---|---|
@@ -23,6 +23,7 @@ No hay una fuente obligatoria: hay cinco preguntas. Cada una se contesta con lo 
 | **¿Qué tamaño tienen?** | Su web (equipo, locales); ofertas de empleo; Empresite o Infoempresa; cuentas, si aparecen |
 | **¿Quién decide la compra de lo que vendemos?** | Su web (quiénes somos, aviso legal, prensa); `consultar_borme` (administradores); prensa local; LinkedIn si está |
 | **¿Les hace falta lo que vendemos?** | Reseñas (según el sector, abajo); ofertas de empleo que delaten esa necesidad; su web y sus redes |
+| **¿Qué usan ya?** | Muchos programas no se ven al leer la web: `programas_detectados` solo ve algunos. Abre su página de reservas, citas o contacto y haz una búsqueda con su nombre y «reservas», «cita» o «chat». Si es un grupo con varios locales, mira la web de al menos dos y busca el nombre de cada uno con lo que use su sector («thefork», «covermanager», «doctoralia»). Si no lo has podido comprobar, escribe «sin comprobar», no «no tienen» |
 | **¿Cómo llegar?** | LinkedIn si está; teléfono de la empresa; dirección para ir o escribir; un contacto en común; su asociación |
 
 **Según el sector:**
@@ -74,10 +75,12 @@ Cada punto debe tener una **evidencia** (qué se vio y dónde). Sin evidencia, n
 ## En una frase
 Qué hacen y por qué son buen candidato.
 
+**Ya usan:** una línea con lo que tienen para reservas, citas, chat, clientes o tienda, o «nada detectado». Lo que ya tienen resuelto no es un dolor: nadie les va a vender lo que ya usan.
+
 ## Decisor
 Nombre, cargo y de dónde sale (su web, BORME…).
 
-**Cómo llegar:** las vías que haya, de mejor a peor: contacto en común, LinkedIn, teléfono de la empresa, visita, carta. Sin LinkedIn también hay dossier: lo que hace falta es al menos una vía. Si no hay ninguna, se dice.
+**Cómo llegar:** las vías que haya, de mejor a peor: contacto en común, LinkedIn, teléfono de la empresa, correo. Sin LinkedIn también hay dossier: lo que hace falta es al menos una vía. Si no hay ninguna, se dice.
 
 **LinkedIn (mirarlo una vez, si está):**
 - **Perfil del decisor**: busca «<nombre> <empresa> LinkedIn». Solo es **verificado** si el resultado coincide en nombre completo **y** empresa o cargo. Entonces va a `linkedin_url`.

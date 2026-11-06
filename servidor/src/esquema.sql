@@ -396,7 +396,10 @@ UPDATE bloqueos b SET ayuda_tarea_id = t.id FROM tareas t
  WHERE b.ayuda_tarea_id IS NULL AND b.resuelto IS NULL AND b.necesita <> 'dueno' AND t.agente = b.necesita AND t.origen = b.agente AND position(b.motivo IN t.instruccion) > 0;
 ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS publicar_en TIMESTAMPTZ;   -- día y hora a la que Dirección la ha programado
 ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS documento JSONB;           -- diagnóstico o propuesta con estructura, para maquetarlo en PDF (documento.js)
+ALTER TABLE correos ADD COLUMN IF NOT EXISTS formato TEXT;                    -- diseno (con la marca) o texto
+ALTER TABLE correos ADD COLUMN IF NOT EXISTS cuenta TEXT;                     -- desde qué cuenta sale (cuentasCorreo.js)
 ALTER TABLE correos ADD COLUMN IF NOT EXISTS adjunto TEXT;                    -- la tarjeta cuyo PDF va adjunto
+ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS desfasada TEXT;            -- preparada antes de una novedad de esa empresa: Dirección la ve avisada (mesaViva.js)
 ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS llamada_en TIMESTAMPTZ;   -- cuándo se llamó por la centralita: ya no hay que marcar «Ya he llamado»
 ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS fallo_pub TIMESTAMPTZ;     -- último intento fallido de publicar (se reintenta a las 3 h)
 CREATE TABLE IF NOT EXISTS recordatorios (
@@ -525,3 +528,4 @@ ALTER TABLE empresas ADD COLUMN IF NOT EXISTS instagram TEXT;
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS facebook TEXT;
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS google_place_id TEXT;
 ALTER TABLE tareas ADD COLUMN IF NOT EXISTS paso INTEGER;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS dolores TEXT;   -- lo que le duele, dicho por ellos

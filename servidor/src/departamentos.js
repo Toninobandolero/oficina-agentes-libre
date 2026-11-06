@@ -12,7 +12,7 @@ export const DEPARTAMENTOS = [
   { id: 'investigacion', nombre: 'Investigación', agentes: ['lucia', 'mateo', 'carmen'], para: 'Busca empresas, las puntúa y prepara un dossier de cada una. Para quien vende a otras empresas.' },
   { id: 'ventas', nombre: 'Ventas', agentes: ['javi', 'paula'], para: 'Escribe los primeros contactos, hace el seguimiento y contesta a quien escribe.' },
   { id: 'marketing', nombre: 'Marketing', agentes: ['alex', 'sara'], para: 'Contenido, redes, vídeos y boletín, y vigila lo que pasa en el mercado.' },
-  { id: 'preventa', nombre: 'Preventa y legal', agentes: ['nuria', 'pilar'], para: 'Prepara propuestas y revisa lo legal de lo que se envía.' },
+  { id: 'preventa', nombre: 'Preventa y legal', agentes: ['nuria', 'pilar'], para: 'Prepara propuestas, les da forma de documento y revisa lo legal de lo que se envía.' },
   { id: 'alianzas', nombre: 'Alianzas y web', agentes: ['marta', 'leo'], para: 'Colaboradores y eventos; web, ficha de Google y anuncios.' },
 ];
 

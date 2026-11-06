@@ -10,6 +10,14 @@ La oficina de agentes se ofrece en dos ediciones. **La Pro incluye siempre todo 
 | Rafa, gerente de la oficina, y departamentos a tu medida | ✅ | ✅ |
 | Cartera de clientes, boletín, LinkedIn, Facebook, Telegram, correo y calendario | ✅ | ✅ |
 | Vídeos a partir del guion, y panel con la oficina en 2D y en 3D | ✅ | ✅ |
+| Importar tu cartera desde Excel o CSV, el equipo en tu idioma y enviar desde tus cuentas de correo | ✅ | ✅ |
+| Diagnósticos y propuestas en PDF con tu logo, y una mesa que nunca enseña nada antiguo | ✅ | ✅ |
+| **Vender mejor** | | |
+| **Guiones de llamada con método de venta**: cada guion lleva al cliente hasta el objetivo y se rehace si es el típico «hola, me llamo» | — | ✅ |
+| **Ensayo de la llamada**: Javi hace de cliente, te pone objeciones y te dice qué mejorar | — | ✅ |
+| **Inés, diseño y comunicación**: da forma a cada diagnóstico y propuesta para que el dueño lo entienda de un vistazo | — | ✅ |
+| **Correo con el diseño de tu empresa**, con tu logo y tu firma | — | ✅ |
+| **Rafa vigila la oficina**: prueba cada día que el correo llega, repasa los datos y te avisa de lo que falla | — | ✅ |
 | **Teléfono** | | |
 | **Lola, recepcionista de voz**: atiende las llamadas a cualquier hora, apunta el recado, recupera las llamadas que se cortan y te pasa al móvil las que lo piden | — | ✅ |
 | **Centralita**: llamar desde la oficina, y transcripción y análisis de cada llamada | — | ✅ |

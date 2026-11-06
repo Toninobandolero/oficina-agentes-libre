@@ -12,15 +12,17 @@ const inicioDe = unidad => `date_trunc('${unidad}', now() AT TIME ZONE '${TZ}') 
 
 export async function leer() {
   const o = await ajuste('objetivo_empresas', null);
-  return Number.isInteger(o?.cantidad) ? { cantidad: o.cantidad, periodo: o.periodo === 'dia' ? 'dia' : 'semana' } : null;
+  if (o?.focos?.length) config.sectoresPrioritarios = o.focos.join('; ');   // lo que pide Dirección manda sobre lo configurado
+  return Number.isInteger(o?.cantidad) ? { cantidad: o.cantidad, periodo: o.periodo === 'dia' ? 'dia' : 'semana', focos: o.focos || [] } : null;
 }
 
 /** { cantidad, periodo: 'semana' | 'dia' }. Vacío quita el objetivo; 0 significa que esta oficina no busca. */
-export async function fijar({ cantidad, periodo } = {}) {
+export async function fijar({ cantidad, periodo, focos } = {}) {
   if (cantidad === '' || cantidad == null) { await fijarAjuste('objetivo_empresas', null); return null; }
   const n = Number(cantidad);
   if (!Number.isInteger(n) || n < 0 || n > 500) throw new Error('Pon un número entero de empresas entre 0 y 500.');
-  await fijarAjuste('objetivo_empresas', { cantidad: n, periodo: periodo === 'dia' ? 'dia' : 'semana' });
+  const previo = await ajuste('objetivo_empresas', null);
+  await fijarAjuste('objetivo_empresas', { cantidad: n, periodo: periodo === 'dia' ? 'dia' : 'semana', focos: Array.isArray(focos) ? focos.map(f => String(f).trim().slice(0, 200)).filter(Boolean) : previo?.focos || [] });
   return leer();
 }
 

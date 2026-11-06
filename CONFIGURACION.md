@@ -2,6 +2,8 @@
 
 Guía para poner en marcha la oficina desde cero y conectar cada servicio. Para instalarla en el servidor (Docker, dominio, Caddy), mira primero [README.md](README.md).
 
+**En el panel**, cada conexión lleva esta ayuda paso a paso, con sus enlaces, lo que cuesta y qué hacer si da error: pulsa **❓ Ayuda paso a paso** en ☰ Menú → ⚙️ Configuración → 🔌 Conexiones o en 🧠 Claves de IA.
+
 **Regla de oro:** las claves nunca van en el repositorio. Unas van en el archivo `.env` (que está en `.gitignore`) y otras se pegan en el panel, que las guarda **cifradas** en la base de datos.
 
 **La primera vez que abres el panel**, te pide tu clave de IA y, con ella, Rafa te ayuda a configurar la empresa, la imagen de marca y el presupuesto. Esta guía es para conectar el resto, cuando quieras.
@@ -14,11 +16,12 @@ Guía para poner en marcha la oficina desde cero y conectar cada servicio. Para 
 | [Contraseña y clave de cifrado](#1-lo-imprescindible-env) | Entrar al panel y cifrar lo que se guarda | Sí | `.env` |
 | [Tu empresa](#2-tu-empresa-mi-empresa) | Lo que los agentes saben de ti, tu zona y tu tono | Sí | Panel → ☰ Menú → Mi empresa |
 | [Presupuesto y ritmo](#3-presupuesto-y-ritmo) | Cuánto puede gastar el equipo y a qué ritmo trabaja | Recomendada | Panel (clic en «IA: …») o `.env` |
-| [Telegram (bot de la oficina)](#4-telegram) | Avisos y aprobaciones en el móvil | Recomendada | `.env` |
-| [Correo de la oficina](#5-correo) | Enviar y leer correo; avisos de LinkedIn | Opcional | `.env` |
-| [LinkedIn](#6-linkedin) | Publicar los posts aprobados | Opcional | `.env` + panel |
-| [Facebook](#7-facebook) | Publicar en tu página | Opcional | Panel |
-| [Bot de contacto de Telegram](#8-bot-de-contacto-de-telegram) | Que los clientes te escriban y Paula prepare la respuesta | Opcional | Panel |
+| [Telegram (bot de la oficina)](#4-telegram) | Avisos y aprobaciones en el móvil | Recomendada | Panel → Conexiones (o `.env`) |
+| [Correo de la oficina](#5-correo) | Enviar y leer correo; avisos de LinkedIn | Opcional | Panel → Conexiones (o `.env`) |
+| [LinkedIn](#6-linkedin) | Publicar los posts aprobados | Opcional | Panel → Conexiones |
+| [Facebook](#7-facebook) | Publicar en tu página | Opcional | Panel → Conexiones |
+| [Bot de contacto de Telegram](#8-bot-de-contacto-de-telegram) | Que los clientes te escriban y Paula prepare la respuesta | Opcional | Panel → Conexiones |
+| [Google Maps](#3-presupuesto-y-ritmo) | Que Lucía y Carmen saquen negocios por zona y sector | Opcional | Panel → Conexiones o «IA: …» |
 | [Formulario de tu web](#9-formulario-de-tu-web) | Que los formularios de tu web lleguen a la oficina | Opcional | `.env` + tu web |
 | [Calendario en el móvil](#10-calendario-en-el-movil) | Ver posts, llamadas y citas en tu calendario | Opcional | Panel → 📅 Calendario |
 
@@ -29,7 +32,7 @@ Guía para poner en marcha la oficina desde cero y conectar cada servicio. Para 
 Panel → ☰ Menú → ⚙️ Configuración → **🧠 Claves de IA**. Las claves se pegan ahí, se comprueban antes de guardarlas y se guardan cifradas (no se vuelven a mostrar).
 
 - **Claude (API de Anthropic)**, recomendado. Crea la clave en platform.claude.com → *API keys* (sin caducidad). Si tienes **plan Max de Claude**, activa primero sus créditos de API: claude.ai → Configuración → Facturación → **Créditos de API** → vincular la organización (pon «Continuar sin tarjeta» si no quieres que te cobren nada aparte). Sin plan Max, compra saldo en platform.claude.com.
-- Activa la **búsqueda web** en platform.claude.com (Seguridad y datos), si aparece la opción: la necesita Lucía.
+- La **búsqueda web**, que necesita Lucía, viene activada. Si dice que no lo está, actívala en [platform.claude.com › Capabilities](https://platform.claude.com/settings/capabilities).
 - **OpenRouter**, opcional: como proveedor principal (pago por uso) o como **respaldo** si se acaba el crédito de Claude. Con el respaldo, la oficina avisa al cambiar y vuelve sola a Claude cuando hay crédito. Ponle también un límite de gasto en openrouter.ai.
 - El gasto (hoy, semana, mes, por agente y por proveedor) está en «IA: … €», arriba en el panel.
 
@@ -68,7 +71,7 @@ Pulsa en **«IA: … €»** (arriba) y verás:
 - **Empujón**: +5, +10, +25 o +50 € para la semana o el mes en curso.
 - **«Esta semana nada»**: tope a 0 € solo para ese periodo (vacaciones).
 - **Empresas a buscar**: cuántas quieres encontrar a la semana o al día. Te dice cuánto costará y cuántos contactos te dejará en la mesa. Con 0, esta oficina no busca (para quien ya tiene cartera). En blanco, Lucía busca cuando se vacía la cola. El coste es orientativo hasta que haya gasto real: luego se calcula con el de los últimos 60 días, y no incluye seguimientos, respuestas, informes ni llamadas de Lola.
-- **Google Maps (opcional)**: pega tu clave para que Lucía y Carmen saquen negocios por zona y sector. Créala en console.cloud.google.com con «Places API (New)» activada. Sus condiciones limitan qué se puede guardar. Cada consulta cuenta unos 0,03 € en tu presupuesto, aunque Google regala unas cuantas al mes.
+- **Google Maps (opcional)**: pega tu clave, aquí o en Conexiones, para que Lucía y Carmen saquen negocios por zona y sector. Créala en console.cloud.google.com con «Places API (New)» activada. Sus condiciones limitan qué se puede guardar. Cada consulta cuenta unos 0,03 € en tu presupuesto, aunque Google regala unas 1.000 al mes.
 - **🚀 Modo turbo**: sin topes diarios. Empieza al activarlo y reparte trabajo cada 30 segundos, a cualquier hora. Lucía busca sin parar, Mateo y Carmen puntúan y preparan dossiers, y trabajan más agentes a la vez, hasta agotar el presupuesto. Si tu mesa se llena, los redactores esperan; si estás de vacaciones, no empieza trabajo nuevo.
 
 Por Telegram: `/turbo`, `/turbo off`, `/empujon 10`.
@@ -89,9 +92,12 @@ El valor inicial sale de `PRESUPUESTO_EUR` (euros al mes). Los topes del ritmo n
 Es por donde te llegan los avisos y desde donde puedes aprobar, encargar y preguntar.
 
 1. En Telegram, habla con **@BotFather** → `/newbot` → copia el **token**.
-2. Escribe cualquier cosa a tu bot nuevo.
-3. Abre `https://api.telegram.org/bot<TOKEN>/getUpdates` y copia el número de `"chat":{"id": …}`.
-4. En `.env`:
+2. Panel → ☰ Menú → ⚙️ Configuración → 🔌 Conexiones → Tu bot de la oficina: pega el token y pulsa **Guardar**.
+3. Abre en el móvil el enlace que sale y pulsa **Iniciar**. Así el bot sabe que eres tú.
+
+El bot solo obedece a ese chat. Escribe `/ayuda` para ver los comandos.
+
+También se puede poner en `.env`, y entonces manda sobre el panel. Para sacar el número del chat, escribe algo a tu bot y abre `https://api.telegram.org/bot<TOKEN>/getUpdates`: es el de `"chat":{"id": …}`.
 
 ```env
 TELEGRAM_TOKEN=123456:ABC...
@@ -99,13 +105,15 @@ TELEGRAM_CHAT_ID=123456789
 TELEGRAM_USER_ID=123456789   # en un chat privado es el mismo número
 ```
 
-El bot solo obedece a ese chat. Escribe `/ayuda` para ver los comandos.
-
 **Horas de silencio** (opcional): `SUENO_DESDE=23:30` y `SUENO_HASTA=08:00`. En ese rato Telegram calla y al despertar te llega un resumen.
 
 ## 5. Correo
 
-Un buzón para la oficina (por ejemplo `oficina@tudominio.com`), distinto del tuyo. Con Hostinger:
+Un buzón para la oficina (por ejemplo `oficina@tudominio.com`), distinto del tuyo.
+
+Panel → ☰ Menú → ⚙️ Configuración → 🔌 Conexiones → Cuentas de correo → **＋ Añadir una cuenta**. Pon el nombre que verá quien lo reciba, la dirección y la contraseña del buzón, y pulsa **Comprobar y guardar**: solo se guarda si se puede entrar. Los servidores de Hostinger y de Gmail se ponen solos, y Gmail pide una contraseña de aplicación. Con otro proveedor, escríbelos en **Servidores**. Marca **Que la oficina lea su buzón** para que vea las respuestas.
+
+También se puede poner en `.env`. Con Hostinger:
 
 ```env
 CORREO_USUARIO=oficina@tudominio.com
@@ -115,20 +123,19 @@ CORREO_IMAP=imap.hostinger.com:993
 CORREO_NOMBRE=Tu Empresa
 ```
 
-Nada sale sin tu aprobación, y no se envía correo en frío (LSSI): solo a quien ya te ha escrito o te ha dado permiso.
+Nada sale sin tu clic, y a quién se escribe lo decides tú.
 
 **Boletín.** Álex lo prepara el primer martes de cada mes y te llega a la mesa con el botón «📧 Enviar a N interesados». Lo reciben quienes se apuntaron en tu web con su permiso (formulario con `tipo: oficina`, en la sección del formulario de tu web). Sale uno cada 30 segundos, como mucho 90 al día, y cada correo lleva su enlace de baja. Para conectarlo:
 
 1. En Hostinger, entra en **Correos** y crea el buzón `oficina@tudominio.com`, si no lo tienes. Apunta su contraseña.
-2. En el servidor, abre el `.env` de la oficina y pon las líneas de arriba, además de `PANEL_URL`, que hace falta para el enlace de baja.
-3. Reinicia la oficina: `docker compose up -d`.
-4. En Hostinger, mira que el dominio tenga bien SPF y DKIM: sin eso, el correo suele acabar en spam. Hostinger te dice si falta algo.
-5. Antes de enviar a la lista, pulsa **🧪 Enviarme una prueba** en la tarjeta. Te llega solo a ti, con «[Prueba]» en el asunto, y la tarjeta sigue en la mesa. Si la contraseña está mal, te lo dice ahí. Su enlace de baja no da de baja a nadie.
+2. Añádelo en Conexiones, como arriba, y mira que el `.env` tenga `PANEL_URL`: hace falta para el enlace de baja.
+3. En Hostinger, mira que el dominio tenga bien SPF y DKIM: sin eso, el correo suele acabar en spam. Hostinger te dice si falta algo.
+4. Antes de enviar a la lista, pulsa **🧪 Enviarme una prueba** en la tarjeta. Te llega solo a ti, con «[Prueba]» en el asunto, y la tarjeta sigue en la mesa. Si la contraseña está mal, te lo dice ahí. Su enlace de baja no da de baja a nadie.
 
 **Avisos de LinkedIn.** LinkedIn no deja leer mensajes ni comentarios por su API. El truco es que te lleguen por correo:
 
 - En LinkedIn, deja activados los avisos por correo.
-- En tu correo, crea una regla que **reenvíe** a `oficina@` los correos de `linkedin.com`.
+- En tu correo, crea una regla que **reenvíe** a `oficina@` los correos de `linkedin.com`. Esa cuenta tiene que tener marcado **Que la oficina lea su buzón**.
 - Añade los remitentes de LinkedIn a tus contactos para que no acaben en spam.
 
 Con eso la oficina se entera sola de quién acepta tu invitación, quién te contesta y quién comenta.
@@ -140,8 +147,8 @@ Para publicar en tu perfil los posts que apruebes:
 1. En [linkedin.com/developers](https://www.linkedin.com/developers/) crea una app asociada a una página de empresa.
 2. Añade los productos **Share on LinkedIn** y **Sign In with LinkedIn using OpenID Connect**.
 3. En *Auth*, en *Authorized redirect URLs*, pon `https://TU-DOMINIO/api/linkedin/vuelta`.
-4. En `.env`, pon `LINKEDIN_CLIENT_ID=…` (el *Client ID*).
-5. En el panel → **Tu mesa** → LinkedIn, pega el *Client Secret* y pulsa **Conectar LinkedIn**.
+4. En el panel → ☰ Menú → ⚙️ Configuración → 🔌 Conexiones → LinkedIn, pega el *Client ID* y el *Primary Client Secret*. El *Client ID* también puede ir en `.env`: `LINKEDIN_CLIENT_ID=…`.
+5. Pulsa **Conectar LinkedIn**.
 
 El permiso dura 60 días y LinkedIn no deja renovarlo solo: la oficina te avisa antes de que caduque.
 
@@ -149,11 +156,12 @@ El permiso dura 60 días y LinkedIn no deja renovarlo solo: la oficina te avisa 
 
 Para publicar en la página de tu empresa:
 
-1. En [developers.facebook.com](https://developers.facebook.com/) crea una app de tipo **Empresa**.
+1. En [developers.facebook.com](https://developers.facebook.com/apps/creation/) crea una app con el caso de uso de administrar tu página (*Manage everything on your Page*).
 2. Añade **Inicio de sesión con Facebook para empresas**.
 3. Pon como URL de redirección válida `https://TU-DOMINIO/api/facebook/vuelta`.
 4. Permisos necesarios: `pages_show_list`, `pages_read_engagement` y `pages_manage_posts`.
-5. En el panel → **Tu mesa** → Facebook, pega el *App ID* y la *clave secreta* y pulsa **Conectar Facebook**. Elige tu página.
+5. En el panel → ☰ Menú → ⚙️ Configuración → 🔌 Conexiones → Facebook, pega el *App ID* y la *clave secreta* y pulsa **Conectar Facebook**. Elige tu página.
+6. Publica la app (menú *Publish*): pide la dirección de tu política de privacidad, la de borrado de datos y un icono. Sin publicar, lo que salga solo lo ven quienes tienen un papel en la app.
 
 El token de página no caduca.
 
@@ -162,7 +170,7 @@ El token de página no caduca.
 Es un **segundo** bot (distinto del de la oficina) para que los clientes te escriban: el primer mensaje se contesta al momento con un acuse y Paula prepara la respuesta de verdad, que envías tú.
 
 1. Crea otro bot con **@BotFather**.
-2. En el panel → **Tu mesa** → Bot de contacto, pega su token.
+2. En el panel → ☰ Menú → ⚙️ Configuración → 🔌 Conexiones → Telegram de contacto, pega su token.
 3. Pon el enlace `t.me/tu_bot` en tu web y tus perfiles.
 
 ## 9. Formulario de tu web

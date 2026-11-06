@@ -21,7 +21,7 @@ export const hecho = async () => !config.pausadoInicial || Boolean((await leer()
 export const empezada = async () => !config.pausadoInicial || (await ajuste('pausado', null)) !== null;
 
 export async function estado() {
-  return { hecho: await hecho(), ia: hayIA(), mensajes: (await leer()).mensajes };
+  return { hecho: await hecho(), ia: hayIA(), idioma: perfil.leer().idioma || null, mensajes: (await leer()).mensajes };
 }
 
 const INSTRUCCIONES = `Eres Rafa, coordinador del equipo de agentes de esta oficina. Es el primer uso de la oficina: quien te escribe acaba de instalarla y de conectar su IA. Tu único trabajo ahora es ayudarle a dejarla configurada. El equipo está en pausa y no trabaja hasta que terminéis.

@@ -8,6 +8,7 @@ import { config } from './config.js';
 import * as miEmpresa from './empresa.js';
 import { emitir, log, guardarInforme } from './bus.js';
 import { llamar } from './llm.js';
+import { idiomaEquipo } from './perfil.js';
 import * as presupuesto from './presupuesto.js';
 import * as tareas from './tareas.js';
 import * as vida from './vida.js';
@@ -65,7 +66,7 @@ ${fichas}
 Reglas:
 - «necesita» solo si de verdad hace falta algo: aprobar lo que está en la mesa (pon su id entre corchetes en «aprobacion»), una decisión de Dirección, un dato, un contacto, o algo de un compañero (pon su id en «de»). Si no necesita nada, lista vacía.
 - Tú cierras con un resumen de 2–3 frases y las 3 prioridades de la semana, concretas.
-- Español de España, directo, sin emojis${activa ? ', cada uno con su forma de hablar pero sin perder el foco' : ''}.
+- En ${idiomaEquipo()}, directo, sin emojis${activa ? ', cada uno con su forma de hablar pero sin perder el foco' : ''}.
 Responde SOLO con JSON:
 {"agentes":[{"id":"…","hecho":"…","haciendo":"…","necesita":[{"texto":"…","de":"dueno|id","aprobacion":"id o vacío"}]}],"resumen":"…","prioridades":["…","…","…"]}`;
     const modelo = config.modelos.rafa;

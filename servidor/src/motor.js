@@ -12,7 +12,7 @@ import * as presupuesto from './presupuesto.js';
 import * as telegram from './telegram.js';
 import * as aprendizajes from './aprendizajes.js';
 import * as memoria from './memoria.js';
-import { llamar } from './llm.js';
+import { llamar, hayCredito } from './llm.js';
 import * as ausencia from './ausencia.js';
 import * as chat from './chat.js';
 import * as oficina from './oficina.js';
@@ -24,17 +24,33 @@ let temporizador = null;
 
 export const estaPausado = async () => Boolean(await ajuste('pausado', config.pausadoInicial));
 
-export async function pausar(motivo = 'Pausa manual') {
+export async function pausar(motivo = 'Pausa manual', { porCredito = false } = {}) {
+  if (porCredito) { motivo += ' El equipo sigue solo en cuanto vuelva.'; ultimaPrueba = Date.now(); }
   await fijarAjuste('pausado', true);
   await fijarAjuste('pausa_motivo', motivo);
+  await fijarAjuste('pausa_credito', porCredito);
   await emitir({ tipo: 'pausa', pausado: true, motivo });
   await log('sistema', `ha pausado el equipo: ${motivo}`);
-  await telegram.avisar(`⏸ Equipo pausado: ${motivo}\nEscribe /reanudar para seguir.`);
+  await telegram.avisar(`⏸ Equipo pausado: ${motivo}${porCredito ? '' : '\nEscribe /reanudar para seguir.'}`);
 }
 export async function reanudar() {
   await fijarAjuste('pausado', false);
   await emitir({ tipo: 'pausa', pausado: false });
   await log('sistema', 'ha reanudado el trabajo del equipo.');
+}
+
+// Parado por falta de crédito: se prueba cada 15 minutos si ha vuelto y, si es así, sigue solo
+const PROBAR_CREDITO_MS = 15 * 60_000;
+let ultimaPrueba = 0;
+export const _olvidarPrueba = () => { ultimaPrueba = 0; };   // pruebas: «ya toca» volver a probar
+export async function revisarCredito() {
+  const parado = async () => (await estaPausado()) && Boolean(await ajuste('pausa_credito', false));
+  if (Date.now() - ultimaPrueba < PROBAR_CREDITO_MS || !(await parado())) return false;
+  ultimaPrueba = Date.now();
+  if (!(await hayCredito()) || !(await parado())) return false;   // Dirección ha podido pausarlo a mano mientras tanto
+  await reanudar();
+  await telegram.avisar('▶️ Ha vuelto el crédito de IA: el equipo sigue trabajando.');
+  return true;
 }
 
 export function arrancar(intervaloMs = 3000) {
@@ -82,7 +98,7 @@ const recortar = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 const hostDe = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return 'una web'; } };
 
 async function contexto(t) {
-  const hoy = new Intl.DateTimeFormat('es-ES', { timeZone: config.zona, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+  const hoy = new Intl.DateTimeFormat('es-ES', { timeZone: config.zona, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date());
   const quien = AGENTES[t.origen]?.nombre || (t.origen === 'dueno' ? 'Dirección' : 'el sistema');
   let txt = t.tipo === 'pregunta'
     ? `Hoy es ${hoy}.\nDirección te pregunta directamente:\n«${t.instruccion}»\n\nContéstale tú, en primera persona y en 2–6 frases, con tu opinión sincera y concreta. Puedes consultar la base de datos o buscar si lo necesitas. Si no estás de acuerdo con lo que propone, díselo. No uses pedir_aprobacion ni anotar: tu respuesta final es lo que le llega.`
@@ -97,6 +113,11 @@ async function contexto(t) {
       txt += `\n\nFicha actual de la empresa (id ${e.id}):\n${paraAgente(ficha, 2)}`;
       const personas = await (await import('./contactos.js')).lineaTelefonos(e.id);
       if (personas) txt += `\n\nA quién se puede llamar en esta empresa: ${personas}`;
+      // Lo último con ella, para no hablarle a Dirección de memoria
+      const { llamadas } = (await empresas.expediente(e.id)).historial;
+      if (llamadas.length) txt += `\n\nÚltimas llamadas con esta empresa:\n${paraAgente(llamadas, 1)}`;
+      const mesa = (await q(`SELECT id, agente, titulo, to_char(creada AT TIME ZONE 'Europe/Madrid', 'DD/MM HH24:MI') AS desde FROM aprobaciones WHERE empresa_id=$1 AND estado='pendiente' ORDER BY creada DESC LIMIT 6`, [e.id])).rows;
+      if (mesa.length) txt += `\n\nEn la mesa de Dirección sobre esta empresa:\n${mesa.map(a => `- ${a.id}: ${a.agente} ${a.titulo} (${a.desde})`).join('\n')}`;
     }
   }
   return txt;
@@ -183,18 +204,22 @@ export async function ejecutar(t) {
       if (!t.canal || !panelAbierto()) await telegram.avisar(`💬 ${a.nombre}: ${final}`);
     } else {
       let informe_id = null;
-      if (!ctx.anotado && !ctx.esperando && final) {
+      if (!ctx.esperando && final) {
+        // Aunque haya dejado una línea con anotar, el texto entero se guarda: si no, de un trabajo solo queda el resumen
         informe_id = final.length > 280 ? await guardarInforme({ agente: t.agente, tipo: 'resumen', titulo: recortar(t.instruccion, 110), texto: final, empresa_id: t.empresa_id }) : null;
-        await log(t.agente, `informa: «${recortar(final, 280)}»`, { informe_id, empresa_id: t.empresa_id });
+        if (!ctx.anotado) await log(t.agente, `informa: «${recortar(final, 280)}»`, { informe_id, empresa_id: t.empresa_id });
+        else if (informe_id) await log(t.agente, 'ha dejado el texto completo de lo anterior.', { informe_id, empresa_id: t.empresa_id });
       }
       // Lo que te contesta en el chat, o lo que le devuelve al compañero que se lo encargó (en #trabajo)
       if (t.canal) await chat.escribir({ canal: t.canal, autor: t.agente, para: 'dueno', texto: final || 'Hecho.', tarea_id: t.id, informe_id, empresa_id: t.empresa_id }).catch(e => console.error('Chat:', e.message));
       else if (AGENTES[t.origen] && t.origen !== t.agente && final) await chat.escribir({ canal: 'trabajo', autor: t.agente, para: t.origen, texto: final, tarea_id: t.id, informe_id, empresa_id: t.empresa_id }).catch(e => console.error('Chat:', e.message));
     }
     await tareas.terminar(t.id, final);
+    // Lo que le encargas sobre una empresa te lo dice al acabar: no hay que ir a buscarlo
+    if (t.origen === 'dueno' && t.empresa_id && !t.canal && !ctx.esperando) await emitir({ tipo: 'encargo_hecho', tarea: t.id, agente: t.agente, empresa_id: t.empresa_id, texto: recortar(final || 'Hecho.', 240) });
     if (t.objetivo_id != null && t.paso != null) (await import('./objetivos.js')).pasoTerminado(t, final).catch(e => console.error('Objetivo:', e.message));
     if (ctx.atascado) await (await import('./atascos.js')).marcar(t.agente);
-    else if (ctx.esperando) await estado(t.agente, 'esperando', 'Esperando tu visto bueno', 'excl');
+    else if (ctx.esperando) await estado(t.agente, 'inactivo', 'Esperando trabajo', 'zz');   // un solo canal: lo que te toca está en tu mesa, ningún agente te reclama por su cuenta
     else await estado(t.agente, 'inactivo', 'Esperando trabajo', 'zz');
   } catch (e) {
     const msg = String(e?.message || e);
@@ -205,14 +230,14 @@ export async function ejecutar(t) {
       await q(`UPDATE tareas SET estado='pendiente', intentos=greatest(intentos-1,0) WHERE id=$1`, [t.id]);
       await estado(t.agente, 'inactivo', e instanceof Pausado ? 'En pausa' : sinCredito ? 'Pausado: sin crédito de IA' : 'Pausado: presupuesto del mes agotado', 'zz');
       if (e instanceof presupuesto.PresupuestoAgotado) await pausar(msg);
-      if (sinCredito && !(await estaPausado())) await pausar(msg);
+      if (sinCredito && !(await estaPausado())) await pausar(msg, { porCredito: true });
       return;
     }
     console.error(`Tarea ${t.id} (${t.agente}):`, msg);
     // Si ya escribió algo, o el error no se arregla repitiendo, no se reintenta (evita duplicados y gasto)
     const r = await tareas.fallar(t, msg, { reintentar: !ctx.efectos && !esErrorDefinitivo(e) && !interrumpida });
     if (e instanceof presupuesto.PresupuestoAgotado) await pausar(msg);
-    if (sinCredito && !(await estaPausado())) await pausar(msg);
+    if (sinCredito && !(await estaPausado())) await pausar(msg, { porCredito: true });
     if (r === 'error') {
       const porque = ctx.efectos ? 'Se quedó a medias después de guardar cambios; revísalo antes de volver a encargarlo' : 'No se reintenta';
       await estado(t.agente, 'error', `No he podido terminar: ${recortar(msg, 70)}`, 'excl');

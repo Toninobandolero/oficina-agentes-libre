@@ -86,18 +86,23 @@ export async function registrar(empresa_id, nivel, { frase = '', canal = '', cua
   const linea = `${n.emoji} ${e.nombre}: ${n.nombre.toLowerCase()}. Dijo «${dijo}».${agotado ? ` Van ${intento - 1} intentos sin avanzar: decide tú si seguir.` : siguiente ? ` Siguiente paso el ${siguiente.dia}.` : ''}`;
   await log(por, linea, { empresa_id: e.id, urgente: n.urgente || null });
   if (n.urgente) await (await import('./telegram.js')).avisar(`🔥 ${e.nombre} quiere verse cuanto antes.\nDijo: «${dijo}»\n${n.hacer}`);
-  if (cartas.rows.length) await emitir({ tipo: 'mesa_cambiada' });
+  await (await import('./mesaViva.js')).ocurrio(e.id, { cuando: new Date(Date.now() - 120_000), que: 'lo que dijo' });   // con margen: lo recién preparado a raíz de esto no está desfasado
+  for (const c of cartas.rows) await emitir({ tipo: 'aprobacion_resuelta', id: c.id, resultado: 'superada' });
   return { ok: true, nivel, hacer: agotado ? 'Ya se ha insistido lo que marca el protocolo: no prepares más, Dirección decide.' : n.hacer, siguiente, agotado };
 }
 
-/** Lo que enseña la ficha: cómo está, qué dijo, qué toca y por qué, y qué falta por saber. */
+/** Lo que enseña la ficha: cómo está, qué dijo, qué toca y por qué, y qué falta por saber. Qué toca sale de un solo sitio: el aviso pendiente más próximo o, si no hay, el siguiente paso de la ficha. */
 export async function situacion(e) {
-  const siguiente = (await q(`SELECT dia, hora, texto, detalle FROM recordatorios WHERE empresa_id=$1 AND hecho IS NULL ORDER BY dia, hora NULLS LAST LIMIT 1`, [e.id])).rows[0] || null;
-  return { nivel: NIVELES[e.interes] ? { id: e.interes, ...NIVELES[e.interes] } : null, frase: e.interes_frase, canal: e.interes_canal, fecha: e.interes_fecha, intentos: e.interes_intentos, siguiente, minimo: await minimo(e), niveles: listado() };
+  const aviso = (await q(`SELECT id, dia, hora, texto, detalle, clase, telefono FROM recordatorios WHERE empresa_id=$1 AND hecho IS NULL ORDER BY dia, hora NULLS LAST LIMIT 1`, [e.id])).rows[0];
+  const siguiente = aviso || (e.proximo_paso ? { texto: e.proximo_paso, dia: e.fecha_proximo_paso || null, de_ficha: true } : null);
+  // Acaba de llamar: hasta que llegue la transcripción (unos minutos) no se sabe qué pasó, y qué toca aún no está al día
+  const llamando = (await q(`SELECT m.creada FROM marcaciones m WHERE m.empresa_id=$1 AND m.creada > now() - interval '30 minutes'
+    AND NOT EXISTS (SELECT 1 FROM llamadas l WHERE l.empresa_id=$1 AND l.estado NOT IN ('pendiente','transcrita') AND coalesce(l.inicio, l.creada) > m.creada - interval '2 minutes') ORDER BY m.creada DESC LIMIT 1`, [e.id])).rows[0]?.creada || null;
+  return { nivel: NIVELES[e.interes] ? { id: e.interes, ...NIVELES[e.interes] } : null, frase: e.interes_frase, canal: e.interes_canal, fecha: e.interes_fecha, intentos: e.interes_intentos, siguiente, llamando, minimo: await minimo(e), niveles: listado() };
 }
 
 /** Para las instrucciones de quien trata con los clientes. */
 export const textoParaAgentes = () => `## Protocolo comercial (obligatorio)
-Cada vez que un contacto diga algo, por el canal que sea, usa registrar_interes con su frase literal: el sistema fija el siguiente paso, la fecha, el recordatorio con su motivo y cuándo dejar de insistir. No te inventes otros plazos.
+Cada vez que un contacto diga algo, por el canal que sea, usa registrar_interes con su frase literal: el sistema fija el siguiente paso, la fecha, el recordatorio con su motivo y cuándo dejar de insistir. No te inventes otros plazos. Y si cuenta algo que le duele, apúntalo en el campo dolores con actualizar_empresa: una línea por punto, con sus palabras y sin borrar lo que ya hubiera.
 ${listado().map(n => `- ${n.id} (${n.dice}): ${n.hacer} Se vuelve: ${n.vuelve}. ${n.hasta}`).join('\n')}
 Si no se llegó a hablar con nadie, no es un nivel: lo lleva resultado_llamada.`;

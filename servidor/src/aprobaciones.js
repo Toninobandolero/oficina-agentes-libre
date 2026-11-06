@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 import { q } from './db.js';
 import { consejoHora, siguienteHueco } from './horario.js';
-import { emitir, estado, estadoDe, log } from './bus.js';
+import { alResolverTarjeta, emitir, estado, estadoDe, log } from './bus.js';
 import { AGENTES } from './agentes.js';
 import * as empresas from './empresas.js';
 import * as telegram from './telegram.js';
@@ -23,6 +23,8 @@ const publicador = canal => canal === 'facebook' ? facebook : linkedin;
 const TIPOS = ['mensaje', 'respuesta', 'post', 'video', 'articulo', 'boletin', 'anuncio', 'propuesta', 'regla', 'paso', 'correo', 'otro'];
 export const CANALES = ['linkedin', 'facebook', 'instagram', 'youtube', 'google', 'web', 'boletin', 'anuncios'];
 const CONTENIDO = new Set(['post', 'video', 'articulo', 'boletin', 'anuncio']);
+/** Un seguimiento no cae en sábado ni domingo: pasa al lunes. */
+const laborable = dia => { const d = new Date(`${dia}T12:00:00Z`); while ([0, 6].includes(d.getUTCDay())) d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
 const sumarDias = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 
 /** Botones de un post de redes según lo que esté conectado. */
@@ -130,34 +132,88 @@ export async function crear({ agente, tipo, titulo, texto, empresa_id = null, re
       conImagen = true;
     } catch (e) { console.error('Imagen del post:', e.message); }
   }
+  // Un documento nuevo de la empresa deja atrás el anterior: en la mesa, solo la última versión
+  if (tipo === 'propuesta' && emp) for (const v of (await q(`UPDATE aprobaciones SET estado='sustituida', resuelta=now() WHERE empresa_id=$1 AND tipo='propuesta' AND estado='pendiente' AND id<>$2 RETURNING id, telegram_msg_id`, [emp.id, id])).rows) {
+    await emitir({ tipo: 'aprobacion_resuelta', id: v.id, resultado: 'sustituida' });
+  }
+  const doc_empresa = emp ? (await q(`SELECT id FROM aprobaciones WHERE empresa_id=$1 AND tipo='propuesta' AND estado NOT IN ('sustituida','superada') ORDER BY creada DESC LIMIT 1`, [emp.id])).rows[0]?.id ?? null : null;
   const prio = prioridadDe({ prioridad: b.nivel, prioridad_motivo: b.motivo, caduca: cad, creada: fila.creada, fecha_prevista: prevista });
   await emitir({ tipo: 'traspaso', de: agente, a: 'dueno', carga: true });
-  await emitir({ tipo: 'aprobacion', id, agente, clase: tipo, empresa: emp?.nombre ?? null, linkedin_url: emp?.linkedin_url ?? null, linkedin_empresa: emp?.linkedin_empresa ?? null, decisor: emp?.decisor ?? null, telefono: emp?.telefono ?? null, empresa_id: emp?.id ?? null, perfil_url: perfil, buscar: buscar || null, titulo, texto, opciones, creada: fila.creada, prio, prioridad: b.nivel, prioridad_motivo: b.motivo, caduca: cad, canal, fecha_prevista: prevista, imagen: conImagen, video: tipo === 'video' ? video.ficha(texto) : undefined });
+  await emitir({ tipo: 'aprobacion', id, agente, clase: tipo, doc_empresa, ref_tipo: String(ref || '').split(':')[0], categoria: emp?.categoria ?? null, puntuacion: emp?.puntuacion ?? null, empresa: emp?.nombre ?? null, linkedin_url: emp?.linkedin_url ?? null, linkedin_empresa: emp?.linkedin_empresa ?? null, decisor: emp?.decisor ?? null, telefono: emp?.telefono ?? null, empresa_id: emp?.id ?? null, perfil_url: perfil, buscar: buscar || null, titulo, texto, opciones, creada: fila.creada, prio, prioridad: b.nivel, prioridad_motivo: b.motivo, caduca: cad, canal, fecha_prevista: prevista, imagen: conImagen, video: tipo === 'video' ? video.ficha(texto) : undefined });
   await log(agente, `${titulo.replace(/\.$/, '')}. Está en tu mesa.`, { empresa_id: emp?.id, aprobacion_id: id });
-  const msgId = await telegram.enviarAprobacion({ id, tipo, titulo, texto, opciones, prio, canal, fecha_prevista: prevista, auto }, { nombreAgente: AGENTES[agente]?.nombre ?? agente, empresa: emp });
-  if (msgId === 'cola') await q('UPDATE aprobaciones SET telegram_pendiente=true WHERE id=$1', [id]);
-  else if (msgId) await q('UPDATE aprobaciones SET telegram_msg_id=$2 WHERE id=$1', [id, msgId]);
+  if (emp) await telegramDeEmpresa(emp.id);
+  else if (prio.nivel <= 2) {
+    const msgId = await telegram.enviarAprobacion({ id, tipo, titulo, texto, opciones, prio, canal, fecha_prevista: prevista, auto }, { nombreAgente: AGENTES[agente]?.nombre ?? agente });
+    if (msgId === 'cola') await q('UPDATE aprobaciones SET telegram_pendiente=true WHERE id=$1', [id]);
+    else if (msgId) await q('UPDATE aprobaciones SET telegram_msg_id=$2 WHERE id=$1', [id, msgId]);
+  }
   return id;
 }
 
 /** Manda a Telegram las aprobaciones que se guardaron mientras Dirección dormía o estaba fuera. */
 export async function enviarPendientesTelegram() {
   const r = await q(`SELECT * FROM aprobaciones WHERE estado='pendiente' AND telegram_pendiente ORDER BY creada`);
-  for (const ap of r.rows) {
-    const emp = ap.empresa_id ? await empresas.leer(ap.empresa_id) : null;
-    const msgId = await telegram.enviarAprobacion({ ...ap, prio: prioridadDe(ap) }, { nombreAgente: AGENTES[ap.agente]?.nombre ?? ap.agente, empresa: emp, ahora: true });
+  for (const ap of r.rows.filter(a => !a.empresa_id)) {
+    const msgId = await telegram.enviarAprobacion({ ...ap, prio: prioridadDe(ap) }, { nombreAgente: AGENTES[ap.agente]?.nombre ?? ap.agente, ahora: true });
     await q('UPDATE aprobaciones SET telegram_pendiente=false, telegram_msg_id=$2 WHERE id=$1', [ap.id, typeof msgId === 'number' ? msgId : null]);
   }
+  for (const e of new Set(r.rows.map(a => a.empresa_id).filter(Boolean))) await telegramDeEmpresa(e, { ahora: true });
   return r.rows.length;
+}
+
+// A Telegram solo llega lo que no puede esperar: un cliente esperando o algo que solo Dirección decide. Los contactos del día, en el modo rápido
+const avisaYa = a => { const n = prioridadDe(a).nivel; return n === 1 || (n === 2 && !['sec', 'paso'].includes(String(a.ref || '').split(':')[0]) && !['mensaje', 'correo'].includes(a.tipo)); };
+
+/** Telegram, igual que la mesa: un solo mensaje por empresa, con lo más importante y, a igualdad, lo último. */
+export async function telegramDeEmpresa(empresa_id, { ahora = false } = {}) {
+  if (!empresa_id || !telegram.activo()) return;
+  const abiertas = (await q(`SELECT * FROM aprobaciones WHERE empresa_id=$1 AND estado='pendiente' ORDER BY creada`, [empresa_id])).rows;
+  const nivel = a => prioridadDe(a).nivel;
+  const importante = abiertas.filter(a => !(a.pospuesta && new Date(a.pospuesta) > new Date()) && avisaYa(a));
+  const principal = importante.reduce((m, a) => !m || nivel(a) < nivel(m) || (nivel(a) === nivel(m) && a.creada >= m.creada) ? a : m, null);   // en orden y con >=: dos en el mismo milisegundo, gana la última
+  for (const a of abiertas) if (a !== principal && (a.telegram_msg_id || a.telegram_pendiente)) {
+    await telegram.retirar(a.telegram_msg_id);
+    await q(`UPDATE aprobaciones SET telegram_msg_id=NULL, telegram_pendiente=false WHERE id=$1`, [a.id]);
+  }
+  if (!principal || principal.telegram_msg_id || (principal.telegram_pendiente && !ahora)) return;
+  const msgId = await telegram.enviarAprobacion({ ...principal, prio: prioridadDe(principal) }, { nombreAgente: AGENTES[principal.agente]?.nombre ?? principal.agente, empresa: await empresas.leer(empresa_id), ahora });
+  await q(`UPDATE aprobaciones SET telegram_pendiente=$2, telegram_msg_id=$3 WHERE id=$1`, [principal.id, msgId === 'cola', typeof msgId === 'number' ? msgId : null]);
+}
+
+// Lo que sale de la mesa sale también de Telegram, y si queda algo de esa empresa, llega lo siguiente
+alResolverTarjeta(async ({ id, resultado }) => {
+  const a = (await q(`SELECT empresa_id, telegram_msg_id FROM aprobaciones WHERE id=$1`, [id])).rows[0];
+  if (!a) return;
+  if (['superada', 'sustituida'].includes(resultado) && a.telegram_msg_id) {
+    await telegram.retirar(a.telegram_msg_id);
+    await q(`UPDATE aprobaciones SET telegram_msg_id=NULL WHERE id=$1`, [id]);
+  }
+  await telegramDeEmpresa(a.empresa_id);
+});
+
+/** Lo que quedó en Telegram de antes de esta regla: mensajes de tarjetas ya retiradas y varios de una misma empresa. */
+export async function ponerTelegramAlDia() {
+  if (!telegram.activo()) return;
+  for (const a of (await q(`SELECT id, telegram_msg_id FROM aprobaciones WHERE estado IN ('superada','sustituida') AND telegram_msg_id IS NOT NULL LIMIT 50`)).rows) {
+    await telegram.retirar(a.telegram_msg_id);
+    await q(`UPDATE aprobaciones SET telegram_msg_id=NULL WHERE id=$1`, [a.id]);
+  }
+  for (const { empresa_id } of (await q(`SELECT empresa_id FROM aprobaciones WHERE estado='pendiente' AND empresa_id IS NOT NULL AND (telegram_msg_id IS NOT NULL OR telegram_pendiente) GROUP BY 1 HAVING count(*) > 1`)).rows) await telegramDeEmpresa(empresa_id);
 }
 
 /** Quita de la mesa (y de Telegram) una aprobación que ha quedado sustituida por otra versión. */
 export async function sustituir(ref) {
   const r = await q(`UPDATE aprobaciones SET estado='sustituida', resuelta=now() WHERE ref=$1 AND estado='pendiente' RETURNING *`, [ref]);
-  for (const ap of r.rows) {
-    await emitir({ tipo: 'aprobacion_resuelta', id: ap.id, resultado: 'sustituida' });
-    await telegram.marcarResuelta(ap.telegram_msg_id, 'sustituida', '🔁 Sustituida por una versión nueva');
-  }
+  for (const ap of r.rows) await emitir({ tipo: 'aprobacion_resuelta', id: ap.id, resultado: 'sustituida' });
+}
+
+/** Se ha hecho fuera de sus opciones (un correo enviado desde la tarjeta): sale de la mesa sin más. */
+export async function darPorHecha(id) {
+  const ap = (await q(`UPDATE aprobaciones SET estado='aprobada', resuelta=now() WHERE id=$1 AND estado='pendiente' RETURNING *`, [id])).rows[0];
+  if (!ap) return null;
+  await emitir({ tipo: 'aprobacion_resuelta', id, resultado: 'aprobada' });
+  await telegram.marcarResuelta(ap.telegram_msg_id, 'aprobada', '✅ Hecho');
+  return ap;
 }
 
 export async function pendientes() {
@@ -198,9 +254,10 @@ export async function resolver(id, resultado, texto = '') {
   if (rt === 'correo' && resultado === 'enviar') await correo.enviarBorrador(Number(rid));
   if (rt === 'chat' && resultado === 'enviar') await (await import('./chats.js')).enviarBorrador(Number(rid));
   if (previa.tipo === 'boletin' && resultado === 'enviar') await (await import('./boletin.js')).lanzar(previa);
+  if (rt === 'correo' && resultado === 'fuera') await q(`UPDATE correos SET direccion='salida', clase='fuera', enviado=now() WHERE id=$1 AND direccion='borrador'`, [Number(rid)]);
   if (rt === 'correo' && resultado === 'descartada') await q(`UPDATE correos SET direccion='descartado' WHERE id=$1 AND direccion='borrador'`, [Number(rid)]);
   // Posts: «publicar» sale ya; «programar» lo deja con día y hora (el planificador lo publica a su hora)
-  let estadoFinal = resultado, enlace = null, programadaPara = null;
+  let estadoFinal = resultado === 'fuera' ? 'aprobada' : resultado, enlace = null, programadaPara = null;
   if (resultado === 'publicar_ambas') await q(`UPDATE aprobaciones SET tambien='facebook' WHERE id=$1`, [id]);
   if (resultado === 'programar') {
     const [cuando, extra] = String(texto || '').split('|');
@@ -249,7 +306,12 @@ export async function resolver(id, resultado, texto = '') {
     return ap;
   }
   if (refTipo === 'sec') {
-    if (resultado === 'aprobada') await secuencias.empezar(Number(refId)); else await secuencias.descartar(Number(refId));
+    if (resultado === 'aprobada') await secuencias.empezar(Number(refId));
+    else {
+      // «Esta empresa no»: se cierra, para que no vuelva a prepararse otro primer contacto
+      await secuencias.descartar(Number(refId));
+      if (ap.empresa_id) await empresas.actualizar(ap.empresa_id, { estado: 'descartada', proximo_paso: null, fecha_proximo_paso: null });
+    }
     if (ap.empresa_id) await secuencias.emitirCambio(ap.empresa_id);
   }
   const emp = ap.empresa_id ? await empresas.leer(ap.empresa_id) : null;
@@ -262,7 +324,7 @@ export async function resolver(id, resultado, texto = '') {
     if (ap.tipo === 'mensaje' && emp && refTipo === 'sec') {
       await log('dueno', `ha enviado la solicitud de conexión${de}. En 3 días Paula le pregunta si ha aceptado; entonces Javi escribe el mensaje 1.`);
     } else if (ap.tipo === 'mensaje' && emp) {
-      await empresas.actualizar(emp.id, { estado: 'contactada', ultimo_contacto: sumarDias(0), proximo_paso: 'Seguimiento 1', fecha_proximo_paso: sumarDias(5) });
+      await empresas.actualizar(emp.id, { estado: 'contactada', ultimo_contacto: sumarDias(0), proximo_paso: 'Seguimiento 1', fecha_proximo_paso: laborable(sumarDias(5)) });
       await log('dueno', `ha enviado el mensaje${de}. Seguimiento programado en 5 días.`);
     } else if (CONTENIDO.has(ap.tipo)) {
       await memoria.publicar({ aprobacion_id: ap.id, agente: ap.agente, titulo: ap.titulo, texto: ap.texto, canal: ap.canal || 'linkedin', formato: ap.tipo, enlace });
@@ -272,7 +334,7 @@ export async function resolver(id, resultado, texto = '') {
       const rg = await aprendizajes.activar(Number(ap.ref));
       await log('dueno', `ha aprobado la regla${rg?.agente ? ' para ' + (AGENTES[rg.agente]?.nombre ?? rg.agente) : ''}: «${rg?.texto ?? ap.texto}»`);
     } else if (ap.tipo === 'propuesta' && emp) {
-      await empresas.actualizar(emp.id, { estado: 'propuesta', proximo_paso: 'Seguimiento de la propuesta', fecha_proximo_paso: sumarDias(5) });
+      await empresas.actualizar(emp.id, { estado: 'propuesta', proximo_paso: 'Seguimiento de la propuesta', fecha_proximo_paso: laborable(sumarDias(5)) });
       await log('dueno', `ha aprobado la propuesta${de}.`);
     } else {
       await log('dueno', `ha aprobado: ${ap.titulo}`);

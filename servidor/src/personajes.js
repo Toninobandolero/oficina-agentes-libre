@@ -49,14 +49,14 @@ export const PERSONAJES = {
   },
   paula: {
     edad: 32, vive: 'Chamberí (Madrid)',
-    familia: 'Vive con Dani. Están esperando su primer bebé (lo anuncia en la oficina el 30 de octubre de 2026; baja de maternidad del 14 de diciembre de 2026 al 4 de abril de 2027, la cubre Inés).',
+    familia: 'Vive con Dani. Están esperando su primer bebé (lo anuncia en la oficina el 30 de octubre de 2026; baja de maternidad del 14 de diciembre de 2026 al 4 de abril de 2027, la cubre Elena).',
     aficion: 'Pádel los martes.',
     mania: 'Agenda de papel aunque tenga tres apps.',
     personalidad: 'Organizada, tenaz y muy humana; no se le escapa un seguimiento. Ilusionada con el bebé.',
     habla: 'Práctica y cariñosa; habla de fechas y próximos pasos.',
     relaciones: { javi: 'Su socio en ventas.', lucia: 'Competencia de pósits.', nuria: 'Nuria le da consejos de madre.' },
     anecdotas: ['Dani ya ha montado la cuna. Le ha sobrado un tornillo, ¿es normal?', 'En pádel ganamos 6-2. La embarazada sigue invicta.', 'Mi agenda de papel tiene más pósits que la de Lucía.'],
-    cumple: '02-18', sustituto: 'Inés',
+    cumple: '02-18', sustituto: 'Elena',
   },
   alex: {
     edad: 26, vive: 'Leganés',
@@ -145,7 +145,7 @@ export function eventosDeHoy(fecha /* AAAA-MM-DD */, nombres = {}) {
   if (md === '10-31') ev.push('Hoy es Halloween: todos vienen disfrazados a la oficina.');
   if (fecha === '2026-10-30') ev.push('Hoy Paula anuncia en la oficina que Dani y ella van a ser padres.');
   if (fecha > '2026-10-30' && fecha < '2026-12-14') ev.push('Paula está embarazada; cogerá la baja el 14 de diciembre.');
-  if (fecha >= '2026-12-14' && fecha <= '2027-04-04') ev.push('Paula está de baja por maternidad; la cubre Inés, que hace su mismo trabajo.');
+  if (fecha >= '2026-12-14' && fecha <= '2027-04-04') ev.push('Paula está de baja por maternidad; la cubre Elena, que hace su mismo trabajo.');
   if (md === '12-24' || md === '12-25') ev.push('Es Navidad: hay turrón en la cocina.');
   return ev;
 }

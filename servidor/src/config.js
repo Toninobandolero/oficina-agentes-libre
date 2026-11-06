@@ -70,7 +70,7 @@ export const config = {
   // Modo ausencia: horas de sueño (Telegram calla y resume al despertar) y tope de cosas en tu mesa
   suenoDesde: env.SUENO_DESDE || '23:30',
   suenoHasta: env.SUENO_HASTA || '08:00',
-  mesaMax: Number(env.MESA_MAX ?? 12),
+  mesaMax: Number(env.MESA_MAX ?? 30),
   // Correo de la oficina (Hostinger): sin usuario y clave, el equipo no envía ni lee correo
   correo: {
     usuario: env.CORREO_USUARIO || '', clave: env.CORREO_CLAVE || '', nombre: env.CORREO_NOMBRE || '',

@@ -15,7 +15,8 @@ export function base({ tipo, ref, empresa, importancia, motivo }) {
   else if (tipo === 'correo') { nivel = importancia === 'alta' ? 1 : 2; porque = motivo || 'Correo para un lead'; }
   else if (tipo === 'propuesta') { nivel = 2; porque = 'Propuesta para un posible cliente'; }
   else if (tipo === 'mensaje') {
-    if (empresa?.categoria === 'A') { nivel = 2; porque = 'Primer contacto con una empresa A'; }
+    if (empresa?.interes || ['conversacion', 'reunion', 'propuesta', 'cliente'].includes(empresa?.estado)) { nivel = 2; porque = 'Ya has hablado con ellos'; }
+    else if (empresa?.categoria === 'A') { nivel = 2; porque = 'Primer contacto con una empresa A'; }
     else { nivel = 3; porque = `Primer contacto${empresa?.categoria ? ` con una empresa ${empresa.categoria}` : ''}`; }
   }
   else if (tipo === 'post' || tipo === 'articulo') { nivel = 4; porque = 'Contenido: sin prisa'; }
@@ -34,7 +35,7 @@ const dias = (a, b) => Math.round((new Date(a + 'T12:00:00Z') - new Date(b + 'T1
 const fechaTxt = f => new Date(f + 'T12:00:00Z').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 
 /** Prioridad efectiva hoy: la de base, ajustada por la fecha límite y por lo que lleva esperando. */
-export function efectiva({ prioridad, prioridad_motivo, caduca, creada, fecha_prevista }, hoy) {
+export function efectiva({ prioridad, prioridad_motivo, caduca, creada, fecha_prevista, tipo, clase, pospuesta }, hoy) {
   let nivel = prioridad || 3, motivo = prioridad_motivo || NIVELES[nivel];
   const cad = caduca ? (caduca instanceof Date ? caduca.toISOString().slice(0, 10) : String(caduca).slice(0, 10)) : null;
   if (cad) {
@@ -45,7 +46,9 @@ export function efectiva({ prioridad, prioridad_motivo, caduca, creada, fecha_pr
   }
   // Lo que tiene día previsto (un post, un vídeo) sube según se acerca
   const prev = fecha_prevista ? (fecha_prevista instanceof Date ? fecha_prevista.toISOString().slice(0, 10) : String(fecha_prevista).slice(0, 10)) : null;
-  if (prev && /^\d{4}-\d{2}-\d{2}$/.test(prev)) {
+  // Un boletín no tiene hora de cierre, y lo que Dirección ha pospuesto no le corre prisa hasta que vuelva
+  const sinPrisa = (tipo || clase) === 'boletin' || (pospuesta && new Date(pospuesta) > new Date());
+  if (!sinPrisa && prev && /^\d{4}-\d{2}-\d{2}$/.test(prev)) {
     const q = dias(prev, hoy);
     if (q <= 1 && nivel > 1) { nivel = 1; motivo = q < 0 ? `Tenía que salir el ${fechaTxt(prev)}` : q === 0 ? 'Sale hoy' : 'Sale mañana'; }
     else if (q <= 3 && nivel > 2) { nivel = 2; motivo = `Sale el ${fechaTxt(prev)}`; }

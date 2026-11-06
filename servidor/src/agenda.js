@@ -64,6 +64,8 @@ export async function mover(id, { dia, hora }) {
 /** Marcar hecho una llamada desde el calendario también quita su recado de la mesa (y al revés: ver aprobaciones.resolver). */
 export async function marcarHecho(id, hecho = true, { desdeMesa = false } = {}) {
   await q(`UPDATE recordatorios SET hecho=${hecho ? 'now()' : 'NULL'} WHERE id=$1`, [id]);
+  // Hecha la llamada de ese día, no queda otro aviso igual para la misma empresa
+  if (hecho) await q(`UPDATE recordatorios o SET hecho=now() FROM recordatorios r WHERE r.id=$1 AND r.clase='llamada' AND r.empresa_id IS NOT NULL AND o.empresa_id=r.empresa_id AND o.dia=r.dia AND o.clase='llamada' AND o.hecho IS NULL`, [id]);
   await emitir({ tipo: 'calendario' });
   if (hecho && !desdeMesa) {
     const ap = (await q(`SELECT id FROM aprobaciones WHERE ref=$1 AND estado='pendiente'`, [`voz:${id}`])).rows[0];

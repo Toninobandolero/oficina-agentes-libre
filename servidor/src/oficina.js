@@ -3,7 +3,7 @@ import { q, ajuste } from './db.js';
 import * as busqueda from './busqueda.js';
 import * as departamentos from './departamentos.js';
 
-export const CONSULTAS = ['informes', 'actividad', 'trabajo', 'notas', 'aprendido', 'planes', 'reunion'];
+export const CONSULTAS = ['conversaciones', 'informes', 'actividad', 'trabajo', 'notas', 'aprendido', 'planes', 'reunion'];
 
 /** Lo que todos tienen que saber antes de decidir. Corto, porque va en cada tarea. */
 export async function pizarra() {
@@ -23,6 +23,7 @@ export async function consultar({ que, texto, limite } = {}) {
   const n = Math.min(Math.max(Number(limite) || 10, 1), 30);
   const f = texto ? `%${String(texto).slice(0, 80)}%` : null;
   switch (que) {
+    case 'conversaciones': return (await q(`SELECT to_char(creado AT TIME ZONE 'Europe/Madrid', 'DD/MM HH24:MI') AS cuando, canal, autor, left(texto, 700) AS texto, empresa_id FROM chat WHERE canal NOT IN ('cafe', 'trabajo') AND ($1::text IS NULL OR texto ILIKE $1) ORDER BY id DESC LIMIT $2`, [f, n])).rows;
     case 'informes': return (await q(`SELECT id, agente, tipo, titulo, left(texto, 1500) AS texto, empresa_id, creada FROM informes WHERE $1::text IS NULL OR titulo ILIKE $1 OR texto ILIKE $1 ORDER BY id DESC LIMIT $2`, [f, n])).rows;
     case 'actividad': return (await q(`SELECT ts, datos->>'agente' AS agente, datos->>'texto' AS texto FROM eventos WHERE datos->>'tipo' = 'log' AND ($1::text IS NULL OR datos->>'texto' ILIKE $1) ORDER BY id DESC LIMIT $2`, [f, n])).rows;
     case 'trabajo': return (await q(`SELECT creado, autor, para, left(texto, 500) AS texto, empresa_id FROM chat WHERE canal = 'trabajo' AND ($1::text IS NULL OR texto ILIKE $1) ORDER BY id DESC LIMIT $2`, [f, n])).rows;

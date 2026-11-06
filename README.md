@@ -6,9 +6,11 @@ Esta copia no lleva datos de ninguna empresa. Los pones tú.
 
 **Contribuciones:** el código es abierto para usarlo, estudiarlo y modificarlo, pero por ahora no aceptamos pull requests ([por qué](CONTRIBUTING.md)). Las incidencias y las ideas sí son bienvenidas.
 
-**Edición Libre** (licencia AGPL-3.0). La edición Pro añade a Lola (recepcionista de voz), la centralita para llamar desde la oficina y el servicio de instalación y soporte: mira [qué cambia entre ediciones](EDICIONES.md).
+**Edición Libre** (licencia AGPL-3.0). La edición Pro añade a Lola (recepcionista de voz), la centralita para llamar desde la oficina, los guiones de llamada con método de venta, a Inés para los documentos de clientes, el correo con el diseño de tu empresa, a Rafa vigilando la oficina y el servicio de instalación y soporte: mira [qué cambia entre ediciones](EDICIONES.md).
 
 ## Ponerla en marcha
+
+**¿Usas un asistente de IA que trabaja en tu ordenador?** Puedes pedirle: «Lee INSTALAR.md de este repositorio y guíame paso a paso para instalar la oficina. Pregúntame antes de contratar o borrar nada, y las contraseñas las pongo yo».
 
 **¿Nunca has instalado nada en un servidor?** Sigue [INSTALAR.md](INSTALAR.md): explica cada paso, desde contratar el servidor hasta las copias de seguridad.
 

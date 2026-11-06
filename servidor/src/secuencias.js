@@ -31,6 +31,7 @@ const TIPOS = {
   otro:         { titulo: 'Paso', canal: 'linkedin', dias: 3 },
 };
 export const CLAVES = Object.keys(TIPOS);
+const SIN_CARTAS = 'Las cartas en papel no se usan. Usa LinkedIn, teléfono o correo.';
 const ORDEN = ['conexion', 'mensaje1', 'seguimiento1', 'seguimiento2', 'otro', 'carta', 'visita', 'llamada', 'presentacion'];
 const DIAS_ACEPTACION = [3, 4];      // te pregunta si ha aceptado a los 3 días y otra vez a los 4 siguientes
 const DIAS_CIERRE = 7;               // tras el último seguimiento, espera una semana antes de darlo por frío
@@ -72,10 +73,10 @@ export async function guardar({ autor, empresa_id, decisor, linkedin_url, notas,
   });
   if (!limpios.length) throw new Error('La secuencia necesita al menos un paso con texto.');
   const EN_CONVERSACION = ['conversacion', 'reunion', 'propuesta', 'ganada'];
-  const frio = limpios.filter(p => ['email', 'whatsapp'].includes(p.canal));
+  const frio = limpios.filter(p => p.canal === 'whatsapp');   // el correo lo decide Dirección al pulsar «Enviar»
+  if (limpios.some(p => p.canal === 'carta')) throw new Error(SIN_CARTAS);
   if (frio.length && !EN_CONVERSACION.includes(emp.estado)) {
-    throw new Error(`No se puede usar ${[...new Set(frio.map(p => p.canal))].join(' ni ')} en frío: la LSSI (art. 21) prohíbe las comunicaciones comerciales por medios electrónicos sin consentimiento previo, también entre empresas. ` +
-      'Usa LinkedIn, teléfono, visita, carta o presentación por un contacto. El email o WhatsApp solo cuando el lead ya está en conversación o lo ha pedido.');
+    throw new Error('No se puede usar WhatsApp en frío (LSSI art. 21). Usa LinkedIn, teléfono, correo o presentación por un contacto.');
   }
   limpios.sort((a, b) => ORDEN.indexOf(a.clave) - ORDEN.indexOf(b.clave));
   // Solo el primer contacto (y la llamada del día siguiente, si la hay): lo demás se escribe cuando sepamos si contesta.
@@ -86,6 +87,8 @@ export async function guardar({ autor, empresa_id, decisor, linkedin_url, notas,
 
   // Una versión nueva sustituye a la anterior que aún no habías empezado
   const viejas = (await q(`UPDATE secuencias SET estado='descartada', actualizada=now() WHERE empresa_id=$1 AND estado='borrador' RETURNING id`, [emp.id])).rows;
+  // Lo que dejaste para más tarde sigue para más tarde, aunque se reescriba
+  const pospuesta = viejas.length ? (await q(`SELECT max(pospuesta) AS p FROM aprobaciones WHERE estado='pendiente' AND ref = ANY($1)`, [viejas.map(v => `sec:${v.id}`)])).rows[0].p : null;
   for (const v of viejas) await aprobaciones.sustituir(`sec:${v.id}`);   // su aviso sale de tu mesa
   const sec = (await q(`INSERT INTO secuencias (empresa_id, autor, decisor, linkedin_url, notas) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
     [emp.id, autor, decisor || emp.decisor || null, linkedin_url || null, notas || null])).rows[0];
@@ -102,10 +105,11 @@ export async function guardar({ autor, empresa_id, decisor, linkedin_url, notas,
   const primero = limpios.find(p => !p.alternativo);
   const id = await aprobaciones.crear({
     agente: autor, tipo: 'mensaje', empresa_id: emp.id, ref: `sec:${sec.id}`, caduca,
-    titulo: `ha preparado el primer contacto para ${quien(sec, emp)} (${emp.nombre})`,
+    titulo: `ha preparado ${emp.interes || ['conversacion', 'reunion', 'propuesta', 'cliente'].includes(emp.estado) ? 'la llamada' : 'el primer contacto'} para ${quien(sec, emp)} (${emp.nombre})`,
     texto: await textoSecuencia(sec.id),
-    opciones: [{ r: 'aprobada', t: primero.clave === 'conexion' ? '✅ He enviado la conexión' : (OK[primero.canal] || '✅ Hecho') + ` (${primero.titulo.toLowerCase()})` }, { r: 'cambios' }, { r: 'descartada', t: 'Descartar' }],
+    opciones: [{ r: 'aprobada', t: primero.clave === 'conexion' ? '✅ He enviado la conexión' : (OK[primero.canal] || '✅ Hecho') + ` (${primero.titulo.toLowerCase()})` }, { r: 'cambios' }, { r: 'descartada', t: '✖ Esta empresa no' }],
   });
+  if (pospuesta) { await q(`UPDATE aprobaciones SET pospuesta=$2 WHERE id=$1`, [id, pospuesta]); await emitir({ tipo: 'mesa_cambiada' }); }
   return { secuencia: sec.id, aprobacion: id, pasos: limpios.length };
 }
 
@@ -225,30 +229,14 @@ export async function ponerEnMesa(pasoId, aviso = '') {
   return id;
 }
 
-/** Paula te pregunta algo que solo tú sabes (si ha aceptado, si damos por frío el contacto). */
+/** Lo que antes te preguntaba Paula se decide solo: si acepta lo sabemos por el aviso de LinkedIn y, si no hay respuesta, se pasa a la llamada o se aparca. */
 async function ponerControl(sec) {
-  const emp = await empresas.leer(sec.empresa_id); const ps = await pasosDe(sec.id);
-  const nombre = quien(sec, emp);
-  const planB = ps.find(p => p.alternativo && p.estado === 'pendiente');
-  let titulo, texto, opciones;
-  if (sec.control === 'aceptacion') {
-    const conexion = ps.find(p => p.clave === 'conexion');
-    titulo = `pregunta: ¿ha aceptado ${nombre} tu conexión? (${emp.nombre})`;
-    texto = `Le enviaste la solicitud ${conexion?.hecho ? 'el ' + fechaBonita(conexion.hecho.toISOString?.() ?? conexion.hecho) : 'hace unos días'}.` +
-      `${perfilDe(sec, emp) ? `\nPerfil: ${perfilDe(sec, emp)}` : ''}\nSi ha aceptado, te paso el mensaje 1 al momento.`;
-    opciones = [{ r: 'aceptado', t: '✅ Ha aceptado' }, { r: 'aun_no', t: '⏳ Aún no' }, RESPONDIDO, { r: 'parar', t: '🛑 Parar la secuencia' }];
-  } else {
-    titulo = `te avisa: ${nombre} no ha respondido a la secuencia (${emp.nombre})`;
-    texto = `Hechos: ${ps.filter(p => p.estado === 'hecho').map(p => p.titulo.toLowerCase()).join(', ') || 'ninguno'}. Sin respuesta.` +
-      (planB ? `\n\nQueda el plan B: ${planB.titulo.toLowerCase()}${emp.telefono && planB.canal === 'telefono' ? ` (${emp.telefono})` : ''}.` : emp.telefono && !ps.some(p => p.clave === 'llamada' && p.estado === 'hecho') ? `\n\nTenemos su teléfono (${emp.telefono}): si quieres llamar, Javi te prepara el guion.` : '') +
-      '\n\n¿Qué hacemos?';
-    const llamadaHecha = ps.some(p => p.clave === 'llamada' && p.estado === 'hecho');
-    opciones = [...(planB ? [{ r: 'plan_b', t: planB.canal === 'telefono' ? '📞 Le llamo' : `➡️ ${planB.titulo}` }] : (emp.telefono && !llamadaHecha ? [{ r: 'plan_b', t: '📞 Le llamo (Javi prepara el guion)' }] : [])),
-      { r: 'aparcar', t: '🗓 Volver en 3 meses' }, { r: 'perdida', t: '✖ Darla por perdida' }, RESPONDIDO];
-  }
-  const id = await aprobaciones.crear({ agente: 'paula', tipo: 'paso', empresa_id: emp.id, ref: `ctl:${sec.id}`, titulo, texto, opciones });
-  await q(`UPDATE secuencias SET control_fecha=NULL, actualizada=now() WHERE id=$1`, [sec.id]);   // ya está en tu mesa
-  return id;
+  await q(`UPDATE secuencias SET control_fecha=NULL, actualizada=now() WHERE id=$1`, [sec.id]);
+  const ctl = { ref: `ctl:${sec.id}` };
+  if (sec.control === 'aceptacion') return resolver(ctl, 'aun_no');
+  const emp = await empresas.leer(sec.empresa_id), ps = await pasosDe(sec.id);
+  const puedeLlamar = ps.some(p => p.alternativo && p.estado === 'pendiente') || (emp.telefono && !ps.some(p => p.clave === 'llamada' && p.estado === 'hecho'));
+  return resolver(ctl, puedeLlamar ? 'plan_b' : 'aparcar');
 }
 
 /** Javi escribe el siguiente paso con todo lo que ya se ha enviado. */
@@ -259,7 +247,7 @@ async function encargarPaso(sec, clave, motivo) {
     mensaje1: 'El mensaje 1 tras aceptar: agradece en media línea, una sola idea concreta sacada del dossier y una pregunta pequeña. Con «asunto» corto por si LinkedIn lo pide.',
     seguimiento1: 'Seguimiento 1: no repitas el mensaje 1. Aporta algo nuevo y útil (un dato, un caso, una idea) y deja la puerta abierta. Breve.',
     seguimiento2: 'Seguimiento 2, el último: muy corto, sin presión, cierra con elegancia («si no es el momento, lo dejo aquí»).',
-    llamada: 'Guion de llamada (plan B): quién eres en una frase, por qué llamas a ellos en concreto, una pregunta para abrir conversación, y qué decir si no es buen momento.',
+    llamada: 'Guion de llamada (plan B).',
   }[clave] || '';
   await q(`UPDATE secuencias SET control=$2, control_fecha=NULL, actualizada=now() WHERE id=$1`, [sec.id, `redactando:${clave}`]);
   await tareas.crear('javi', `${motivo}\n\nEscribe ahora el ${TIPOS[clave].titulo.toLowerCase()} para ${quien(sec, emp)} (${emp.nombre}) y entrégalo con anadir_paso (empresa_id «${emp.id}», clave «${clave}»). Llegará a la mesa de Dirección al momento.\n${guia}\n\n` +
@@ -276,7 +264,8 @@ export async function anadirPaso({ empresa_id, clave, texto, asunto, canal }) {
   if (!String(texto || '').trim()) throw new Error('Falta el texto.');
   clave = CLAVES.includes(clave) ? clave : 'otro';
   const def = TIPOS[clave]; canal = canal || def.canal;
-  if (['email', 'whatsapp'].includes(canal) && !['conversacion', 'reunion', 'propuesta', 'ganada'].includes(emp.estado)) throw new Error('No se puede usar email ni WhatsApp en frío (LSSI art. 21). Usa LinkedIn, teléfono, visita, carta o presentación.');
+  if (canal === 'carta') throw new Error(SIN_CARTAS);
+  if (canal === 'whatsapp' && !['conversacion', 'reunion', 'propuesta', 'ganada'].includes(emp.estado)) throw new Error('No se puede usar WhatsApp en frío (LSSI art. 21). Usa LinkedIn, teléfono, correo o presentación.');
   const ps = await pasosDe(sec.id);
   const viejo = ps.find(p => p.clave === clave && ['pendiente', 'programado'].includes(p.estado));
   if (viejo) await q(`UPDATE pasos SET estado='cancelado' WHERE id=$1`, [viejo.id]);

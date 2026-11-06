@@ -8,18 +8,28 @@ import { emitir, log } from './bus.js';
 
 export const CAMPOS = {
   empresa: ['nombre', 'web', 'linkedin', 'otras_redes', 'telefono', 'localidad', 'zona', 'que_vende', 'precios', 'cliente_ideal', 'sectores', 'diferencia', 'casos'],
-  dueno: ['nombre', 'presentacion', 'linkedin', 'trayectoria', 'tono', 'evitar'],
+  dueno: ['nombre', 'presentacion', 'presentacion_llamada', 'respuestas_llamada', 'linkedin', 'trayectoria', 'tono', 'evitar'],
   extra: ['texto'],
 };
 const MAX = 4000;
 let perfil = {};
+// El idioma en que trabaja el equipo: se pregunta lo primero y se cambia en Configuración › Mi empresa. Solo estos: son los que tiene el panel.
+export const IDIOMAS = { es: 'español de España', en: 'inglés' };
+export const idiomaEquipo = () => IDIOMAS[perfil.idioma] || IDIOMAS.es;
+export async function fijarIdioma(idioma) {
+  if (!Object.hasOwn(IDIOMAS, idioma)) throw new Error('Ese idioma no está disponible.');
+  perfil = { ...perfil, idioma };
+  await fijarAjuste('perfil_empresa', perfil);
+  await emitir({ tipo: 'perfil' });
+  return perfil;
+}
 
 export async function cargar() { perfil = (await ajuste('perfil_empresa', null)) || {}; return perfil; }
 export const leer = () => perfil;
 
 /** Guarda lo que Dirección escribe en Configuración. Si la web es nueva o ha cambiado, la lee y la resume en segundo plano. */
 export async function guardar(datos = {}) {
-  const limpio = { actualizado: new Date().toISOString(), resumen_web: perfil.resumen_web || null, web_leida: perfil.web_leida || null };
+  const limpio = { actualizado: new Date().toISOString(), resumen_web: perfil.resumen_web || null, web_leida: perfil.web_leida || null, idioma: perfil.idioma || null };
   for (const [grupo, campos] of Object.entries(CAMPOS)) {
     limpio[grupo] = {};
     for (const c of campos) limpio[grupo][c] = String(datos?.[grupo]?.[c] ?? '').trim().slice(0, MAX);
@@ -39,7 +49,7 @@ export async function leerWeb() {
   const { leer: leerPagina } = await import('./web.js');
   const portada = await leerPagina(url, { max: 9000 });
   const textoPortada = typeof portada === 'string' ? portada : (portada?.texto || JSON.stringify(portada).slice(0, 9000));
-  const prompt = `Esta es la web de una empresa. Resume para su equipo comercial, en 8–12 líneas y en español de España: qué vende (servicios y productos concretos), a quién, en qué zona, precios si aparecen, casos o clientes que cita y qué la diferencia. Solo lo que diga la web; no inventes.\n\nWEB (${url}):\n${textoPortada.slice(0, 9000)}`;
+  const prompt = `Esta es la web de una empresa. Resume para su equipo comercial, en 8–12 líneas y en ${idiomaEquipo()}: qué vende (servicios y productos concretos), a quién, en qué zona, precios si aparecen, casos o clientes que cita y qué la diferencia. Solo lo que diga la web; no inventes.\n\nWEB (${url}):\n${textoPortada.slice(0, 9000)}`;
   const r = await llamar({ modelo: config.modelos.rafa, messages: [{ role: 'user', content: prompt }], maxTokens: 3000, razonamiento: { max_tokens: 500 } });
   await presupuesto.registrar('rafa', null, config.modelos.rafa, r.coste, r.uso);
   const resumen = String(r.mensaje.content || '').trim();
@@ -58,7 +68,7 @@ export function paraPrompt() {
   const emp = [l('Nombre', e.nombre), l('Web', e.web), l('LinkedIn de la empresa', e.linkedin), l('Otras redes', e.otras_redes), l('Teléfono de la empresa (el que se da a los clientes y sale al llamar)', e.telefono), l('Zona', e.zona),
     l('Qué vende', e.que_vende), l('Precios', e.precios), l('Cliente ideal', e.cliente_ideal), l('Sectores prioritarios', e.sectores),
     l('Qué la diferencia', e.diferencia), l('Casos y clientes', e.casos)].filter(Boolean);
-  const due = [l('Nombre', d.nombre), l('Cómo presentarle', d.presentacion), l('LinkedIn', d.linkedin), l('Trayectoria', d.trayectoria),
+  const due = [l('Nombre', d.nombre), l('Cómo presentarle', d.presentacion), l('Cómo se presenta al llamar por teléfono', d.presentacion_llamada), l('Lo que contesta al teléfono si le preguntan quién es, por qué llama o dónde está su empresa (el sistema lo pone tal cual al final de cada guion de llamada: no lo repitas)', d.respuestas_llamada), l('LinkedIn', d.linkedin), l('Trayectoria', d.trayectoria),
     l('Tono al escribir en su nombre', d.tono), l('Lo que NUNCA hay que decir o hacer', d.evitar)].filter(Boolean);
   if (!emp.length && !due.length && !perfil.extra?.texto && !perfil.resumen_web) return '';
   return `\n\n## La empresa y su dueño (lo que Dirección ha escrito en Configuración: manda sobre cualquier otra descripción)\n` +

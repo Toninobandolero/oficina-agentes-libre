@@ -15,7 +15,7 @@ Si tu web lo ofrece, tiene que llegar el mismo día. Con lo que contestó en el 
 3. **Lo primero que haríamos**: lo más rentable y rápido de lo que vendemos, en lenguaje de negocio, con plazo y precio orientativo si está en la ficha.
 4. **Lo que no haríamos todavía** (honestidad: lo que no compensa).
 5. **Siguiente paso**: llamada de 15 minutos para afinarlo, sin compromiso.
-Va en el cuerpo del correo (preparar_correo), no como adjunto. Con el tono de la ficha.
+Tú escribes el contenido, con el tono de la ficha, y lo entregas con su «documento»: un PDF con vuestra marca que queda en la mesa de aprobación.
 
 ## Entregable 1: diagnóstico (1 página)
 - Situación actual en 3–5 líneas, con las palabras del cliente.

@@ -9,6 +9,7 @@ const cfg = { token: config.telegramToken, chat: config.telegramChatId, user: co
 let codigoVinculo = null;
 const apiUrl = () => `https://api.telegram.org/bot${cfg.token}`;
 export const activo = () => Boolean(cfg.token && cfg.chat);
+export const _fijarBot = (token, chat, user = cfg.user) => { cfg.token = token; cfg.chat = chat; cfg.user = user; };   // para las pruebas
 const claveC = () => crypto.createHash('sha256').update('acp-telegram:' + config.claveCifrado).digest();
 const cifrarT = t => { const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', claveC(), iv); const d = Buffer.concat([c.update(t, 'utf8'), c.final()]); return [iv, c.getAuthTag(), d].map(b => b.toString('base64')).join('.'); };
 const descifrarT = s => { const [iv, tag, d] = s.split('.').map(x => Buffer.from(x, 'base64')); const c = crypto.createDecipheriv('aes-256-gcm', claveC(), iv); c.setAuthTag(tag); return Buffer.concat([c.update(d), c.final()]).toString('utf8'); };
@@ -126,6 +127,13 @@ export async function enviarAprobacion(ap, { nombreAgente, empresa, ahora = fals
   return m?.message_id ?? null;
 }
 
+/** Ya no toca: el mensaje desaparece del chat. Si es demasiado antiguo para borrarlo (48 h), se queda sin botones. */
+export async function retirar(msgId) {
+  if (!msgId) return;
+  if (await llamar('deleteMessage', { chat_id: cfg.chat, message_id: msgId })) return;
+  await llamar('editMessageReplyMarkup', { chat_id: cfg.chat, message_id: msgId, reply_markup: { inline_keyboard: [[{ text: '🔁 Ya no hace falta', callback_data: 'nada' }]] } });
+}
+
 export async function marcarResuelta(msgId, resultado, etiqueta) {
   if (!msgId) return;
   const texto = etiqueta ? `✔ ${etiqueta.replace(/^\S+\s/, '')}` : resultado === 'aprobada' ? '✅ Hecho' : resultado === 'cambios' ? '✏️ Cambios pedidos' : '✖ Descartado';
@@ -164,6 +172,7 @@ export async function escuchar() {
 }
 export const detener = () => { parar = true; };
 
+export const _procesar = u => procesar(u);   // para las pruebas
 async function procesar(u) {
   const chat = String(u.callback_query?.message?.chat?.id ?? u.message?.chat?.id ?? '');
   const de = String(u.callback_query?.from?.id ?? u.message?.from?.id ?? '');

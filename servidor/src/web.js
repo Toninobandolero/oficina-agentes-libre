@@ -37,6 +37,22 @@ async function comprobarUrl(u) {
   return url;
 }
 
+// Lo que una web lleva por dentro no sale en su texto: un widget de reservas o de chat solo se ve en su código.
+const PROGRAMAS = [
+  ['reservas', { covermanager: 'CoverManager', 'thefork|lafourchette': 'TheFork', opentable: 'OpenTable', sevenrooms: 'SevenRooms', quandoo: 'Quandoo', zenchef: 'Zenchef', mozrest: 'Mozrest', restoo: 'Restoo', 'roiback': 'Roiback', 'mirai\\.com': 'Mirai', siteminder: 'SiteMinder', cloudbeds: 'Cloudbeds' }],
+  ['alquiler vacacional', { avantio: 'Avantio', guesty: 'Guesty', hostaway: 'Hostaway', smoobu: 'Smoobu', lodgify: 'Lodgify', beds24: 'Beds24', icnea: 'Icnea', rentalsunited: 'Rentals United' }],
+  ['citas', { doctoralia: 'Doctoralia', calendly: 'Calendly', booksy: 'Booksy', timify: 'Timify', simplybook: 'SimplyBook', acuityscheduling: 'Acuity', treatwell: 'Treatwell' }],
+  ['chat', { tidio: 'Tidio', 'intercom\\.io|widget\\.intercom': 'Intercom', 'zdassets|zendesk': 'Zendesk', 'crisp\\.chat': 'Crisp', 'tawk\\.to': 'Tawk', landbot: 'Landbot', manychat: 'ManyChat', chatbase: 'Chatbase', livechatinc: 'LiveChat', 'wa\\.me|api\\.whatsapp': 'WhatsApp' }],
+  ['clientes y marketing', { 'hubspot|hs-scripts': 'HubSpot', salesforce: 'Salesforce', pipedrive: 'Pipedrive', 'zoho\\.': 'Zoho', activecampaign: 'ActiveCampaign', mailchimp: 'Mailchimp' }],
+  ['tienda', { shopify: 'Shopify', woocommerce: 'WooCommerce', prestashop: 'PrestaShop', magento: 'Magento' }],
+];
+/** Qué programas se ven en el código de una página. */
+export function detectarProgramas(html) {
+  const h = String(html || '').toLowerCase(), out = [];
+  for (const [para, lista] of PROGRAMAS) for (const [firma, nombre] of Object.entries(lista)) if (new RegExp(firma).test(h)) out.push(`${nombre} (${para})`);
+  return out;
+}
+
 function aTexto(html) {
   const titulo = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '';
   const texto = html
@@ -61,7 +77,7 @@ export async function leer(u, { max = 12000 } = {}) {
     while (true) { const { done, value } = await lector.read(); if (done) break; bytes += value.length; trozos.push(value); if (bytes > 2_000_000) { lector.cancel(); break; } }
     const html = Buffer.concat(trozos).toString('utf8');
     const { titulo, texto } = tipo.includes('html') ? aTexto(html) : { titulo: '', texto: html };
-    return { url: url.href, titulo, texto: texto.length > max ? texto.slice(0, max) + ' […]' : texto };
+    return { url: url.href, titulo, programas_detectados: detectarProgramas(html), texto: texto.length > max ? texto.slice(0, max) + ' […]' : texto };
   }
   throw new Error('Demasiadas redirecciones');
 }

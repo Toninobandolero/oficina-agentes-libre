@@ -45,7 +45,7 @@ export async function ponerBotones() {
 }
 
 function comprobarConexion() {
-  if (!correo.activo()) throw new Error('El correo de la oficina no está conectado: crea el buzón de correo y pon CORREO_USUARIO y CORREO_CLAVE en el .env del servidor (CONFIGURACION.md, sección 5).');
+  if (!correo.activo()) throw new Error('El correo de la oficina no está conectado: crea el buzón de correo y pon sus datos en Configuración › Conexiones.');
   if (!config.panelUrl) throw new Error('Falta PANEL_URL en el .env: sin esa dirección el correo no puede llevar el enlace de baja.');
 }
 

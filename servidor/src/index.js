@@ -12,6 +12,7 @@ import * as correo from './correo.js';
 import * as bus from './bus.js';
 import { AGENTES, IDS, RAIZ } from './agentes.js';
 import * as empresas from './empresas.js';
+import * as importador from './importar.js';
 import * as tareas from './tareas.js';
 import * as aprobaciones from './aprobaciones.js';
 import * as aprendizajes from './aprendizajes.js';
@@ -22,6 +23,7 @@ import * as busqueda from './busqueda.js';
 import * as boletin from './boletin.js';
 import * as contactos from './contactos.js';
 import * as protocolo from './protocolo.js';
+import * as cuentasCorreo from './cuentasCorreo.js';
 import * as fuentes from './fuentes.js';
 import * as telegram from './telegram.js';
 import * as acceso from './acceso.js';
@@ -79,7 +81,7 @@ let versionPanel = null;
 const versionDelPanel = () => versionPanel ??= crypto.createHash('sha1').update(fs.readFileSync(PANEL)).digest('hex').slice(0, 10);
 
 async function snapshotCompleto() {
-  const s = await bus.snapshot({ version: versionDelPanel(), premio: await premios.ultimo().catch(() => null), linkedin: await linkedin.estado().catch(() => null), vida_oficina: vida.estaActiva(), gasto: await presupuesto.gastoMes(), pausado: await motor.estaPausado(), gracias: await aprendizajes.contadorGracias(), plantilla: plantilla.listar(), ausencia: await ausencia.estado(), animo: await vida.animo().catch(() => null) });
+  const s = await bus.snapshot({ version: versionDelPanel(), premio: await premios.ultimo().catch(() => null), linkedin: await linkedin.estado().catch(() => null), vida_oficina: vida.estaActiva(), gasto: await presupuesto.gastoMes(), pausado: await motor.estaPausado(), pausa_motivo: await ajuste('pausa_motivo', ''), gracias: await aprendizajes.contadorGracias(), plantilla: plantilla.listar(), ausencia: await ausencia.estado(), animo: await vida.animo().catch(() => null) });
   await video.enTarjetas(s.aprobaciones);
   return s;
 }
@@ -232,10 +234,14 @@ async function rutas(req, res) {
     res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="empresas.csv"' });
     return res.end(await empresas.csv());
   }
-  // La cartera de la empresa, desde un CSV. Qué es la lista lo dice quien importa: una lista fría se queda en «nueva» y el equipo no le escribe (LSSI)
+  // Una lista de contactos de otro programa, en Excel o CSV: primero se propone a qué campo va cada columna y se enseña cómo quedaría; se guarda cuando lo confirma quien importa
+  if (m === 'POST' && p === '/api/empresas/importar/leer') {
+    const b = await cuerpo(req, 12_000_000);
+    try { return json(res, 200, await importador.proponer(b.archivo)); } catch (e) { return json(res, 400, { error: e.message }); }
+  }
   if (m === 'POST' && p === '/api/empresas/importar') {
-    const b = await cuerpo(req, 3_000_000);
-    let r; try { r = await empresas.importar(b.csv, b.estado); } catch (e) { return json(res, 400, { error: e.message }); }
+    const b = await cuerpo(req, 12_000_000);
+    let r; try { r = await importador.importar(b); } catch (e) { return json(res, 400, { error: e.message }); }
     if (r.importadas) await bus.log('dueno', `ha importado ${r.importadas} empresa${r.importadas === 1 ? '' : 's'} de su cartera (${{ ganada: 'clientes', conversacion: 'con permiso o en conversación', nueva: 'lista fría' }[b.estado]}).`);
     return json(res, 200, r);
   }
@@ -272,6 +278,10 @@ async function rutas(req, res) {
   if (m === 'GET' && (r = p.match(/^\/api\/empresas\/([\w-]+)$/))) {
     const e = await empresas.leer(r[1]);
     return e ? json(res, 200, { ...e, coste: await empresas.coste(r[1]).catch(() => null), contactos: await contactos.deEmpresa(r[1]), situacion: await protocolo.situacion(e) }) : json(res, 404, { error: 'No existe esa empresa' });
+  }
+  if (m === 'POST' && (r = p.match(/^\/api\/empresas\/([\w-]+)\/proximo-hecho$/))) {
+    await empresas.actualizar(r[1], { proximo_paso: null, fecha_proximo_paso: null });
+    return json(res, 200, { ok: true });
   }
   if (m === 'POST' && (r = p.match(/^\/api\/empresas\/([\w-]+)\/estado$/))) {
     const b = await cuerpo(req);
@@ -409,16 +419,25 @@ async function rutas(req, res) {
     res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `${url.searchParams.has('descargar') ? 'attachment' : 'inline'}; filename="${pdf.nombre}"`, 'Cache-Control': 'no-store' });
     return res.end(pdf.datos);
   }
-  // Mandar el PDF por correo o rehacerlo con gráficos: lo prepara el agente que toca y sigue pasando por la mesa
-  if (m === 'POST' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/documento\/(correo|rehacer)$/))) {
+  // Enviar por correo desde cualquier tarjeta, por la cuenta que elijas; y las cuentas enlazadas
+  if (m === 'GET' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/correo$/))) {
+    const b = url.searchParams.get('documento') ? await correo.borradorDeDocumento(r[1]) : await correo.borradorDeTarjeta(r[1]);
+    return b ? json(res, 200, b) : json(res, 404, { error: 'Esa tarjeta ya no está en la mesa' });
+  }
+  if (m === 'POST' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/correo$/))) {
+    try { const b = await cuerpo(req); await (b.documento ? correo.enviarDocumento(r[1], b) : correo.enviarDesdeTarjeta(r[1], b)); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); }
+  }
+  if (m === 'GET' && p === '/api/correo/cuentas/comprobar') return json(res, 200, await cuentasCorreo.comprobar(url.searchParams.get('cuenta')));
+  if (m === 'GET' && p === '/api/correo/cuentas') return json(res, 200, cuentasCorreo.listar());
+  if (m === 'POST' && p === '/api/correo/cuentas') { try { return json(res, 200, await cuentasCorreo.guardar(await cuerpo(req))); } catch (e) { return json(res, 400, { error: e.message }); } }
+  if (m === 'POST' && (r = p.match(/^\/api\/correo\/cuentas\/([\w-]+)\/(predeterminada|quitar)$/))) {
+    try { return json(res, 200, await (r[2] === 'quitar' ? cuentasCorreo.quitar(r[1]) : cuentasCorreo.predeterminar(r[1]))); } catch (e) { return json(res, 400, { error: e.message }); }
+  }
+  // Rehacer el documento con gráficos: lo prepara Nuria y sigue pasando por la mesa
+  if (m === 'POST' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/documento\/rehacer$/))) {
     const a = (await q(`SELECT a.id, a.titulo, a.texto, a.empresa_id, e.nombre, e.email, e.decisor FROM aprobaciones a LEFT JOIN empresas e ON e.id=a.empresa_id WHERE a.id=$1`, [r[1]])).rows[0];
     if (!a) return json(res, 404, { error: 'Ese documento ya no existe' });
-    if (r[2] === 'correo') {
-      if (!a.email) return json(res, 400, { error: 'Esta empresa no tiene correo apuntado: ponlo en su ficha o descarga el PDF y mándalo tú.' });
-      await tareas.crear('paula', `Dirección quiere mandar a ${a.nombre} su documento en PDF. Prepara el correo con preparar_correo, para ${a.email}, con adjuntar_documento «${a.id}». El texto solo acompaña al PDF: tres frases, de tú, a ${a.decisor || 'quien corresponda'}, y proponiendo 15 minutos para comentarlo.`, { empresa_id: a.empresa_id, origen: 'dueno' });
-    } else {
-      await tareas.crear('nuria', `Rehaz este documento para ${a.nombre || 'el cliente'} con pedir_aprobacion (tipo 'propuesta') y su «documento» por partes, para que salga con gráficos. Sin inventar cifras. Lo que hay ahora:\n\n${String(a.texto || '').slice(0, 6000)}`, { empresa_id: a.empresa_id, origen: 'dueno' });
-    }
+    await tareas.crear('nuria', `Rehaz este documento para ${a.nombre || 'el cliente'} con pedir_aprobacion (tipo 'propuesta') y su «documento» por partes, para que salga con gráficos. Sin inventar cifras. Lo que hay ahora:\n\n${String(a.texto || '').slice(0, 6000)}`, { empresa_id: a.empresa_id, origen: 'dueno' });
     return json(res, 200, { ok: true });
   }
   if (m === 'GET' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/imagen$/))) {
@@ -523,6 +542,7 @@ async function rutas(req, res) {
     await bus.log('dueno', 'ha actualizado la ficha de la empresa en Configuración: el equipo ya la tiene en cuenta.');
     return json(res, 200, r);
   }
+  if (m === 'POST' && p === '/api/idioma') { try { return json(res, 200, await perfil.fijarIdioma((await cuerpo(req)).idioma)); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (m === 'POST' && p === '/api/perfil/leer-web') { try { await perfil.leerWeb(); return json(res, 200, perfil.leer()); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (m === 'GET' && p === '/api/marca') return json(res, 200, { ...marca.leer(), por_defecto: marca.POR_DEFECTO });
   if (m === 'POST' && p === '/api/marca') {
@@ -625,6 +645,7 @@ async function preguntar(ag, texto, { contexto = '', via = 'telegram' } = {}) {
   await bus.log('dueno', `le pregunta a ${AGENTES[ag].nombre}: «${texto.slice(0, 140)}»`);
   // También queda en vuestro privado del chat (y ahí te contesta)
   await chat.escribir({ canal: ag, autor: 'dueno', para: ag, texto, via, tarea_id: t.id }).catch(e => console.error('Chat:', e.message));
+  return chat.avisarPausa(ag, ag);
 }
 
 // ---------- Telegram ----------
@@ -648,8 +669,9 @@ telegram.alResponder(async (msgId, texto, citado = '') => {
     if (ag === 'rafa') {
       await tareas.crear('rafa', `Dirección contesta por Telegram a un mensaje: «${texto}»${contexto}`, { origen: 'dueno' });
       await bus.log('dueno', `contesta a Rafa: «${texto.slice(0, 140)}»`);
-    } else await preguntar(ag, texto, { contexto });
-    return null;   // contesta el agente
+      return chat.textoPausa('rafa');
+    }
+    return preguntar(ag, texto, { contexto });   // contesta el agente; en pausa, se avisa
   }
   const previa = (await q(`SELECT ref, estado FROM aprobaciones WHERE id=$1`, [id])).rows[0];
   if (previa && /^(paso|ctl):/.test(previa.ref || '')) {
@@ -666,11 +688,11 @@ telegram.alEscribir(async texto => {
   // «Mateo, ¿por qué…?» o «Carmen: …» → habla directamente con ese agente
   const m = texto.match(/^\s*@?([A-Za-zÁÉÍÓÚáéíóúÑñ]+)\s*[,:]\s*([\s\S]+)$/);
   const ag = m && nombreAgente(m[1]);
-  if (ag && ag !== 'rafa') { await preguntar(ag, m[2].trim()); return null; }
+  if (ag && ag !== 'rafa') return preguntar(ag, m[2].trim());
   const cuerpoTexto = ag === 'rafa' ? m[2].trim() : texto;
   await tareas.crear('rafa', `Dirección te escribe por Telegram: «${cuerpoTexto}»`, { origen: 'dueno' });
   await bus.log('dueno', `ha escrito a Rafa: «${cuerpoTexto.slice(0, 140)}»`);
-  return null;   // Rafa contesta él mismo
+  return chat.textoPausa('rafa');   // Rafa contesta él mismo; en pausa, se avisa
 });
 
 // ---------- modo ausencia ----------
@@ -754,7 +776,7 @@ telegram.alComando(async (cmd, args) => {
       if (!ag || !resto.length) return `Uso: /encargar <agente> <instrucción>\nAgentes: ${IDS.join(', ')}`;
       await tareas.crear(ag, resto.join(' '), { origen: 'dueno' });
       await bus.log('dueno', `ha encargado a ${AGENTES[ag].nombre}: «${resto.join(' ').slice(0, 140)}»`);
-      return `👍 Encargado a ${AGENTES[ag].nombre}.`;
+      return `👍 Encargado a ${AGENTES[ag].nombre}.${(await motor.estaPausado()) ? ' Empezará cuando reanudes el equipo.' : ''}`;
     }
     case 'gracias': {
       const [quien, ...resto] = args.split(/\s+/);
@@ -772,8 +794,7 @@ telegram.alComando(async (cmd, args) => {
       const [quien, ...resto] = args.split(/\s+/);
       const ag = nombreAgente(quien);
       if (!ag || !resto.length) return `Uso: /pregunta <agente> <pregunta>\nAgentes: ${IDS.join(', ')}`;
-      await preguntar(ag, resto.join(' '));
-      return `🤔 ${AGENTES[ag].nombre} lo está pensando. Te contesta aquí.`;
+      return (await preguntar(ag, resto.join(' '))) || `🤔 ${AGENTES[ag].nombre} lo está pensando. Te contesta aquí.`;
     }
     case 'regla': {
       if (!args.trim()) return 'Uso: /regla <texto>. Ej.: /regla No tutees a despachos de abogados';
@@ -806,6 +827,7 @@ export async function arrancar({ conMotor = true } = {}) {
   await facebook.cargarApp();
   await perfil.cargar();
   await marca.cargar();
+  await cuentasCorreo.cargar();
   await chats.cargar();
   await telegram.cargar();
   await secuencias.recortarBorradores().catch(e => console.error('Recortar secuencias:', e.message));

@@ -75,7 +75,7 @@ export async function llamar(opciones) {
       const primeraVez = !respaldo.desde;
       respaldo.hasta = Date.now() + REINTENTO_CLAUDE_MS;
       respaldo.desde = respaldo.desde || new Date().toISOString();
-      if (primeraVez) avisarCambio('🔁 Se ha acabado el crédito de Claude. La oficina sigue trabajando con OpenRouter (respaldo) y vuelve sola a Claude cuando haya crédito. Si prefieres pararla: /pausa.');
+      if (primeraVez) avisarCambio('🔁 No queda crédito de Claude (saldo agotado, tope de gasto o problema con el pago). La oficina sigue trabajando con OpenRouter (respaldo) y vuelve sola a Claude cuando haya crédito. Si prefieres pararla: /pausa.');
       return llamarOpenRouter(opciones);
     }
   }
@@ -85,6 +85,13 @@ export async function llamar(opciones) {
       : 'Falta la clave de OpenRouter: pégala en el panel (Configuración → Inteligencia artificial).', 401);
   }
   return llamarOpenRouter(opciones);
+}
+
+/** ¿Se puede volver a trabajar? Una llamada mínima, primero con Claude y si no con el respaldo; sin crédito la rechazan y no cuesta nada. */
+export async function hayCredito() {
+  respaldo.hasta = 0;
+  try { await llamar({ modelo: config.modelos.rafa, messages: [{ role: 'user', content: 'Di «ok».' }], maxTokens: 16 }); return true; }
+  catch { return false; }
 }
 
 /** Convierte las definiciones de herramientas al formato de OpenAI (el que usa todo el código). */
@@ -270,6 +277,15 @@ export function respuestaAnthropic(j) {
   };
 }
 
+/** Las formas en que Claude deja de dar servicio por dinero (platform.claude.com/docs/en/api/errors). Ninguna se arregla repitiendo. */
+function corteDeCredito(status, error) {
+  const texto = String(error?.message || '');
+  if (/credit balance is too low/i.test(texto)) return 'Se ha acabado el crédito de la API de Claude. Con el plan Max llega más con el siguiente pago del plan; también se puede añadir saldo en platform.claude.com o activar OpenRouter como respaldo (Configuración → Inteligencia artificial).';
+  if (error?.details?.error_code === 'enforced_spend_limit_reached' || /you have reached your .*api usage limits/i.test(texto)) return 'Claude ha cortado el servicio: la cuenta ha llegado a un tope de gasto (platform.claude.com → Billing). Vuelve al subir el tope o al empezar el mes siguiente.';
+  if (status === 402 || error?.type === 'billing_error') return 'Claude ha cortado el servicio: hay un problema con el pago de la cuenta (platform.claude.com → Billing).';
+  return null;
+}
+
 async function llamarAnthropic({ modelo, system, messages, tools, busquedaWeb, plugins, maxTokens = 6000 }) {
   // «razonamiento» (pensar antes de responder) no se activa aquí: estas tareas no lo necesitan y así no gasta tokens.
   const cuerpo = { model: idAnthropic(modelo), max_tokens: maxTokens, messages: mensajesAnthropic(messages) };
@@ -296,10 +312,8 @@ async function llamarAnthropic({ modelo, system, messages, tools, busquedaWeb, p
     if (!r.ok || j.type === 'error') {
       const status = r.ok ? 500 : r.status;
       const texto = j.error?.message || r.statusText;
-      // Sin crédito (se ha gastado el crédito del mes y no hay saldo comprado): no se arregla repitiendo
-      if (/credit balance is too low/i.test(texto)) {
-        throw new ErrorLLM('Se ha acabado el crédito de la API de Claude. Con el plan Max llega más con el siguiente pago del plan; también se puede añadir saldo en platform.claude.com o activar OpenRouter como respaldo (Configuración → Inteligencia artificial).', 402, { sinCredito: true });
-      }
+      const corte = corteDeCredito(status, j.error);
+      if (corte) throw new ErrorLLM(corte, 402, { sinCredito: true });
       ultimo = new ErrorLLM(`API de Claude ${status}: ${texto}`, status);
       if (status === 429 || status >= 500) continue;   // 529 = saturada: se reintenta
       throw ultimo;                                     // 400, 401, 403, 404, 413…
