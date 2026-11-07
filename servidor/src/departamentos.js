@@ -1,5 +1,5 @@
 // Departamentos de la oficina: cada empresa usa los que necesita. Los apagados no reciben trabajo ni gastan, y no salen en el panel.
-// Rafa los propone en el primer uso (arranque.js) y se cambian en Configuración. Dirección (Rafa) y Recepción (Lola) no se apagan.
+// Máximo los propone en el primer uso (arranque.js) y se cambian en Configuración. Dirección (Máximo) y Recepción (Lola) no se apagan.
 // Además de los cinco de siempre, cada empresa puede crear los suyos: se guardan en la base de datos, ocupan una sala libre y tienen su propio tope de gasto.
 import { q, ajuste, fijarAjuste } from './db.js';
 import { config } from './config.js';
@@ -74,7 +74,7 @@ export async function guardar(activos) {
 }
 
 const sinTildes = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-// Nombres, puestos y frases cortas acaban en el panel; el texto puede venir de una web a través de Rafa
+// Nombres, puestos y frases cortas acaban en el panel; el texto puede venir de una web a través de Máximo
 const limpio = (s, max) => String(s ?? '').replace(/[<>"`]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
 const texto = (s, max) => String(s ?? '').trim().slice(0, max);
 
@@ -117,7 +117,7 @@ function validar(datos, previo) {
   return { id, nombre, para, propio: true, tope_eur: Math.round(tope_eur * 100) / 100, semanal: semanal(datos.semanal), personas, agentes: personas.map(p => p.id) };
 }
 
-/** Lo que tenía pendiente quien se va pasa a Rafa, que lo reparte. */
+/** Lo que tenía pendiente quien se va pasa a Máximo, que lo reparte. */
 async function traspasar(ids) {
   await q(`UPDATE tareas SET agente='rafa', instruccion='(Era de alguien que ya no está en la oficina: repártelo, hazlo tú o avisa a Dirección.)' || chr(10) || instruccion WHERE agente = ANY($1) AND estado='pendiente'`, [ids]);
   await q(`UPDATE aprobaciones SET agente='rafa' WHERE agente = ANY($1) AND estado='pendiente'`, [ids]);

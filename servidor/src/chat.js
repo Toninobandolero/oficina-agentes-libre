@@ -1,5 +1,5 @@
 // Chat de la oficina, al estilo de Slack. Canales:
-//  · #general: tú y el equipo. Contesta Rafa; con «@Mateo …» contesta Mateo delante de todos. Aquí van también las reuniones.
+//  · #general: tú y el equipo. Contesta Máximo; con «@Mateo …» contesta Mateo delante de todos. Aquí van también las reuniones.
 //  · #trabajo: lo que se encargan y se contestan entre ellos (lo escriben solos).
 //  · #actividad: lo mismo que el panel de Actividad, con su historial (se lee de los eventos: no se escribe nada aparte).
 //  · #café: las charlas de la vida de oficina (si está activa).
@@ -14,7 +14,7 @@ import { idPorNombre } from './plantilla.js';
 import * as tareas from './tareas.js';
 
 export const CANALES = [
-  { id: 'general', nombre: 'general', desc: 'Tú y el equipo. Te contesta Rafa; escribe «@Mateo …» para hablar con alguien delante de todos.' },
+  { id: 'general', nombre: 'general', desc: 'Tú y el equipo. Te contesta Máximo; escribe «@Mateo …» para hablar con alguien delante de todos.' },
   { id: 'trabajo', nombre: 'trabajo', desc: 'Lo que se encargan y se contestan entre ellos. Lo escriben solos.', soloLectura: true },
   { id: 'actividad', nombre: 'actividad', desc: 'Todo lo que sale en Actividad, al momento. Lo escriben solos.', soloLectura: true },
   { id: 'cafe', nombre: 'café', desc: 'Las charlas de la oficina. Lo escriben ellos.', soloLectura: true },
@@ -125,7 +125,7 @@ export async function deDueno(canal, texto) {
     await avisarPausa(canal, canal);
     return mensaje;
   }
-  // #general: «@Mateo …» o «Mateo, …» → contesta ese agente aquí, delante de todos; si no, Rafa
+  // #general: «@Mateo …» o «Mateo, …» → contesta ese agente aquí, delante de todos; si no, Máximo
   const m = texto.match(/^\s*@([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)[\s,:]+([\s\S]+)$/) || texto.match(/^\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)\s*[,:]\s*([\s\S]+)$/);
   const ag = m && idPorNombre(m[1]);
   if (ag && ag !== 'rafa') {

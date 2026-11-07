@@ -1,6 +1,7 @@
 // Configuración de la plantilla: nombre, puesto, aspecto y modelo de IA de cada agente (y tu aspecto).
 // Lo que cambias aquí se guarda en la base de datos y se aplica al momento, sin reiniciar.
-import { q } from './db.js';
+import { q, ajuste, fijarAjuste } from './db.js';
+import { PERSONAJES, GRUPO } from './personajes.js';
 import { AGENTES, IDS } from './agentes.js';
 import * as departamentos from './departamentos.js';
 import { config } from './config.js';
@@ -23,6 +24,47 @@ export const MODELOS = [
 
 let filas = {};
 
+const azar = l => l[Math.floor(Math.random() * l.length)];
+const PIELES = ['#f6d7bd', '#f1c29b', '#e8b48f', '#d9a27a', '#c98c63', '#8d5a3b', '#5c3a24'];
+const PELOS = ['#140f0c', '#3b2416', '#5b3a24', '#a8642f', '#c9a15a', '#8e8e92', '#7a1f2b'];
+const CAMISAS = ['#3a7bd5', '#2f9e8f', '#c0507a', '#e0a33a', '#6b5bd2', '#d65a4a', '#2f9e5a', '#5b4b8a', '#24395f', '#3aa0a8'];
+/** Un aspecto al azar: piel, pelo, peinado, camisa y, a veces, gafas o barba. */
+export function lookAlAzar(ella) {
+  const look = { skin: azar(PIELES), hair: azar(PELOS), shirt: azar(CAMISAS), style: azar(ella ? ['long', 'long', 'bun', 'short', 'curly'] : ['short', 'short', 'curly', 'rapado', 'bald']) };
+  if (Math.random() < 0.3) look.glasses = true;
+  if (!ella && Math.random() < 0.4) { look.beard = true; look.beardColor = look.hair; }
+  return look;
+}
+const CAMPOS_VIDA = ['edad', 'vive', 'familia', 'aficion', 'mania', 'personalidad', 'habla', 'anecdotas'];
+const ORIGINAL = {}, TOCADO = new Set();
+// Una oficina nueva no sale con los agentes de la de quien la hizo: al empezar, cada uno recibe al azar un nombre (de su género,
+// sin repetir ni chocar con los que cubren las ausencias), un aspecto y una forma de ser. Todo se cambia luego en Configuración.
+const MUJERES = ['Alba', 'Ana', 'Beatriz', 'Clara', 'Irene', 'Julia', 'Laura', 'Lidia', 'Lorena', 'Noelia', 'Olga', 'Raquel', 'Silvia', 'Teresa', 'Vera', 'Sofía', 'Carla', 'Diana'];
+const HOMBRES = ['Adrián', 'Carlos', 'Daniel', 'Diego', 'Gonzalo', 'Iván', 'Jorge', 'Luis', 'Marcos', 'Nico', 'Óscar', 'Pablo', 'Rubén', 'Sergio', 'Tomás', 'Víctor', 'Raúl', 'Samuel'];
+const SON_ELLAS = ['lucia', 'carmen', 'paula', 'nuria', 'pilar', 'sara', 'marta', 'ines'];
+export async function nombresAlAzar() {
+  if (await ajuste('nombres_al_azar', false)) return;   // solo la primera vez: una oficina que ya funciona no cambia de gente
+  const usados = new Set(Object.values(PERSONAJES).map(p => p.sustituto).filter(Boolean));
+  const sacar = lista => { const libres = lista.filter(n => !usados.has(n)); const n = azar(libres); usados.add(n); return n; };
+  // Las formas de ser: las de fábrica de su género (sin sus relaciones, que hablan de compañeros concretos) y las del grupo
+  const vida = p => Object.fromEntries(CAMPOS_VIDA.map(k => [k, p[k]]));
+  const bolsa = ella => [...Object.entries(PERSONAJES).filter(([k]) => k !== 'paula' && SON_ELLAS.includes(k) === ella).map(([, p]) => vida(p)), ...(ella ? GRUPO.ellas : GRUPO.ellos)];
+  const bolsas = { true: bolsa(true), false: bolsa(false) };
+  for (const id of Object.keys(FIJOS)) {
+    if (filas[id]?.nombre) continue;   // el que ya se cambió a mano se queda
+    const ella = SON_ELLAS.includes(id), b = bolsas[ella];
+    const nombre = sacar(ella ? MUJERES : HOMBRES);
+    let persona = null;
+    if (id !== 'paula' && PERSONAJES[id] && b.length) { persona = { ...b.splice(Math.floor(Math.random() * b.length), 1)[0], relaciones: {} }; }   // Paula tiene su historia (el bebé) y se queda con ella
+    const look = lookAlAzar(ella);
+    await q(`INSERT INTO config_agentes (id, nombre, look, persona) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET nombre=EXCLUDED.nombre, look=EXCLUDED.look, persona=EXCLUDED.persona`,
+      [id, nombre, JSON.stringify(look), persona && JSON.stringify(persona)]);
+    filas[id] = { ...filas[id], id, nombre, look, persona };
+    aplicar(id);
+  }
+  await fijarAjuste('nombres_al_azar', true);
+}
+
 /** Carga lo guardado y lo aplica a los agentes. */
 export async function cargar() {
   const r = await q(`SELECT * FROM config_agentes`);
@@ -35,12 +77,20 @@ function aplicar(id) {
   AGENTES[id].nombre = f.nombre || BASE(id).nombre;
   AGENTES[id].rol = f.rol || BASE(id).rol;
   config.modelos[id] = f.modelo || BASE(id).modelo;
+  // Su forma de ser: la de fábrica con lo que se haya sorteado o cambiado encima (solo se toca si hay algo)
+  if (PERSONAJES[id] && (f.persona || TOCADO.has(id))) {
+    ORIGINAL[id] ??= structuredClone(PERSONAJES[id]);
+    Object.assign(PERSONAJES[id], structuredClone(ORIGINAL[id]), f.persona || {});
+    f.persona ? TOCADO.add(id) : TOCADO.delete(id);
+  }
 }
+const EDITABLES = ['personalidad', 'habla', 'familia', 'aficion', 'mania'];
+const vidaDe = id => PERSONAJES[id] && Object.fromEntries(EDITABLES.map(k => [k, PERSONAJES[id][k] || '']));
 
 export function listar() {
   const agentes = IDS.filter(departamentos.trabaja).map(id => ({
     id, nombre: AGENTES[id].nombre, rol: AGENTES[id].rol, modelo: config.modelos[id],
-    base: BASE(id), look: filas[id]?.look || null, cambiado: Boolean(filas[id]),
+    base: BASE(id), look: filas[id]?.look || null, persona: vidaDe(id), cambiado: Boolean(filas[id]),
   }));
   return { agentes, dueno: { look: filas.dueno?.look || null }, modelos: MODELOS };
 }
@@ -71,10 +121,17 @@ export async function guardar(id, datos = {}) {
     if (rol === BASE(id).rol) rol = null;
     if (modelo === BASE(id).modelo) modelo = null;
   }
+  // Su forma de ser: lo que llega se escribe encima de lo que tenía; lo que no llega se queda como estaba
+  let persona = filas[id]?.persona || null;
+  if (id !== 'dueno' && PERSONAJES[id] && datos.persona && typeof datos.persona === 'object') {
+    const cambios = Object.fromEntries(EDITABLES.filter(k => typeof datos.persona[k] === 'string').map(k => [k, datos.persona[k].trim().slice(0, 300)]).filter(([k, v]) => v && v !== (ORIGINAL[id] || PERSONAJES[id])[k]));
+    persona = { ...Object.fromEntries(Object.entries(persona || {}).filter(([k]) => !EDITABLES.includes(k))), ...cambios };
+    if (!Object.keys(persona).length) persona = null;
+  }
   const antes = id !== 'dueno' ? AGENTES[id].nombre : 'Dirección';
-  const r = await q(`INSERT INTO config_agentes (id, nombre, rol, modelo, look) VALUES ($1,$2,$3,$4,$5)
-                     ON CONFLICT (id) DO UPDATE SET nombre=EXCLUDED.nombre, rol=EXCLUDED.rol, modelo=EXCLUDED.modelo, look=EXCLUDED.look, actualizada=now() RETURNING *`,
-    [id, nombre, rol, modelo, look ? JSON.stringify(look) : null]);
+  const r = await q(`INSERT INTO config_agentes (id, nombre, rol, modelo, look, persona) VALUES ($1,$2,$3,$4,$5,$6)
+                     ON CONFLICT (id) DO UPDATE SET nombre=EXCLUDED.nombre, rol=EXCLUDED.rol, modelo=EXCLUDED.modelo, look=EXCLUDED.look, persona=EXCLUDED.persona, actualizada=now() RETURNING *`,
+    [id, nombre, rol, modelo, look ? JSON.stringify(look) : null, persona && JSON.stringify(persona)]);
   filas[id] = r.rows[0];
   if (id !== 'dueno') aplicar(id);
   const despues = id !== 'dueno' ? AGENTES[id].nombre : 'Dirección';

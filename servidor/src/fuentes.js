@@ -1,5 +1,5 @@
 // Fuentes con conexión propia: el BORME (datos abiertos del BOE, gratis y sin clave) y Google Places (opcional, con la clave de cada oficina).
-import { ajuste, fijarAjuste } from './db.js';
+import { q, ajuste, fijarAjuste } from './db.js';
 import { config } from './config.js';
 import { log } from './bus.js';
 import { cifrar, descifrar, limpiarClave } from './ia.js';
@@ -76,12 +76,28 @@ export async function consultarBorme({ empresa, tipo = 'todo', dias = 5, provinc
 // Condiciones de Google: sin caché; solo el identificador se puede guardar sin límite. Por eso los resultados no van a la memoria
 // de búsquedas y a la ficha pasa lo que se confirme en la web de la empresa.
 const CAMPOS = ['id', 'displayName', 'formattedAddress', 'websiteUri', 'nationalPhoneNumber', 'rating', 'userRatingCount', 'businessStatus', 'googleMapsUri'].map(c => `places.${c}`).join(',');
-const USD_CONSULTA = 0.035;   // por lo alto: con estos campos, 35 $ cada 1.000 consultas. Lo que Google regala al mes no se descuenta
+// Con teléfono, web y valoración, cada consulta es «Text Search Enterprise»: Google regala 1.000 al mes y después cobra 35 $ cada 1.000
+const USD_CONSULTA = 0.035, GRATIS_MES = 1000;
 let claveMaps = null;
 export const mapsActivo = () => Boolean(claveMaps);
 export const estadoMaps = () => ({ conectado: mapsActivo(), final: claveMaps ? claveMaps.slice(-4) : null, eur_consulta: Math.round(USD_CONSULTA * config.usdEur * 100) / 100 });
 
+// Dirección: no se le paga a Google mientras queden créditos de Claude (ya pagados). Las gratis del mes, sí: no cuestan y ahorran créditos.
+// Pasado el cupo, buscar_maps desaparece hasta el mes que viene, salvo que se acaben los créditos de Claude.
+let cupoAgotadoEn = null, sinCreditosClaude = false;
+const mesActual = () => new Date().toISOString().slice(0, 7);
+export const mapsSePuede = () => cupoAgotadoEn !== mesActual() || sinCreditosClaude;
+
+/** Las consultas de este mes (mes natural, como factura Google) y lo que llevan costado de verdad, ya descontadas las gratis. */
+export async function usoMaps() {
+  const n = (await q(`SELECT count(*)::int n FROM gasto WHERE modelo='google/places' AND ts >= date_trunc('month', now())`)).rows[0].n;
+  cupoAgotadoEn = n >= GRATIS_MES ? mesActual() : null;
+  if (cupoAgotadoEn) { const c = (await (await import('./presupuesto.js')).gastoMes()).creditos_claude; sinCreditosClaude = Boolean(c && c.quedan <= 0); }
+  return { consultas_mes: n, gratis_mes: GRATIS_MES, eur_mes: Math.round(Math.max(0, n - GRATIS_MES) * USD_CONSULTA * config.usdEur * 100) / 100 };
+}
+
 export async function cargar() {
+  await usoMaps().catch(() => {});
   const g = await ajuste('google_maps', null);
   try { claveMaps = g?.clave ? descifrar(g.clave) : null; } catch { claveMaps = null; console.error('No se pudo leer la clave de Google Maps guardada (¿ha cambiado CLAVE_CIFRADO?)'); }
 }
@@ -132,7 +148,8 @@ export async function quitarMaps() {
 export async function buscarMaps(consulta) {
   if (!claveMaps) throw new Error('Google Maps no está conectado.');
   const j = await textSearch(claveMaps, { textQuery: consulta, pageSize: 10 }, CAMPOS);
-  return { coste_usd: USD_CONSULTA, resultados: (j.places || []).map(p => ({ place_id: p.id, nombre: p.displayName?.text, direccion: p.formattedAddress, web: p.websiteUri, telefono: p.nationalPhoneNumber,
+  const pagada = (await usoMaps()).consultas_mes >= GRATIS_MES;   // las 1.000 primeras del mes no cuestan nada
+  return { coste_usd: pagada ? USD_CONSULTA : 0, resultados: (j.places || []).map(p => ({ place_id: p.id, nombre: p.displayName?.text, direccion: p.formattedAddress, web: p.websiteUri, telefono: p.nationalPhoneNumber,
     valoracion: p.rating, opiniones: p.userRatingCount, estado: p.businessStatus, url_maps: p.googleMapsUri })),
     nota: 'Esto es para descubrir. A la ficha solo va place_id como google_place_id y lo que confirmes en la web de la empresa o en otra fuente, con esa otra URL en fuente. Las reseñas y valoraciones de Google no se copian.' };
 }

@@ -86,7 +86,7 @@ export async function mover(id, accion, motivo = '') {
   if (accion === 'adelantar') await q(`UPDATE tareas SET no_antes = now() - interval '30 days' WHERE id=$1`, [id]);   // la cola va por no_antes
   else if (accion === 'cancelar') {
     if (t.origen === 'dueno' || t.objetivo_id != null) throw new Error('Lo que ha pedido Dirección o un paso de un plan aprobado no se cancela: díselo a Dirección con enviar_informe.');
-    await q(`UPDATE tareas SET estado='hecha', resultado=$2, terminada=now() WHERE id=$1`, [id, `Cancelada por Rafa: ${String(motivo).slice(0, 300)}`]);
+    await q(`UPDATE tareas SET estado='hecha', resultado=$2, terminada=now() WHERE id=$1`, [id, `Cancelada por Máximo: ${String(motivo).slice(0, 300)}`]);
   } else throw new Error('La acción es adelantar o cancelar.');
   return t;
 }

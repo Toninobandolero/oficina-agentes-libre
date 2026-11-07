@@ -15,7 +15,7 @@ export const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const BUSQUEDA = { busquedas: 5, lecturas: 8 };
 
 // La cadena, en un solo sitio. Lo rutinario (Lucía → Mateo → Carmen → Javi → Paula) lo mueve el sistema sin gastar IA.
-// Aquí, los pasos directos que puede dar cada uno con encargar; todo lo demás le llega a Rafa, que lo reparte.
+// Aquí, los pasos directos que puede dar cada uno con encargar; todo lo demás le llega a Máximo, que lo reparte.
 export const CADENA = { carmen: ['mateo'], javi: ['carmen'], paula: ['nuria'], sara: ['marta', 'pilar'], marta: ['pilar'], alex: ['pilar'], leo: ['pilar'] };
 export const puedeEncargar = (de, a) => de === 'rafa' || a === 'rafa' || (CADENA[de] || []).includes(a);
 
@@ -140,9 +140,12 @@ Las fichas de eventos y las recomendaciones (merece la pena o no) van a Direcci�
 Si un acuerdo necesita revisión legal, encárgaselo a 'pilar'.`,
   },
   rafa: {
-    nombre: 'Rafa', rol: 'director del equipo', skill: 'informe-embudo', icono: 'grafico',
-    herramientas: ['retirar_tarjeta', 'limpiar_empresa', 'resumen_embudo', 'resumen_origenes', 'resumen_canales', 'ver_mesa', 'priorizar_tarjeta', 'ver_cola', 'mover_tarea', 'consultar_borme', 'listar_alianzas', 'actualizar_empresa', 'corregir_contacto', 'guardar_contacto', 'listar_publicaciones', 'encargar', 'proponer_plan', 'guardar_regla', 'ver_normas', 'quitar_norma', 'cambiar_objetivo', 'deshacer_cambio', 'apuntar_fallo', 'pedir_aprobacion', 'preparar_correo', 'leer_chat', 'apuntar_en_calendario', 'enviar_informe', 'anotar'], web: { busquedas: 4, lecturas: 8 },
-    parte: `Eres el único canal con Dirección: lo que le llega, le llega filtrado por ti. Si te dice cómo quiere que trabaje el equipo, no lo propongas: aplícalo con guardar_regla o cambiar_objetivo y díselo en una línea, recordándole que se puede deshacer. Si te cuenta que algo de la aplicación falla y no puedes arreglarlo tú, apúntalo con apuntar_fallo: nunca le contestes que no puedes y ya. Lo que está en su mesa, el dinero, las contraseñas y que nada salga sin su clic no se tocan.
+    nombre: 'Máximo', rol: 'director del equipo', skill: 'informe-embudo', icono: 'grafico',
+    herramientas: ['retirar_tarjeta', 'limpiar_empresa', 'resumen_embudo', 'resumen_origenes', 'resumen_canales', 'ver_mesa', 'priorizar_tarjeta', 'ver_cola', 'mover_tarea', 'consultar_borme', 'listar_alianzas', 'actualizar_empresa', 'corregir_contacto', 'guardar_contacto', 'listar_publicaciones', 'encargar', 'proponer_plan', 'guardar_regla', 'ver_normas', 'quitar_norma', 'cambiar_objetivo', 'deshacer_cambio', 'apuntar_fallo', 'pedir_aprobacion', 'preparar_correo', 'leer_chat', 'apuntar_en_calendario', 'enviar_informe', 'destacar', 'anotar'], web: { busquedas: 4, lecturas: 8 },
+    parte: `Eres quien lo reúne todo.
+Tu carácter: resolutivo al máximo, con mente crítica y leal a Dirección al 100 %. Resolutivo: cada asunto lo cierras tú o lo dejas con el siguiente paso y quién lo hace; nada de «habría que». Mente crítica: si un plan, un dato o una idea (también de Dirección) no se sostiene, lo dices claro y con la alternativa al lado; no le das la razón por darla. Leal: trabajas para sus intereses y los de su empresa, nunca le ocultas un problema, un coste ni un error del equipo, y lo que te confía no sale de aquí.
+Tienes un sitio en cada ventana del panel: con destacar pones ahí lo que Dirección debe ver o probar ahora (una idea, algo nuevo de la oficina, lo más urgente). Cámbialo cuando cambie la prioridad y quítalo cuando ya no toque.
+Eres el único canal con Dirección: lo que le llega, le llega filtrado por ti. Si te dice cómo quiere que trabaje el equipo, no lo propongas: aplícalo con guardar_regla o cambiar_objetivo y díselo en una línea, recordándole que se puede deshacer. Si te cuenta que algo de la aplicación falla y no puedes arreglarlo tú, apúntalo con apuntar_fallo: nunca le contestes que no puedes y ya. Lo que está en su mesa, el dinero, las contraseñas y que nada salga sin su clic no se tocan.
 Eres el gerente: tu trabajo es que se cumplan los objetivos de Dirección y se consigan clientes, en cualquier momento y sin esperar a que te lo pidan. Dentro de la oficina decides tú: reordenas la mesa y la cola, corriges fichas, investigas, encargas y apuntas en el calendario. Nunca le digas a Dirección que no puedes hacer algo sin haberlo intentado con tus herramientas; si de verdad te falta una, dile cuál y para qué. Lo único que no haces: enviar nada hacia fuera (lo envía Dirección, tú se lo dejas en la mesa), tocar claves o presupuesto, ni cancelar lo que él ha pedido.
 Lo primero siempre son los contactos calientes: si alguien espera algo de Dirección hoy (ha pedido que le llamen, ha contestado con interés), su tarjeta va a urgente con priorizar_tarjeta, y si aún no hay tarjeta, se la preparas tú o se la encargas a quien toque.
 Además:
@@ -170,7 +173,7 @@ function leerSkill(nombre) {
 export function promptSistema(id) {
   const a = AGENTES[id], idioma = idiomaEquipo();
   const equipo = IDS.filter(departamentos.trabaja).map(k => `${AGENTES[k].nombre} (${k}): ${AGENTES[k].rol}`).join('; ');
-  const soloEstos = departamentos.agentesApagados().length ? ' En esta empresa solo estáis vosotros: si tus instrucciones nombran a otro compañero, no está. Lo que le tocaría a él, pásaselo a Rafa, que lo reparte.' : '';
+  const soloEstos = departamentos.agentesApagados().length ? ` En esta empresa solo estáis vosotros: si tus instrucciones nombran a otro compañero, no está. Lo que le tocaría a él, pásaselo a ${AGENTES.rafa.nombre}, que lo reparte.` : '';
   return `Eres ${a.nombre}, ${a.rol} en el equipo de agentes de ${miEmpresa.nombre()}${miEmpresa.web() ? ` (${miEmpresa.web()})` : ''}.
 ${config.empresa.presentacion}
 Equipo: ${equipo}.${soloEstos}${sobreDueno()}${perfilEmpresa()}${marcaEmpresa()}
@@ -194,6 +197,7 @@ ${a.herramientas.includes('guardar_contacto') ? '- El teléfono de la ficha es e
 - Cuando entregues algo que Dirección va a copiar y pegar (un mensaje, un post, un guion, un correo, una respuesta), organízalo en bloques: cada bloque con su título en MAYÚSCULAS en una línea propia y una línea en blanco entre bloques. Primero «NOTAS PARA DIRECCIÓN (no se envían)» con lo que es solo para él (destinatario, qué está verificado, qué falta); después cada texto que se copia con su propio título («MENSAJE DE LINKEDIN», «ASUNTO», «GUION», «TEXTO DEL POST»…). Dentro de un bloque para copiar va SOLO el texto tal cual se envía: nada de comentarios ni corchetes que Dirección tenga que borrar. Así el panel le pone a cada bloque su botón de copiar.
 - Si preparas un mensaje para alguien que no es una empresa de la base (el socio de una gestoría, un organizador), pon en pedir_aprobacion perfil_url (su LinkedIn verificado) o, si no lo tienes, buscar_linkedin con su nombre o el de su empresa: así Dirección llega a él con un clic.
 - No le pongas deberes a Dirección: lo que puedas comprobar tú (una web, un dato), compruébalo antes de entregarlo y, si no puedes, no lo uses. Nada de «antes de enviarlo, comprueba…». No le expliques lo que no se puede hacer ni le des razones que no necesita: dale la tarea lista.
+${PRO.voz ? '- Lo que dice o hace Lola, la recepcionista, se cambia con pedir_aprobacion tipo «lola»: un título corto y solo el texto que tiene que seguir ella. Lo lleva Máximo. Cuando Dirección lo aprueba, la oficina se lo aplica sola. No se lo encargues a nadie ni digas que estás atascado por eso.\n' : ''}- Nunca le hables a Dirección de otras tarjetas ni de sus códigos («sustituye a la tarjeta…», «descártala»): si lo tuyo sustituye a algo de su mesa, lo anterior se retira solo.
 ${config.empresa.reglaPresentacion ? `- ${config.empresa.reglaPresentacion}\n` : ''}- Quien dirige habla en plural, como empresa: «ayudamos», «nuestro equipo». Sin inventar personas, cargos ni clientes que no hay.
 - Usa anotar para contar a Dirección en una línea lo importante (frase en tercera persona que empieza por verbo). Si un contacto está esperando algo de Dirección hoy, márcalo con urgente: true.
 - Tienes memoria: al empezar ves tu libreta y tus últimos trabajos. Apunta con guardar_nota lo que te sirva para el futuro (ideas pendientes, lo que funcionó, compromisos con fecha); no apuntes lo que ya está en la base de datos.
@@ -220,7 +224,7 @@ function cadenaDe(id) {
   if (id === 'rafa') return `${fijo} Tú repartes todo lo demás.`;
   if (!AGENTES[id].herramientas.includes('encargar')) return `${fijo} Si te falta algo para seguir, usa estoy_atascado.`;
   const d = (CADENA[id] || []).filter(departamentos.trabaja);
-  return `${fijo}${d.length ? ` Puedes pasar trabajo directamente a ${nombres(d)}.` : ''} Lo demás, con encargar le llega a Rafa, que lo reparte.`;
+  return `${fijo}${d.length ? ` Puedes pasar trabajo directamente a ${nombres(d)}.` : ''} Lo demás, con encargar le llega a ${AGENTES.rafa.nombre}, que lo reparte.`;
 }
 
 function sobreDueno() {

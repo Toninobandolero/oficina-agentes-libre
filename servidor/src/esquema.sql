@@ -207,6 +207,7 @@ CREATE TABLE IF NOT EXISTS config_agentes (
   look        JSONB,
   actualizada TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE config_agentes ADD COLUMN IF NOT EXISTS persona JSONB;   -- su forma de ser, si se sorteó o se cambió (personajes.js)
 
 -- Modo ausencia: avisos de Telegram guardados mientras Dirección duerme o está de vacaciones
 CREATE TABLE IF NOT EXISTS telegram_cola (
@@ -243,7 +244,7 @@ CREATE TABLE IF NOT EXISTS correos (
   message_id     TEXT UNIQUE,
   en_respuesta_a TEXT,
   empresa_id     TEXT REFERENCES empresas(id) ON DELETE SET NULL,
-  clase          TEXT,                   -- lead · boletin · otro
+  clase          TEXT,                   -- lead · boletin · linkedin · aviso · otro
   creada         TIMESTAMPTZ NOT NULL DEFAULT now(),
   enviado        TIMESTAMPTZ
 );
@@ -469,7 +470,7 @@ CREATE TABLE IF NOT EXISTS chat (
 CREATE INDEX IF NOT EXISTS chat_canal ON chat (canal, id);
 ALTER TABLE tareas ADD COLUMN IF NOT EXISTS canal TEXT;   -- si te contestan en el chat: en qué canal
 ALTER TABLE recordatorios ADD COLUMN IF NOT EXISTS aprobacion_id TEXT;   -- tarjeta de la mesa pospuesta a ese día y hora
--- Objetivos: Dirección plantea uno, Rafa lo convierte en un plan de pasos y el equipo lo ejecuta tras su visto bueno
+-- Objetivos: Dirección plantea uno, Máximo lo convierte en un plan de pasos y el equipo lo ejecuta tras su visto bueno
 CREATE TABLE IF NOT EXISTS objetivos (
   id            SERIAL PRIMARY KEY,
   texto         TEXT NOT NULL,

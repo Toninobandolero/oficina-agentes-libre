@@ -13,7 +13,7 @@ export const MODULOS = [
   { id: 'guiones', nombre: 'Guiones con método de venta y ensayo de la llamada', archivos: ['guionVenta.js'], carga: 'guionVenta.js' },
   { id: 'ines', nombre: 'Inés, que da forma a los documentos para clientes', archivos: ['ines.js'], carga: 'ines.js', agentes: ['ines'] },
   { id: 'correoDiseno', nombre: 'Correo con el diseño de tu empresa', archivos: ['correoDiseno.js'], carga: 'correoDiseno.js' },
-  { id: 'vigilante', nombre: 'Rafa vigila la oficina', archivos: ['vigilante.js'], carga: 'vigilante.js' },
+  { id: 'vigilante', nombre: 'Máximo vigila la oficina', archivos: ['vigilante.js'], carga: 'vigilante.js' },
 ];
 export const INSTALADO = Object.fromEntries(MODULOS.map(m => [m.id, hay(...m.archivos)]));
 

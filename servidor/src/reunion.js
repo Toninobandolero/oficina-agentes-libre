@@ -1,5 +1,5 @@
 // Reunión de equipo: cada cierto tiempo (los lunes, o cuando Dirección la convoca) todos vuelcan lo que llevan,
-// en qué están y qué necesitan. Rafa la modera y deja el acta. Lo que necesitan de Dirección va enlazado a su mesa.
+// en qué están y qué necesitan. Máximo la modera y deja el acta. Lo que necesitan de Dirección va enlazado a su mesa.
 // Una sola llamada barata con datos reales de la base de datos: nadie inventa trabajo.
 import { q, ajuste, fijarAjuste } from './db.js';
 import { AGENTES, IDS } from './agentes.js';
@@ -58,7 +58,7 @@ export async function celebrar({ convoca = 'sistema' } = {}) {
 - Esperando en la mesa de Dirección: ${x.mesa.map(m => `[${m.id}] ${m.titulo}`).join(' | ') || 'nada'}
 - Actividad reciente: ${x.actividad.join(' | ') || 'ninguna'}${x.atascado ? `\n- ATASCADO: ${x.atascado}` : ''}`;
     }).join('\n\n');
-    const prompt = `Eres Rafa, director de la oficina de agentes de ${miEmpresa.nombre()}${config.empresa.enReunion ? ` (${config.empresa.enReunion})` : ''}.
+    const prompt = `Eres ${AGENTES.rafa.nombre}, director de la oficina de agentes de ${miEmpresa.nombre()}${config.empresa.enReunion ? ` (${config.empresa.enReunion})` : ''}.
 Celebramos la reunión de equipo. Cada agente cuenta, en primera persona y en 1–2 frases cada cosa: lo que ha hecho, en qué está ahora y lo que necesita (de Dirección o de un compañero). Usa SOLO estos datos reales; si alguien no ha hecho nada, que lo diga sin adornos. No inventes empresas, cifras ni trabajo.
 
 ${fichas}
@@ -75,7 +75,7 @@ Responde SOLO con JSON:
     const t = String(r.mensaje.content || '');
     let j;
     try { j = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); }
-    catch (e) { console.error('Reunión: respuesta no válida', e.message, 'fin:', r.fin, t.slice(0, 200)); throw new Error('Rafa no ha podido redactar el acta. Inténtalo otra vez en un rato.'); }
+    catch (e) { console.error('Reunión: respuesta no válida', e.message, 'fin:', r.fin, t.slice(0, 200)); throw new Error('Máximo no ha podido redactar el acta. Inténtalo otra vez en un rato.'); }
 
     const pendientesIds = new Set(Object.values(d).flatMap(x => x.mesa.map(m => m.id)));
     const agentes = (j.agentes || []).filter(a => AGENTES[a.id]).map(a => ({

@@ -77,6 +77,22 @@ export async function presentarseEnLosGuiones() {
   return tarjetas.length;
 }
 
+/** Una vez (6-nov): las tarjetas de la mesa que le piden a Dirección descartar otra pierden esa frase (la otra ya se retiró sola). */
+export async function sinOtrasTarjetasEnLaMesa() {
+  const { sinOtrasTarjetas } = await import('./aprobaciones.js');
+  for (const a of (await q(`SELECT id, texto FROM aprobaciones WHERE estado='pendiente' AND texto ~* 'tarjetas? (anterior )?\\(?[0-9a-f]{10}'`)).rows) {
+    await q(`UPDATE aprobaciones SET texto=$2 WHERE id=$1`, [a.id, sinOtrasTarjetas(a.texto)]);
+    await emitir({ tipo: 'aprobacion_editada', id: a.id });
+  }
+}
+
+/** Una vez (6-nov): el texto para Lola que espera en la mesa se aplica al aprobarlo, y el atasco por no poder configurarla sobra. */
+export async function lolaDesdeLaMesa() {
+  await q(`UPDATE aprobaciones SET tipo='lola' WHERE estado='pendiente' AND tipo <> 'lola' AND titulo ~* '^texto de lola'`);
+  for (const { id } of (await q(`UPDATE aprobaciones SET estado='superada', resuelta=now() WHERE estado='pendiente' AND texto ~* 'herramienta para configurar a Lola' RETURNING id`)).rows) await emitir({ tipo: 'aprobacion_resuelta', id, resultado: 'superada' });
+  await q(`UPDATE bloqueos SET resuelto=now(), como='Lo que dice Lola se cambia con una tarjeta «lola»: al aprobarla, se aplica sola' WHERE resuelto IS NULL AND motivo ~* 'configurar a Lola'`);
+}
+
 /** Red de seguridad, cada poco: repasa lo que haya quedado atrás, también lo acumulado de antes de existir esto. */
 export async function repasar() {
   const llamadas = (await q(`SELECT DISTINCT ON (l.empresa_id) l.empresa_id, coalesce(l.inicio, l.creada) AS cuando FROM llamadas l

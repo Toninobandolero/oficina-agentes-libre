@@ -144,7 +144,7 @@ export async function textoSecuencia(secId) {
     if (p.asunto) partes.push(`ASUNTO DE ${p.titulo.toUpperCase()} (solo si LinkedIn lo pide)\n${p.asunto}`);
     partes.push(`${p.titulo.toUpperCase()} · ${cuando(p)}\n${p.texto}`);
   }
-  return partes.join('\n\n');
+  return aprobaciones.sinOtrasTarjetas(partes.join('\n\n'));
 }
 
 /** Has aprobado la secuencia y hecho el primer paso: empieza el reloj. */

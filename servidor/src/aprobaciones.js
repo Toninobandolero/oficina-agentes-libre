@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { q } from './db.js';
 import { consejoHora, siguienteHueco } from './horario.js';
 import { alResolverTarjeta, emitir, estado, estadoDe, log } from './bus.js';
+import { PRO } from './modulos.js';
 import { AGENTES } from './agentes.js';
 import * as empresas from './empresas.js';
 import * as telegram from './telegram.js';
@@ -20,7 +21,7 @@ import * as video from './video.js';
 const RED = { linkedin: 'LinkedIn', facebook: 'Facebook' };
 const publicador = canal => canal === 'facebook' ? facebook : linkedin;
 
-const TIPOS = ['mensaje', 'respuesta', 'post', 'video', 'articulo', 'boletin', 'anuncio', 'propuesta', 'regla', 'paso', 'correo', 'otro'];
+const TIPOS = ['mensaje', 'respuesta', 'post', 'video', 'articulo', 'boletin', 'anuncio', 'propuesta', 'regla', 'paso', 'correo', 'lola', 'otro'];
 export const CANALES = ['linkedin', 'facebook', 'instagram', 'youtube', 'google', 'web', 'boletin', 'anuncios'];
 const CONTENIDO = new Set(['post', 'video', 'articulo', 'boletin', 'anuncio']);
 /** Un seguimiento no cae en sábado ni domingo: pasa al lunes. */
@@ -104,8 +105,12 @@ const fechaValida = f => (/^\d{4}-\d{2}-\d{2}$/.test(String(f || '')) && !isNaN(
 /** Prioridad con la que se ve hoy una aprobación (sube sola con las fechas y la espera). */
 export const prioridadDe = ap => prioridad.efectiva(ap, hoyMadrid());
 
+/** Una tarjeta no le habla a Dirección de otras tarjetas ni de sus códigos: la que se sustituye se retira sola. Quita esas frases. */
+export const sinOtrasTarjetas = t => String(t ?? '').replace(/[^.\n]*\btarjetas? (?:anterior )?\(?[0-9a-f]{10}\b[^.\n]*(?:\.|$)[ \t]*/gi, '').replace(/^(Guion rehecho:\s*)$/gim, '').replace(/\n{3,}/g, '\n\n');
+
 export async function crear({ agente, tipo, titulo, texto, empresa_id = null, ref = null, opciones = null, caduca = null, importancia = null, motivo = null, canal = null, fecha_prevista = null, imagen = null, perfil_url = null, buscar = null }) {
   if (!TIPOS.includes(tipo)) tipo = 'otro';
+  texto = sinOtrasTarjetas(texto);
   if (!CANALES.includes(canal)) canal = tipo === 'post' ? 'linkedin' : tipo === 'articulo' ? 'web' : tipo === 'boletin' ? 'boletin' : tipo === 'anuncio' ? 'anuncios' : null;
   let prevista = fechaValida(fecha_prevista);
   // Con la publicación automática, un post sin fecha sale el siguiente día laborable
@@ -183,8 +188,13 @@ export async function telegramDeEmpresa(empresa_id, { ahora = false } = {}) {
 
 // Lo que sale de la mesa sale también de Telegram, y si queda algo de esa empresa, llega lo siguiente
 alResolverTarjeta(async ({ id, resultado }) => {
-  const a = (await q(`SELECT empresa_id, telegram_msg_id FROM aprobaciones WHERE id=$1`, [id])).rows[0];
+  const a = (await q(`SELECT empresa_id, telegram_msg_id, tipo, titulo, texto FROM aprobaciones WHERE id=$1`, [id])).rows[0];
   if (!a) return;
+  if (PRO.voz && a.tipo === 'lola' && resultado === 'aprobada') {   // lo aprobado para Lola se le aplica solo, sin copiar nada a mano
+    const texto = String(a.texto || '').split(/\n\s*\n/).filter(p => !/no se env[ií]an?/i.test(p.split('\n')[0])).join('\n\n').trim();
+    const fallo = await (await import('./elevenlabs.js')).aplicarCaso({ titulo: String(a.titulo).replace(/^.*?:\s*/, '').slice(0, 120), texto });
+    if (fallo) await crear({ agente: 'rafa', tipo: 'otro', titulo: 'no ha podido cambiar a Lola todavía', texto: `${fallo}\n\nLo que aprobaste está guardado y se le aplica solo en cuanto se pueda.`, importancia: 'alta' });
+  }
   if (['superada', 'sustituida'].includes(resultado) && a.telegram_msg_id) {
     await telegram.retirar(a.telegram_msg_id);
     await q(`UPDATE aprobaciones SET telegram_msg_id=NULL WHERE id=$1`, [id]);
@@ -530,10 +540,10 @@ export async function posponer(id, { dias = 7, hasta = null, llamada = false } =
 }
 
 /** Cuándo conviene retomarla: para llamadas, el mejor hueco según el sector de la empresa; si no, el siguiente día laborable por la mañana. */
-export async function sugerirCuando(id) {
+export async function sugerirCuando(id, lang) {
   const ap = (await q(`SELECT a.empresa_id, e.sector FROM aprobaciones a LEFT JOIN empresas e ON e.id=a.empresa_id WHERE a.id=$1`, [id])).rows[0];
   if (!ap) throw Object.assign(new Error('Ya no está en la mesa.'), { status: 404 });
-  const consejo = await consejoHora(ap.empresa_id);
+  const consejo = await consejoHora(ap.empresa_id, lang);
   const ahora = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', hourCycle: 'h23' }).format(new Date());
   const h = siguienteHueco(ap.sector, Number(ahora) < 14 ? '10:00' : '16:00');
   return { dia: h.dia, hora: h.hora, consejo: consejo.texto, sector: consejo.sector };

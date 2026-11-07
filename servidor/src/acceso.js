@@ -34,13 +34,17 @@ export async function sesionValida(req) {
   const s = r.rows[0];
   if (s.larga && new Date(s.expira) - Date.now() < 15 * DIA) await q(`UPDATE sesiones SET expira = now() + interval '30 days' WHERE id=$1`, [s.id]);
   await q(`UPDATE sesiones SET ultimo_uso=now() WHERE id=$1`, [s.id]);
+  req.sesionLarga = s.larga;
   return true;
 }
 
 function cabeceraCookie(req, valor, maxAgeSeg) {
   const segura = req.headers['x-forwarded-proto'] === 'https';
-  return `${COOKIE}=${valor}; Path=/; HttpOnly; SameSite=Strict${segura ? '; Secure' : ''}${maxAgeSeg != null ? `; Max-Age=${maxAgeSeg}` : ''}`;
+  return `${COOKIE}=${valor}; Path=/; HttpOnly; SameSite=Lax${segura ? '; Secure' : ''}${maxAgeSeg != null ? `; Max-Age=${maxAgeSeg}` : ''}`;
 }
+
+/** Una sesión de «recordarme» que se usa no caduca en el navegador: cada vez que se abre el panel, otros 30 días. */
+export const cookieRenovada = req => cabeceraCookie(req, leerCookie(req), 30 * 86400);
 
 /** Comprueba la contraseña. Devuelve { ok, cookie } o { ok:false, error, restantes, bloqueadoMin }. */
 export async function entrar(req, contrasena, recordar) {

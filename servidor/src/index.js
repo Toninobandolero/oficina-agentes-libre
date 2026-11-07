@@ -82,7 +82,7 @@ let versionPanel = null;
 const versionDelPanel = () => versionPanel ??= crypto.createHash('sha1').update(fs.readFileSync(PANEL)).digest('hex').slice(0, 10);
 
 async function snapshotCompleto() {
-  const s = await bus.snapshot({ version: versionDelPanel(), premio: await premios.ultimo().catch(() => null), linkedin: await linkedin.estado().catch(() => null), vida_oficina: vida.estaActiva(), gasto: await presupuesto.gastoMes(), pausado: await motor.estaPausado(), pausa_motivo: await ajuste('pausa_motivo', ''), gracias: await aprendizajes.contadorGracias(), plantilla: plantilla.listar(), ausencia: await ausencia.estado(), animo: await vida.animo().catch(() => null) });
+  const s = await bus.snapshot({ version: versionDelPanel(), premio: await premios.ultimo().catch(() => null), linkedin: await linkedin.estado().catch(() => null), vida_oficina: vida.estaActiva(), maximo: await ajuste('maximo_destaca', null), gasto: await presupuesto.gastoMes(), pausado: await motor.estaPausado(), pausa_motivo: await ajuste('pausa_motivo', ''), gracias: await aprendizajes.contadorGracias(), plantilla: plantilla.listar(), ausencia: await ausencia.estado(), animo: await vida.animo().catch(() => null) });
   await video.enTarjetas(s.aprobaciones);
   return s;
 }
@@ -212,7 +212,7 @@ async function rutas(req, res) {
 
   const dentro = await acceso.sesionValida(req);
   if (m === 'GET' && (p === '/' || p === '/index.html')) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...(dentro && req.sesionLarga ? { 'Set-Cookie': acceso.cookieRenovada(req) } : {}) });
     const html = fs.readFileSync(PANEL, 'utf8');
     // Sin sesión: la pantalla de acceso. Con sesión y sin configurar todavía: el primer uso
     const avisos = !dentro ? ['window.PANTALLA_ACCESO=true'] : [...((await arranque.hecho()) ? [] : ['window.PRIMER_USO=true']), `window.PRO=${JSON.stringify(PRO)}`, `window.APAGADOS=${JSON.stringify(departamentos.agentesApagados())}`, `window.PROPIOS=${JSON.stringify(departamentos.paraPanel()).replace(/</g, '\\u003c')}`];
@@ -367,7 +367,7 @@ async function rutas(req, res) {
     catch (e) { return json(res, e.status || 400, { error: e.message }); }
   }
   if (m === 'GET' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/sugerencia$/))) {
-    try { return json(res, 200, await aprobaciones.sugerirCuando(r[1])); } catch (e) { return json(res, e.status || 400, { error: e.message }); }
+    try { return json(res, 200, await aprobaciones.sugerirCuando(r[1], url.searchParams.get('lang'))); } catch (e) { return json(res, e.status || 400, { error: e.message }); }
   }
   if (m === 'POST' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/cambios$/))) {
     const b = await cuerpo(req);
@@ -382,7 +382,7 @@ async function rutas(req, res) {
     const b = await cuerpo(req);
     return json(res, 200, { total: await darGracias(ag, b.motivo) });
   }
-  // Objetivos: Rafa los convierte en un plan para el equipo
+  // Objetivos: Máximo los convierte en un plan para el equipo
   if (m === 'GET' && p === '/api/objetivos') return json(res, 200, await (await import('./objetivos.js')).listar());
   if (m === 'POST' && p === '/api/objetivos') { try { return json(res, 201, await (await import('./objetivos.js')).crear((await cuerpo(req)).texto)); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (m === 'GET' && (r = p.match(/^\/api\/objetivos\/(\d+)$/))) { const o = await (await import('./objetivos.js')).detalle(Number(r[1])); return o ? json(res, 200, o) : json(res, 404, { error: 'No existe ese objetivo' }); }
@@ -436,6 +436,7 @@ async function rutas(req, res) {
     return json(res, 200, await v.revisar());
   }
   if (m === 'GET' && p === '/api/correo/cuentas/comprobar') return json(res, 200, await cuentasCorreo.comprobar(url.searchParams.get('cuenta')));
+  if (m === 'GET' && p === '/api/correo/bandeja') return json(res, 200, await correo.bandeja());
   if (m === 'GET' && p === '/api/correo/cuentas') return json(res, 200, cuentasCorreo.listar());
   if (m === 'POST' && p === '/api/correo/cuentas') { try { return json(res, 200, await cuentasCorreo.guardar(await cuerpo(req))); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (m === 'POST' && (r = p.match(/^\/api\/correo\/cuentas\/([\w-]+)\/(predeterminada|quitar)$/))) {
@@ -483,7 +484,7 @@ async function rutas(req, res) {
       return json(res, 200, { ...g, ritmo: await presupuesto.ritmo() });
     } catch (e) { return json(res, 400, { error: e.message }); }
   }
-  if (m === 'GET' && p === '/api/busqueda/objetivo') return json(res, 200, { ...(await busqueda.estado()), maps: fuentes.estadoMaps() });
+  if (m === 'GET' && p === '/api/busqueda/objetivo') return json(res, 200, { ...(await busqueda.estado()), maps: { ...fuentes.estadoMaps(), ...(await fuentes.usoMaps()) } });
   if (m === 'GET' && p === '/api/busqueda/estimar') {
     try { return json(res, 200, await busqueda.estimar({ cantidad: url.searchParams.get('cantidad'), periodo: url.searchParams.get('periodo') })); } catch (e) { return json(res, 400, { error: e.message }); }
   }
@@ -496,11 +497,11 @@ async function rutas(req, res) {
       return json(res, 200, st);
     } catch (e) { return json(res, 400, { error: e.message }); }
   }
-  if (m === 'POST' && p === '/api/fuentes/maps') { try { return json(res, 200, await fuentes.conectarMaps((await cuerpo(req)).clave)); } catch (e) { return json(res, 400, { error: e.message }); } }
+  if (m === 'POST' && p === '/api/fuentes/maps') { try { return json(res, 200, { ...(await fuentes.conectarMaps((await cuerpo(req)).clave)), ...(await fuentes.usoMaps()) }); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (m === 'POST' && p === '/api/fuentes/maps/quitar') return json(res, 200, await fuentes.quitarMaps());
   if (m === 'GET' && p === '/api/gasto/ritmo') return json(res, 200, await presupuesto.ritmo());
   if (m === 'GET' && p === '/api/gasto/dias') return json(res, 200, await presupuesto.porDia(url.searchParams.get('dias')));
-  if (m === 'GET' && p === '/api/gasto/resumen') return json(res, 200, await presupuesto.resumen());
+  if (m === 'GET' && p === '/api/gasto/resumen') return json(res, 200, { ...(await presupuesto.resumen()), maps: fuentes.mapsActivo() ? await fuentes.usoMaps() : null });
   if (m === 'GET' && p === '/api/reunion') return json(res, 200, (await reunion.ultima()) || {});
   if (m === 'POST' && p === '/api/reunion') {
     reunion.celebrar({ convoca: 'dueno' }).catch(e => bus.log('rafa', `no ha podido cerrar la reunión: ${e.message}`));
@@ -523,7 +524,7 @@ async function rutas(req, res) {
   // Claves de la IA (Claude o OpenRouter): se pegan en Configuración → Inteligencia artificial
   if (m === 'GET' && p === '/api/ia') return json(res, 200, await ia.estado());
   if (m === 'POST' && p === '/api/ia') { try { return json(res, 200, await ia.guardar(await cuerpo(req))); } catch (e) { console.warn('IA: no se guarda:', e.message); return json(res, 400, { error: e.message }); } }
-  // Primer uso: Rafa ayuda a configurar el resto (arranque.js)
+  // Primer uso: Máximo ayuda a configurar el resto (arranque.js)
   if (m === 'GET' && p === '/api/arranque') return json(res, 200, await arranque.estado());
   if (m === 'POST' && p === '/api/arranque/mensaje') { try { return json(res, 200, await arranque.conversar((await cuerpo(req)).texto)); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (m === 'POST' && p === '/api/arranque/terminar') return json(res, 200, await arranque.terminar(await cuerpo(req)));
@@ -535,7 +536,7 @@ async function rutas(req, res) {
     try { const d = await departamentos.guardarPropio(b); await bus.log('dueno', `ha ${b.id ? 'cambiado' : 'creado'} el departamento «${d.nombre}».`); return json(res, 200, d); } catch (e) { return json(res, 400, { error: e.message }); }
   }
   if (m === 'POST' && p === '/api/departamentos/quitar') {
-    try { const d = await departamentos.quitarPropio((await cuerpo(req)).id); await bus.log('dueno', `ha borrado el departamento «${d.nombre}». Lo que tenía pendiente pasa a Rafa.`); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); }
+    try { const d = await departamentos.quitarPropio((await cuerpo(req)).id); await bus.log('dueno', `ha borrado el departamento «${d.nombre}». Lo que tenía pendiente pasa a Máximo.`); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); }
   }
   if (m === 'GET' && p === '/api/modulos') return json(res, 200, modulos.listar());
   if (m === 'POST' && p === '/api/modulos') {
@@ -551,7 +552,7 @@ async function rutas(req, res) {
     return json(res, 200, departamentos.listar());
   }
   if (m === 'POST' && p === '/api/ia/quitar') { try { return json(res, 200, await ia.quitar((await cuerpo(req)).cual)); } catch (e) { return json(res, 400, { error: e.message }); } }
-  if (m === 'GET' && p === '/api/llamar/consejo') return json(res, 200, await (await import('./horario.js')).consejoHora(url.searchParams.get('empresa_id')));
+  if (m === 'GET' && p === '/api/llamar/consejo') return json(res, 200, await (await import('./horario.js')).consejoHora(url.searchParams.get('empresa_id'), url.searchParams.get('lang')));
   if (m === 'GET' && p === '/api/perfil') return json(res, 200, perfil.leer());
   if (m === 'POST' && p === '/api/perfil') {
     const r = await perfil.guardar(await cuerpo(req));
@@ -678,13 +679,13 @@ telegram.alPulsar(async (id, resultado, msgId) => {
 telegram.alResponder(async (msgId, texto, citado = '') => {
   const id = esperandoRespuesta.get(msgId) || await aprobaciones.porMensajeTelegram(msgId);
   if (!id) {
-    // Contesta a un informe, a una opinión o a un aviso: se lo pasamos a quien lo escribió (o a Rafa)
+    // Contesta a un informe, a una opinión o a un aviso: se lo pasamos a quien lo escribió (o a Máximo)
     const m = citado.match(/^(?:📊 Informe de|💬)\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)/u);
     const ag = (m && nombreAgente(m[1])) || 'rafa';
     const contexto = citado ? `\n\nLo que Dirección está contestando:\n«${citado.slice(0, 1500)}»` : '';
     if (ag === 'rafa') {
       await tareas.crear('rafa', `Dirección contesta por Telegram a un mensaje: «${texto}»${contexto}`, { origen: 'dueno' });
-      await bus.log('dueno', `contesta a Rafa: «${texto.slice(0, 140)}»`);
+      await bus.log('dueno', `contesta a Máximo: «${texto.slice(0, 140)}»`);
       return chat.textoPausa('rafa');
     }
     return preguntar(ag, texto, { contexto });   // contesta el agente; en pausa, se avisa
@@ -707,8 +708,8 @@ telegram.alEscribir(async texto => {
   if (ag && ag !== 'rafa') return preguntar(ag, m[2].trim());
   const cuerpoTexto = ag === 'rafa' ? m[2].trim() : texto;
   await tareas.crear('rafa', `Dirección te escribe por Telegram: «${cuerpoTexto}»`, { origen: 'dueno' });
-  await bus.log('dueno', `ha escrito a Rafa: «${cuerpoTexto.slice(0, 140)}»`);
-  return chat.textoPausa('rafa');   // Rafa contesta él mismo; en pausa, se avisa
+  await bus.log('dueno', `ha escrito a Máximo: «${cuerpoTexto.slice(0, 140)}»`);
+  return chat.textoPausa('rafa');   // Máximo contesta él mismo; en pausa, se avisa
 });
 
 // ---------- modo ausencia ----------
@@ -764,7 +765,7 @@ telegram.alComando(async (cmd, args) => {
     }
     case 'start':
     case 'ayuda':
-      return 'Comandos:\n/estado — embudo, pendientes y gasto\n/encargar <agente> <instrucción>\n/pregunta <agente> <pregunta> — su opinión sincera\n/objetivo <texto> — Rafa prepara un plan con el equipo\n/gracias <agente> [motivo]\n/regla <texto> — norma fija para el equipo\n/reglas — ver reglas\n/quitar <n> — quitar una regla\n/reunion — reunión de equipo ahora\n/pausa · /reanudar\n/turbo [off] — trabajar sin topes diarios\n/empujon 10 — 10 € más este periodo\n/vacaciones [hasta 15/11] · /vuelvo\n\nResponde a un trabajo para pedir cambios.\nEmpieza con un nombre para hablar con ese agente («Mateo, …»).\nEscribe sin nombre para hablar con Rafa, el director.';
+      return 'Comandos:\n/estado — embudo, pendientes y gasto\n/encargar <agente> <instrucción>\n/pregunta <agente> <pregunta> — su opinión sincera\n/objetivo <texto> — Máximo prepara un plan con el equipo\n/gracias <agente> [motivo]\n/regla <texto> — norma fija para el equipo\n/reglas — ver reglas\n/quitar <n> — quitar una regla\n/reunion — reunión de equipo ahora\n/pausa · /reanudar\n/turbo [off] — trabajar sin topes diarios\n/empujon 10 — 10 € más este periodo\n/vacaciones [hasta 15/11] · /vuelvo\n\nResponde a un trabajo para pedir cambios.\nEmpieza con un nombre para hablar con ese agente («Mateo, …»).\nEscribe sin nombre para hablar con Máximo, el director.';
     case 'turbo': {
       const on = !/^(off|no|apagar|parar|0)$/i.test(args.trim());
       const g = await presupuesto.cambiar({ turbo: on });
@@ -804,7 +805,7 @@ telegram.alComando(async (cmd, args) => {
     case 'objetivo': {
       if (!args.trim()) return 'Uso: /objetivo <qué quieres conseguir y para cuándo>\nEj.: /objetivo 10 reuniones con gestorías de Getafe antes de fin de mes';
       try { await (await import('./objetivos.js')).crear(args.trim(), { via: 'telegram' }); } catch (e) { return e.message; }
-      return '🎯 Apuntado. Rafa prepara el plan y te lo deja en la mesa (y aquí) para que lo apruebes.';
+      return '🎯 Apuntado. Máximo prepara el plan y te lo deja en la mesa (y aquí) para que lo apruebes.';
     }
     case 'pregunta': {
       const [quien, ...resto] = args.split(/\s+/);
@@ -840,6 +841,7 @@ export async function arrancar({ conMotor = true } = {}) {
   await departamentos.cargar();
   await fuentes.cargar();
   await plantilla.cargar();
+  if (!(await arranque.hecho())) await plantilla.nombresAlAzar();   // oficina nueva: sus propios nombres
   await linkedin.cargarApp();
   await facebook.cargarApp();
   await perfil.cargar();

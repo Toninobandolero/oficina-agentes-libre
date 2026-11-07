@@ -49,15 +49,16 @@ function textos(src) {
   walk.fullAncestor(ast, (n, _st, anc) => {
     if (!((n.type === 'Literal' && typeof n.value === 'string') || n.type === 'TemplateLiteral')) return;
     const p = anc[anc.length - 2];
-    if ((p.type === 'Property' && p.key === n) || p.type === 'TaggedTemplateExpression') return;
-    const hecho = p.type === 'CallExpression' && p.callee.name === 'TR';
+    const plantilla = p.type === 'TaggedTemplateExpression' && p.tag.name === 'TR';
+    if ((p.type === 'Property' && p.key === n) || (p.type === 'TaggedTemplateExpression' && !plantilla)) return;
+    const hecho = plantilla || (p.type === 'CallExpression' && p.callee.name === 'TR');
     let pareja = false;
     if (p.type === 'ConditionalExpression' && n !== p.test) {
       const [a, b] = [p.consequent, p.alternate].map(x => x.type === 'Literal' ? x.value : null);
       pareja = PAREJAS.has(`${a}|${b}`) || PAREJAS.has(`${b}|${a}`);
     }
     const sector = p.type === 'Property' && ['s', 'sector', 'nombre'].includes(p.key.name);   // sectores de la demo y nombres (canal «trabajo»)
-    res.push({ n, k: clave(n), hecho, pareja, sector, locale: n.type === 'Literal' && n.value === 'es-ES' && anc[anc.length - 3]?.id?.name !== 'LOCALE' });
+    res.push({ n, k: clave(n), hecho, plantilla, pareja, sector, locale: n.type === 'Literal' && n.value === 'es-ES' && anc[anc.length - 3]?.id?.name !== 'LOCALE' });
   });
   return res;
 }
@@ -89,8 +90,13 @@ function aplicar() {
   console.log(`${ins.length} textos envueltos. ${faltan(html, EN).length} sin traducir (npm run traducir -- faltan).`);
 }
 
-function faltan(html = fs.readFileSync(F_HTML, 'utf8'), EN = leerEN()) {
-  const fuera = new Set();
+// Lo marcado con TR`…` o TR('…') va todo, parezca texto o no: quien lo marca quiere que se traduzca
+export function marcadosSinIngles(html = fs.readFileSync(F_HTML, 'utf8'), EN = leerEN()) {
+  return [...new Set(textos(script(html).src).filter(t => t.hecho && !EN[t.k]).map(t => t.k))];
+}
+
+export function faltan(html = fs.readFileSync(F_HTML, 'utf8'), EN = leerEN()) {
+  const fuera = new Set(marcadosSinIngles(html, EN));
   for (const t of textos(script(html).src)) if (!t.locale && visible(t.k) && !EN[t.k]) fuera.add(t.k);
   // el HTML fijo: textos y atributos que se leen
   const doc = parseDocument(html.slice(html.indexOf('<body'), html.indexOf('<script>\n')));
@@ -101,5 +107,7 @@ function faltan(html = fs.readFileSync(F_HTML, 'utf8'), EN = leerEN()) {
   return [...fuera];
 }
 
-if (process.argv[2] === 'faltan') for (const k of faltan()) console.log(JSON.stringify(k));
-else aplicar();
+if (path.basename(process.argv[1] || '') === 'traducir-panel.mjs') {   // la prueba lo importa: importarlo no aplica nada
+  if (process.argv[2] === 'faltan') for (const k of faltan()) console.log(JSON.stringify(k));
+  else aplicar();
+}

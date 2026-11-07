@@ -115,6 +115,8 @@ export async function tick() {
   unaVez('dolores-rellenos', rellenarDolores).catch(e => console.error('Dolores:', e.message));
   unaVez('decisores-a-contactos-2', async () => (await import('./contactos.js')).migrarDecisores()).catch(e => console.error('Decisores:', e.message));
   unaVez('contactos-arreglados', async () => (await import('./contactos.js')).arreglarRecogidos()).catch(e => console.error('Contactos:', e.message));
+  unaVez('sin-otras-tarjetas', async () => (await import('./mesaViva.js')).sinOtrasTarjetasEnLaMesa()).catch(e => console.error('Sin otras tarjetas:', e.message));
+  unaVez('lola-desde-la-mesa', async () => (await import('./mesaViva.js')).lolaDesdeLaMesa()).catch(e => console.error('Lola desde la mesa:', e.message));
   unaVez('guiones-con-presentacion', async () => (await import('./mesaViva.js')).presentarseEnLosGuiones()).catch(e => console.error('Guiones con presentación:', e.message));
   unaVez('mesa-puesta-al-dia', async () => (await import('./mesaViva.js')).ponerAlDia()).catch(e => console.error('Mesa al día:', e.message));
   import('./motor.js').then(x => x.revisarCredito()).catch(e => console.error('Crédito de IA:', e.message));   // parado sin crédito: cada 15 minutos como mucho
@@ -215,7 +217,7 @@ export async function arrancarTurbo() {
 // la conexión y ya recibieron un mensaje, o vienen recomendadas). El primer contacto lo lleva Javi en la secuencia:
 // solicitud de LinkedIn y llamada al día siguiente sin esperar a que acepte (solo sociedades). Desde el 17/10/2026
 // las llamadas comerciales deben salir de un número 400: pedírselo a Zadarma para esas llamadas.
-/** Rafa, una vez al día: lo que le toca a Dirección hoy. Lo demás no le escribe. */
+/** Máximo, una vez al día: lo que le toca a Dirección hoy. Lo demás no le escribe. */
 async function resumenDeHoy() {
   const r = (await q(`SELECT count(DISTINCT coalesce(empresa_id, id)) FILTER (WHERE split_part(coalesce(ref, ''), ':', 1) IN ('sec','paso') OR tipo IN ('mensaje','correo'))::int AS contactos,
                              count(DISTINCT coalesce(empresa_id, id)) FILTER (WHERE split_part(coalesce(ref, ''), ':', 1) NOT IN ('sec','paso') AND tipo NOT IN ('mensaje','correo') AND prioridad <= 2)::int AS importantes
@@ -281,7 +283,7 @@ export async function semanales(m, vac) {
   if (!vac) for (const d of departamentos.propios()) if (d.semanal && m.dia === d.semanal.dia && m.hora >= d.semanal.hora) await unaVez(`semanal-${d.id}:${m.fecha}`, () => encargar(d.agentes[0], d.semanal.instruccion, { origen: 'sistema' }));
 }
 
-/** Dos veces al día, Rafa mira la oficina como gerente, sin esperar a que nadie le escriba. */
+/** Dos veces al día, Máximo mira la oficina como gerente, sin esperar a que nadie le escriba. */
 export const revisarGerencia = () => tareas.crear('rafa', 'Revisión del gerente. Mira ver_mesa, ver_cola y resumen_embudo. Lo primero, los contactos calientes: si alguien espera algo de Dirección hoy (ha pedido que le llamen, ha contestado con interés) y su tarjeta no está en urgente, súbela con priorizar_tarjeta; si no hay tarjeta, encárgasela a quien toque. Si algo importante espera detrás de trabajo que no corre prisa, adelántalo con mover_tarea. Si un trabajo ya no hace falta, cancélalo. Si algo lleva días parado y falta quien lo haga, encárgalo. No le escribas a Dirección por esto salvo que te necesite. Si no hay nada que cambiar, termina con «Sin cambios».', { origen: 'sistema' });
 
 /** Captación: contenido, web, alianzas y eventos. No se programa nada nuevo para tu mesa si estás de vacaciones. */
@@ -395,7 +397,7 @@ export async function agenda(limite = 6) {
   const s = proximo([config.inteligenciaDia], config.inteligenciaHora);
   if (s) items.push({ orden: `${s.fecha} ${s.hora}`, cuando: cuando(s), texto: 'Informe de inteligencia de Sara' });
   const r = proximo([1], '08:45');
-  if (r) items.push({ orden: `${r.fecha} ${r.hora}`, cuando: cuando(r), texto: 'Informe semanal de Rafa' });
+  if (r) items.push({ orden: `${r.fecha} ${r.hora}`, cuando: cuando(r), texto: 'Informe semanal de Máximo' });
   const pasos = await q(`SELECT p.titulo, p.fecha::text AS fecha, e.nombre FROM pasos p JOIN secuencias s ON s.id = p.secuencia_id JOIN empresas e ON e.id = s.empresa_id
                           WHERE p.estado = 'programado' AND s.estado = 'activa' ORDER BY p.fecha LIMIT 4`);
   const ctl = await q(`SELECT s.control, s.control_fecha::text AS fecha, e.nombre FROM secuencias s JOIN empresas e ON e.id = s.empresa_id

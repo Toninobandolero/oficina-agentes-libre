@@ -52,6 +52,7 @@ export async function preparar({ agente, empresa_id = null, para, asunto, texto,
   const r = await q(`INSERT INTO correos (direccion, de, para, asunto, texto, empresa_id, en_respuesta_a, adjunto) VALUES ('borrador',$1,$2,$3,$4,$5,$6,$7) RETURNING id`,
     [config.correo.usuario, limpiarDir(para), asu, String(texto).trim(), emp?.id ?? previo?.empresa_id ?? null, previo?.message_id ?? null, adjunto ? adjuntar_documento : null]);
   const id = r.rows[0].id;
+  if (previo && emp && !previo.empresa_id) await q(`UPDATE correos SET empresa_id=$1, clase='lead' WHERE id=$2`, [emp.id, previo.id]);
   const apId = await aprobaciones.crear({
     agente, tipo: 'correo', empresa_id: emp?.id ?? previo?.empresa_id ?? null, ref: `correo:${id}`,
     titulo: `ha preparado un correo para ${para}${emp ? ` (${emp.nombre})` : ''}`,
@@ -267,7 +268,9 @@ export async function procesarEntrante(m, cuenta = null) {
     const s = (await q(`SELECT empresa_id FROM correos WHERE direccion='salida' AND lower(para)=$1 AND empresa_id IS NOT NULL LIMIT 1`, [de])).rows[0];
     if (s) emp = await empresas.leer(s.empresa_id);
   }
-  const clase = emp ? 'lead' : esBoletin ? 'boletin' : 'otro';
+  // Avisos automáticos (no-reply, la centralita…): nadie los contesta; lo demás de un desconocido lo revisa Paula
+  const automatico = /^(no-?reply|noreply|mailer-daemon|postmaster|notifica|notification|bounce|alert)/i.test(de) || /@zadarma\./i.test(de) || cab.has?.('auto-submitted') && cab.get('auto-submitted') !== 'no';
+  const clase = emp ? 'lead' : esBoletin ? 'boletin' : automatico ? 'aviso' : 'otro';
   if (emp) await (await import('./mesaViva.js')).ocurrio(emp.id, { cuando: new Date(), que: 'su correo' });
   const r = await q(`INSERT INTO correos (direccion, de, para, asunto, texto, message_id, en_respuesta_a, empresa_id, clase, creada)
                      VALUES ('entrada',$1,$2,$3,$4,$5,$6,$7,$8,coalesce($9, now())) RETURNING id`,
@@ -280,8 +283,11 @@ export async function procesarEntrante(m, cuenta = null) {
     await telegram.avisar(`📩 ${nombre} (${emp.nombre}) ha escrito por correo:\n«${String(m.subject || '')}»\n\n${texto.slice(0, 800)}${texto.length > 800 ? '…' : ''}\n\nPaula te prepara la respuesta.`);
     await tareas.crear('paula', `${nombre} <${de}> (${emp.nombre}) nos ha escrito por correo.\nAsunto: «${m.subject || ''}»\n\n${texto.slice(0, 6000)}\n\n` +
       `Clasifícalo, actualiza la empresa y prepara la respuesta con preparar_correo (en_respuesta_a: ${id}). Si no hay que contestar por correo, dilo con anotar.`, { empresa_id: emp.id, origen: 'sistema' });
-  } else if (clase === 'otro' && !/@zadarma\./i.test(de)) {   // los avisos de la centralita no son de nadie: la llamada ya se recoge por su lado
-    await log('sistema', `ha llegado un correo de ${nombre}: «${String(m.subject || '').slice(0, 120)}» (no es de ninguna empresa nuestra)`);
+  } else if (clase === 'otro') {   // alguien que no tenemos: puede ser un cliente nuevo, así que Paula lo mira
+    await log('sistema', `ha llegado un correo de ${nombre}: «${String(m.subject || '').slice(0, 120)}» (no es de ninguna empresa nuestra; lo revisa Paula)`);
+    await tareas.crear('paula', `Ha llegado un correo de alguien que no tenemos en la oficina: ${nombre} <${de}>.\nAsunto: «${m.subject || ''}»\n\n${texto.slice(0, 6000)}\n\n` +
+      `Decide qué es. Si es un posible cliente o alguien que nos pide algo: créalo con guardar_empresas (origen «otro», con su correo) y prepara la respuesta con preparar_correo (en_respuesta_a: ${id}, empresa_id: el de la empresa creada). ` +
+      `Si es publicidad, spam, un aviso o no pide nada: déjalo dicho con anotar en una línea y no hagas nada más.`, { origen: 'sistema' });
   }
   return id;
 }
@@ -321,6 +327,14 @@ export async function boletines(dias = 7, limite = 15) {
   const r = await q(`SELECT de, asunto, left(texto, 1500) AS texto, creada FROM correos WHERE direccion='entrada' AND clase='boletin'
                       AND creada > now() - ($1 || ' days')::interval ORDER BY creada DESC LIMIT $2`, [String(dias), limite]);
   return r.rows;
+}
+
+/** La bandeja del panel: lo que ha llegado (y lo que se ha enviado) con lo que ha hecho la oficina con cada uno. */
+export async function bandeja(limite = 60) {
+  return (await q(`SELECT c.id, c.direccion, c.de, c.para, c.asunto, left(c.texto, 4000) AS texto, c.clase, c.empresa_id, e.nombre AS empresa,
+                          coalesce(c.enviado, c.creada) AS fecha
+                     FROM correos c LEFT JOIN empresas e ON e.id = c.empresa_id
+                    WHERE c.direccion IN ('entrada', 'salida') ORDER BY coalesce(c.enviado, c.creada) DESC LIMIT $1`, [limite])).rows;
 }
 
 export async function deEmpresa(empresaId) {

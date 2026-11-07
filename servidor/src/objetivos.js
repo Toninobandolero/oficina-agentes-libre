@@ -1,6 +1,6 @@
-// Objetivos: Dirección plantea un objetivo («10 reuniones con gestorías de Getafe este mes»), Rafa lo convierte en un plan
+// Objetivos: Dirección plantea un objetivo («10 reuniones con gestorías de Getafe este mes»), Máximo lo convierte en un plan
 // de pasos para el equipo (quién hace qué y en qué orden, con su coste estimado), Dirección lo aprueba en la mesa y el equipo
-// lo ejecuta paso a paso: cada paso arranca cuando terminan los que necesita y recibe lo que hicieron. Al final Rafa resume.
+// lo ejecuta paso a paso: cada paso arranca cuando terminan los que necesita y recibe lo que hicieron. Al final Máximo resume.
 // Nada sale hacia fuera sin pasar por la mesa, como siempre.
 import { q } from './db.js';
 import { emitir, log } from './bus.js';
@@ -20,10 +20,10 @@ async function gastado(id) {
 }
 async function avisarCambio(id) { const o = await detalle(id).catch(() => null); if (o) await emitir({ tipo: 'objetivo', objetivo: o }); }
 
-/** Dirección plantea un objetivo: Rafa prepara el plan. */
+/** Dirección plantea un objetivo: Máximo prepara el plan. */
 export async function crear(texto, { via = 'panel' } = {}) {
   texto = recortar(String(texto || '').trim(), 1500);
-  if (texto.length < 8) throw new Error('Cuéntale a Rafa el objetivo en una frase (qué quieres conseguir y para cuándo).');
+  if (texto.length < 8) throw new Error('Cuéntale a Máximo el objetivo en una frase (qué quieres conseguir y para cuándo).');
   const o = (await q(`INSERT INTO objetivos (texto) VALUES ($1) RETURNING *`, [texto])).rows[0];
   await (await chat()).escribir({ canal: 'general', autor: 'dueno', para: 'rafa', texto: `🎯 Objetivo: ${texto}`, via });
   await tareas.crear('rafa', `Dirección plantea un OBJETIVO (nº ${o.id}): «${texto}»
@@ -36,12 +36,12 @@ Prepara el plan para conseguirlo con el equipo y entrégaselo con proponer_plan 
 - Di cómo sabremos que se ha conseguido (medida).
 - Si el objetivo no está claro del todo, propón el plan más razonable y di en el resumen qué has supuesto.
 No uses enviar_informe: el plan le llega a Dirección a su mesa y al chat.`, { origen: 'dueno', objetivo_id: o.id });
-  await log('dueno', `plantea un objetivo: «${recortar(texto, 140)}». Rafa prepara el plan.`);
+  await log('dueno', `plantea un objetivo: «${recortar(texto, 140)}». Máximo prepara el plan.`);
   await avisarCambio(o.id);
   return detalle(o.id);
 }
 
-/** Rafa entrega el plan (herramienta proponer_plan): va a la mesa de Dirección con el coste estimado de cada paso. */
+/** Máximo entrega el plan (herramienta proponer_plan): va a la mesa de Dirección con el coste estimado de cada paso. */
 export async function proponer({ objetivo_id, resumen, medida, pasos }) {
   const o = await leer(Number(objetivo_id));
   if (!o) throw new Error(`No existe el objetivo ${objetivo_id}.`);
@@ -90,7 +90,7 @@ function contextoPrevio(o, i) {
 }
 async function arrancarPaso(o, i) {
   const p = o.plan[i];
-  const t = await tareas.crear(p.agente, `${p.instruccion}\n\n(Paso ${i + 1} de ${o.plan.length} del objetivo «${recortar(o.texto, 200)}» que coordina Rafa. Al terminar, resume en 2–4 frases qué has hecho y qué has dejado en la mesa de Dirección, si algo.)${contextoPrevio(o, i)}`,
+  const t = await tareas.crear(p.agente, `${p.instruccion}\n\n(Paso ${i + 1} de ${o.plan.length} del objetivo «${recortar(o.texto, 200)}» que coordina Máximo. Al terminar, resume en 2–4 frases qué has hecho y qué has dejado en la mesa de Dirección, si algo.)${contextoPrevio(o, i)}`,
     { origen: 'rafa', objetivo_id: o.id, paso: i });
   p.estado = 'en_curso'; p.tarea_id = t.id;
 }
@@ -110,7 +110,7 @@ export async function lanzar(id) {
   await avisarCambio(id);
 }
 
-/** Un paso ha terminado (o ha fallado del todo): arrancan los que esperaban por él; si era el último, Rafa resume. */
+/** Un paso ha terminado (o ha fallado del todo): arrancan los que esperaban por él; si era el último, Máximo resume. */
 export async function pasoTerminado(t, resultado, { error = false } = {}) {
   if (!t.objetivo_id || t.paso == null) return;
   const o = await leer(t.objetivo_id);
@@ -135,7 +135,7 @@ ${o.medida ? `\nCómo íbamos a medirlo: ${o.medida}` : ''}
 Coste real en IA: ${eur.toFixed(2)} € (estimado: ${Number(o.estimado_eur || 0).toFixed(2)} €).
 
 Escríbele a Dirección en #general un resumen corto (4–6 frases): qué se ha conseguido, qué tiene pendiente en su mesa para que esto avance y el siguiente paso que recomiendas. Sin enviar_informe.`, { origen: 'sistema', canal: 'general', objetivo_id: o.id });
-  try { await (await import('./telegram.js')).avisar(`🎯 Terminado el plan de «${recortar(o.texto, 100)}». Rafa te deja el resumen en el chat (#general). Coste: ${eur.toFixed(2)} €.`); } catch { }
+  try { await (await import('./telegram.js')).avisar(`🎯 Terminado el plan de «${recortar(o.texto, 100)}». Máximo te deja el resumen en el chat (#general). Coste: ${eur.toFixed(2)} €.`); } catch { }
 }
 
 /** Dirección lo para: lo que no ha empezado se cancela (lo que ya está en marcha termina). */

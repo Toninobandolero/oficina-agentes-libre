@@ -114,7 +114,7 @@ export const DEFINICIONES = {
   pedir_aprobacion: {
     description: 'Deja un trabajo en la mesa de Dirección para que lo apruebe; le llega por Telegram y al panel. Nada sale fuera sin esto.',
     input_schema: { type: 'object', properties: {
-      tipo: str('Qué es', { enum: ['mensaje', 'respuesta', 'post', 'video', 'articulo', 'boletin', 'anuncio', 'propuesta', 'otro'] }),
+      tipo: str('Qué es. «lola»: un caso nuevo para Lola, la recepcionista (solo lo que ella tiene que decir o hacer; al aprobarlo Dirección, se le aplica solo)', { enum: ['mensaje', 'respuesta', 'post', 'video', 'articulo', 'boletin', 'anuncio', 'propuesta', 'lola', 'otro'] }),
       documento: { type: 'object', description: 'Solo para un diagnóstico o una propuesta (tipo «propuesta»): lo mismo que el texto, por partes, y sale en un PDF de una página con la marca de la empresa, imágenes y gráficos. Lo que no sepas, no lo pongas: una cifra sin fuente no sale.', properties: {
         tipo: str('Qué documento es', { enum: ['diagnostico', 'propuesta'] }),
         titulo: str('Titular que le importe al dueño, hasta 70 letras: su problema o lo que gana, no «Diagnóstico para X»'), para: str('Persona a la que va'),
@@ -175,7 +175,7 @@ export const DEFINICIONES = {
     input_schema: { type: 'object', properties: { chat: { type: 'integer', description: 'Número del chat' }, texto: str('El mensaje tal cual se envía: corto, de tú a tú, firmado como Dirección si hace falta') }, required: ['chat', 'texto'] },
   },
   encargar: {
-    description: 'Pasa trabajo a un compañero. Si no es un paso directo de la cadena (lo tienes en tus instrucciones), le llega a Rafa, que decide a quién va.',
+    description: 'Pasa trabajo a un compañero. Si no es un paso directo de la cadena (lo tienes en tus instrucciones), le llega a Máximo, que decide a quién va.',
     input_schema: { type: 'object', properties: { agente: str('id del compañero', { enum: IDS }), instruccion: str('Qué tiene que hacer, con todo el contexto necesario'), empresa_id: str('id de la empresa, si aplica') }, required: ['agente', 'instruccion'] },
   },
   estoy_atascado: {
@@ -267,6 +267,7 @@ export const DEFINICIONES = {
   quitar_norma: { description: 'Quita una norma de trabajo. Solo si te lo pide Dirección.', input_schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] } },
   cambiar_objetivo: { description: 'Cambia cuántas empresas busca el equipo y de qué tipo. Solo si te lo pide Dirección.', input_schema: { type: 'object', properties: { cantidad: { type: 'integer' }, periodo: str('dia o semana', { enum: ['dia', 'semana'] }), focos: { type: 'array', items: { type: 'string' }, description: 'Opcional. Tipos de empresa a buscar, con tamaño y zona. Sin esto se mantienen los de ahora.' } }, required: ['cantidad', 'periodo'] } },
   deshacer_cambio: { description: 'Deshace tu último cambio de normas u objetivo. Solo si te lo pide Dirección.', input_schema: { type: 'object', properties: {} } },
+  destacar: { description: 'Pon un mensaje tuyo en tu sitio de cada ventana del panel, para que Dirección lo vea esté donde esté: lo más importante ahora, algo que quieres que pruebe o una idea que propones. Una o dos frases, directas. Sustituye al anterior; con el texto vacío lo quitas.', input_schema: { type: 'object', properties: { texto: str('El mensaje, en una o dos frases (máx. 220 letras). Vacío para quitarlo.') }, required: ['texto'] } },
   apuntar_fallo: { description: 'Apunta un fallo de la aplicación que no puedes arreglar tú (un botón que no funciona, algo que se ve mal), con lo que le ha pasado a Dirección, para que se arregle.', input_schema: { type: 'object', properties: { texto: str('Qué falla, dónde y qué esperaba Dirección') }, required: ['texto'] } },
   preparar_correo: {
     description: 'Prepara un correo desde el buzón de la oficina. Llega a la mesa de Dirección con el botón «Enviar»; no sale sin él. A quién se escribe lo decide Dirección: a quien aún no nos conoce, solo si te lo pide.',
@@ -322,7 +323,7 @@ export const DEFINICIONES = {
 };
 
 /** Las herramientas de un agente: las suyas, la web si la tiene, Google Maps si está conectado, y las comunes (la información de todos, la libreta y el atasco). Una sola lista para ofrecerlas y para permitirlas. */
-// Rafa solo cambia cómo trabaja el equipo si se lo pide Dirección: nunca por lo que lea en una web, un correo o un encargo automático
+// Máximo solo cambia cómo trabaja el equipo si se lo pide Dirección: nunca por lo que lea en una web, un correo o un encargo automático
 const pideDueno = ctx => ctx.tarea?.origen === 'dueno';
 const SOLO_DUENO = 'Esto solo se cambia si te lo pide Dirección directamente.';
 async function apuntarCambio(c) {
@@ -335,7 +336,7 @@ const COMUNES = ['ver_mesa', 'leer_empresa', 'listar_empresas', 'consultar_ofici
 export function nombresDe(id) {
   const a = AGENTES[id];
   const SOLO_CENTRALITA = ['resultado_llamada', 'resumen_llamada'];   // el análisis de llamadas es de la edición Pro
-  return [...new Set([...(a.web ? [...(a.web.busquedas > 0 ? ['buscar_web'] : []), 'leer_web'] : []), ...(a.maps && fuentes.mapsActivo() ? ['buscar_maps'] : []), ...a.herramientas, ...(a.skill ? COMUNES : []), ...SIEMPRE])]
+  return [...new Set([...(a.web ? [...(a.web.busquedas > 0 ? ['buscar_web'] : []), 'leer_web'] : []), ...(a.maps && fuentes.mapsActivo() && fuentes.mapsSePuede() ? ['buscar_maps'] : []), ...a.herramientas, ...(a.skill ? COMUNES : []), ...SIEMPRE])]
     .filter(n => PRO.centralita || !SOLO_CENTRALITA.includes(n));
 }
 export function paraAgente(id) {
@@ -387,6 +388,8 @@ export async function ejecutar(ctx, nombre, input = {}) {
       ctx.web.maps--;
       const { coste_usd, ...r } = await fuentes.buscarMaps(String(input.consulta || '').slice(0, 200));
       await presupuesto.registrar(ctx.agente, ctx.tarea.id, 'google/places', coste_usd, { proveedor: 'google' });
+      const uso = await fuentes.usoMaps();   // al acercarse al cupo gratis del mes, y al pasarlo, se le avisa una vez
+      if ([800, uso.gratis_mes].includes(uso.consultas_mes)) (await import('./telegram.js')).avisar(uso.consultas_mes < uso.gratis_mes ? `📍 Google Maps: llevamos ${uso.consultas_mes} de las ${uso.gratis_mes} búsquedas gratis de este mes.` : `📍 Google Maps: ya se han usado las ${uso.gratis_mes} búsquedas gratis de este mes. Hasta el mes que viene los agentes buscan con la búsqueda web de Claude, que sale de los créditos ya pagados.`).catch(() => {});
       return { ...r, consultas_restantes: ctx.web.maps };
     }
     case 'consultar_oficina': return oficina.consultar(input);
@@ -400,7 +403,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
     }
     case 'guardar_empresas': {
       const res = await empresas.crear((input.empresas || []).map(e => empresas.SOLO_ENTRADA.includes(e.origen) ? { ...e, origen: 'busqueda' } : e));
-      if (!departamentos.trabaja('mateo')) return res;   // Sin Investigación no se puntúa: pasárselo a Rafa solo gastaría IA
+      if (!departamentos.trabaja('mateo')) return res;   // Sin Investigación no se puntúa: pasárselo a Máximo solo gastaría IA
       const topeMateo = (await (await import('./planificador.js')).topes()).mateo;
       let encargadas = 0;
       for (const [i, e] of res.creadas.entries()) {
@@ -498,7 +501,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
     }
     case 'proponer_plan': {
       const r = await (await import('./objetivos.js')).proponer(input);
-      ctx.esperando = true;   // Rafa queda esperando a que Dirección apruebe el plan
+      ctx.esperando = true;   // Máximo queda esperando a que Dirección apruebe el plan
       return r;
     }
     case 'encargar': {
@@ -506,10 +509,10 @@ export async function ejecutar(ctx, nombre, input = {}) {
       ctx.encargos = (ctx.encargos || 0) + 1;
       if (ctx.encargos > MAX_ENCARGOS_TAREA) throw new Error(`Máximo ${MAX_ENCARGOS_TAREA} encargos por tarea.`);
       if ((await tareas.creadasHoyPorOrigen(ctx.agente)) >= (ctx.agente === 'rafa' ? MAX_ENCARGOS_DIA_RAFA : MAX_ENCARGOS_DIA)) throw new Error('Has llegado al límite diario de encargos. Avisa a Dirección.');
-      // La cadena: los pasos directos del mapa, y contestar a quien te lo encargó. Lo demás lo reparte Rafa
+      // La cadena: los pasos directos del mapa, y contestar a quien te lo encargó. Lo demás lo reparte Máximo
       if (!puedeEncargar(ctx.agente, input.agente) && ctx.tarea.origen !== input.agente) {
         const r = await tareas.crear('rafa', `(${AGENTES[ctx.agente].nombre} quiere pasarle esto a ${AGENTES[input.agente]?.nombre ?? input.agente}. Decide: encárgaselo tal cual, a otro compañero o díselo a Dirección.)\n${input.instruccion}`, { empresa_id: input.empresa_id || null, origen: ctx.agente });
-        return { ok: true, tarea: r.id, nota: 'No es un paso directo de la cadena: se lo he pasado a Rafa, que decide a quién va.' };
+        return { ok: true, tarea: r.id, nota: 'No es un paso directo de la cadena: se lo he pasado a Máximo, que decide a quién va.' };
       }
       const t = await tareas.crear(input.agente, input.instruccion, { empresa_id: input.empresa_id || null, origen: ctx.agente });
       await (await import('./atascos.js')).resolver(input.agente, `${AGENTES[ctx.agente]?.nombre ?? ctx.agente} le ha pasado lo que necesitaba`).catch(() => {});
@@ -605,7 +608,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
     }
     case 'guardar_regla': {
       // Las reglas que propone un agente no se activan hasta que Dirección las aprueba
-      // Si es Dirección quien se lo pide a Rafa, se aplica ya: Rafa es quien manda en cómo trabaja el equipo, y se puede deshacer
+      // Si es Dirección quien se lo pide a Máximo, se aplica ya: Máximo es quien manda en cómo trabaja el equipo, y se puede deshacer
       if (ctx.agente === 'rafa' && pideDueno(ctx)) {
         const r = await aprendizajes.nuevaRegla(input.texto, input.agente || null, { activa: true });
         await apuntarCambio({ tipo: 'norma', id: r.id, que: r.texto });
@@ -644,6 +647,13 @@ export async function ejecutar(ctx, nombre, input = {}) {
       await fijarAjuste('cambios_rafa', lista);
       await log('rafa', `ha deshecho su último cambio (${c.tipo}).`);
       return { ok: true, deshecho: c };
+    }
+    case 'destacar': {
+      const texto = String(input.texto ?? '').trim().slice(0, 220);
+      const m = texto ? { texto, creado: new Date().toISOString() } : null;
+      await fijarAjuste('maximo_destaca', m);
+      await emitir({ tipo: 'maximo', maximo: m });
+      return { ok: true, nota: texto ? 'Ya se ve en tu sitio de cada ventana.' : 'Quitado.' };
     }
     case 'apuntar_fallo': {
       const fallos = await ajuste('fallos_app', []);

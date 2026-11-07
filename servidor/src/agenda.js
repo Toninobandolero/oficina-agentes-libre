@@ -31,7 +31,7 @@ export async function entre(desde, hasta, tipos = TIPOS) {
   if (quiero.has('reunion')) {
     const d = new Date(desde + 'T12:00:00Z'), fin = new Date(hasta + 'T12:00:00Z');
     for (; d <= fin; d.setUTCDate(d.getUTCDate() + 1)) if (d.getUTCDay() === config.reunionDia)
-      out.push({ tipo: 'reunion', id: `reu:${d.toISOString().slice(0, 10)}`, dia: d.toISOString().slice(0, 10), hora: config.reunionHora, titulo: 'Reunión de equipo', detalle: 'Cada agente cuenta lo que lleva; Rafa deja el acta' });
+      out.push({ tipo: 'reunion', id: `reu:${d.toISOString().slice(0, 10)}`, dia: d.toISOString().slice(0, 10), hora: config.reunionHora, titulo: 'Reunión de equipo', detalle: 'Cada agente cuenta lo que lleva; Máximo deja el acta' });
   }
   if (quiero.has('recordatorio') || quiero.has('llamada')) {
     for (const r of (await q(`SELECT id, dia::text AS dia, hora, texto, hecho, creado_por, clase, empresa_id, telefono, detalle FROM recordatorios WHERE dia BETWEEN $1 AND $2`, [desde, hasta])).rows) {

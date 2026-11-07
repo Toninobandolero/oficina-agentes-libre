@@ -1,5 +1,5 @@
 // Primer uso de una oficina recién instalada. Nadie trabaja ni gasta hasta terminar: primero se pega la clave de IA y,
-// con ella, Rafa ayuda en una conversación a rellenar la ficha de la empresa, la imagen de marca y el presupuesto.
+// con ella, Máximo ayuda en una conversación a rellenar la ficha de la empresa, la imagen de marca y el presupuesto.
 import { config } from './config.js';
 import { ajuste, fijarAjuste } from './db.js';
 import { log } from './bus.js';
@@ -24,7 +24,7 @@ export async function estado() {
   return { hecho: await hecho(), ia: hayIA(), idioma: perfil.leer().idioma || null, mensajes: (await leer()).mensajes };
 }
 
-const INSTRUCCIONES = `Eres Rafa, coordinador del equipo de agentes de esta oficina. Es el primer uso de la oficina: quien te escribe acaba de instalarla y de conectar su IA. Tu único trabajo ahora es ayudarle a dejarla configurada. El equipo está en pausa y no trabaja hasta que terminéis.
+const INSTRUCCIONES = () => `Eres ${AGENTES.rafa.nombre}, coordinador del equipo de agentes de esta oficina. Es el primer uso de la oficina: quien te escribe acaba de instalarla y de conectar su IA. Tu único trabajo ahora es ayudarle a dejarla configurada. El equipo está en pausa y no trabaja hasta que terminéis.
 
 ## Lo que hay que dejar listo, por este orden
 1. La empresa: nombre, web, qué vende, precios orientativos, cliente ideal, sectores prioritarios, zona, localidad de la oficina, teléfono, qué la diferencia y casos o clientes que se puedan citar.
@@ -117,7 +117,7 @@ async function situacion() {
   return `\n\n## Lo que hay ahora\n${perfil.paraPrompt().trim() || 'La ficha de la empresa está vacía.'}\n${marca.paraPrompt().trim() || 'Sin imagen de marca.'}\nLogo: ${marca.leer().logo ? 'subido' : 'sin subir'}. Presupuesto de IA: ${g.eur} € al mes.\n\nDepartamentos:\n${deps}`;
 }
 
-/** Lo que Rafa recuerda para el siguiente turno, con lo que hizo: si solo viera el texto, creería que lo que dijo haber guardado no se guardó. De las webs, solo el principio: lo útil ya está en la ficha. */
+/** Lo que Máximo recuerda para el siguiente turno, con lo que hizo: si solo viera el texto, creería que lo que dijo haber guardado no se guardó. De las webs, solo el principio: lo útil ya está en la ficha. */
 function paraRecordar(messages) {
   let h = messages.map(m => (m.role === 'tool' ? { ...m, content: m.content.slice(0, 500) } : m));
   while (h.length > MAX_HISTORIAL) {
@@ -152,18 +152,18 @@ async function ejecutar(nombre, d) {
 }
 
 let ocupado = false;
-/** Un turno de la conversación con Rafa. Si la IA falla, no se guarda nada y se puede repetir. */
+/** Un turno de la conversación con Máximo. Si la IA falla, no se guarda nada y se puede repetir. */
 export async function conversar(entrada) {
   const texto = String(entrada ?? '').trim().slice(0, 4000);
   if (!texto) throw new Error('Escribe algo.');
   if (!hayIA()) throw new Error('Primero pega tu clave de IA.');
   if (/\bsk-(ant|or)-[\w-]{10,}/.test(texto)) throw new Error('Eso parece una clave: no la pegues en este chat. Se pone en ☰ Menú › ⚙️ Configuración.');
-  if (ocupado) throw new Error('Rafa aún está contestando.');
+  if (ocupado) throw new Error('Máximo aún está contestando.');
   ocupado = true;
   try {
     const { mensajes, historial = [] } = await leer();
     const messages = [...historial, { role: 'user', content: texto }];
-    const system = [{ type: 'text', text: INSTRUCCIONES + await situacion() }];
+    const system = [{ type: 'text', text: INSTRUCCIONES() + await situacion() }];
     let respuesta = '', leida = false;
     for (let vuelta = 0; vuelta < MAX_VUELTAS; vuelta++) {
       const r = await llamar({ modelo: MODELO_CLAUDE, system, messages, tools: HERRAMIENTAS, maxTokens: 4000 });
