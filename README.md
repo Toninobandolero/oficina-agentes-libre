@@ -10,6 +10,8 @@ Esta copia no lleva datos de ninguna empresa. Los pones tú.
 
 **Edición Libre** (licencia AGPL-3.0). La edición Pro añade a Lola (recepcionista de voz), la centralita para llamar desde la oficina, los guiones de llamada con método de venta, a Inés para los documentos de clientes, el correo con el diseño de tu empresa, a Rafa vigilando la oficina y el servicio de instalación y soporte: mira [qué cambia entre ediciones](EDICIONES.md).
 
+**¿La prefieres montada?** Si no quieres instalar nada, te la dejamos funcionando en un servidor para tu empresa, con instalación y soporte: [codigoabierto.net/oficina-de-agentes](https://codigoabierto.net/oficina-de-agentes.html).
+
 ## Ponerla en marcha
 
 **¿Usas un asistente de IA que trabaja en tu ordenador?** Puedes pedirle: «Lee INSTALAR.md de este repositorio y guíame paso a paso para instalar la oficina. Pregúntame antes de contratar o borrar nada, y las contraseñas las pongo yo».
