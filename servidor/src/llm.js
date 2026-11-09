@@ -10,6 +10,7 @@
 // El resto del código habla siempre el mismo idioma (mensajes y herramientas en el formato de OpenAI/OpenRouter);
 // aquí se traduce a la API de Anthropic cuando toca.
 import { config } from './config.js';
+import { T } from './en.js';
 
 export class ErrorLLM extends Error {
   constructor(mensaje, status, extra = {}) { super(mensaje); this.status = status; Object.assign(this, extra); }
@@ -67,7 +68,7 @@ export async function llamar(opciones) {
       const r = await llamarAnthropic(opciones);
       if (respaldo.desde) {   // venía de estar con el respaldo: ya hay crédito otra vez
         respaldo.hasta = 0; respaldo.desde = null;
-        avisarCambio('✅ Vuelve a haber crédito de Claude: la oficina trabaja otra vez con Claude (OpenRouter queda en reserva).');
+        avisarCambio(T('✅ Vuelve a haber crédito de Claude: la oficina trabaja otra vez con Claude (OpenRouter queda en reserva).'));
       }
       return r;
     } catch (e) {
@@ -75,7 +76,7 @@ export async function llamar(opciones) {
       const primeraVez = !respaldo.desde;
       respaldo.hasta = Date.now() + REINTENTO_CLAUDE_MS;
       respaldo.desde = respaldo.desde || new Date().toISOString();
-      if (primeraVez) avisarCambio('🔁 No queda crédito de Claude (saldo agotado, tope de gasto o problema con el pago). La oficina sigue trabajando con OpenRouter (respaldo) y vuelve sola a Claude cuando haya crédito. Si prefieres pararla: /pausa.');
+      if (primeraVez) avisarCambio(T('🔁 No queda crédito de Claude (saldo agotado, tope de gasto o problema con el pago). La oficina sigue trabajando con OpenRouter (respaldo) y vuelve sola a Claude cuando haya crédito. Si prefieres pararla: /pausa.'));
       return llamarOpenRouter(opciones);
     }
   }

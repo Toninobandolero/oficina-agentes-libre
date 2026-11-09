@@ -4,6 +4,7 @@ import { q } from './db.js';
 import { AGENTES } from './agentes.js';
 import { log, estado, estadoDe, emitir } from './bus.js';
 import * as tareas from './tareas.js';
+import { T } from './en.js';
 
 export async function abrir({ agente, motivo, necesita = 'dueno', tarea_id = null, empresa_id = null }) {
   const quien = AGENTES[necesita] && necesita !== agente ? necesita : 'dueno';
@@ -17,12 +18,12 @@ export async function abrir({ agente, motivo, necesita = 'dueno', tarea_id = nul
   } else {
     const aprobaciones = await import('./aprobaciones.js');
     await aprobaciones.crear({ agente, tipo: 'otro', empresa_id, ref: `atasco:${b.id}`,
-      titulo: `está atascado y te necesita: ${String(motivo).slice(0, 110)}`,
+      titulo: T`está atascado y te necesita: ${String(motivo).slice(0, 110)}`,
       texto: `QUÉ LE FALTA (no se envía)\n${motivo}`,
       opciones: [{ r: 'responder', t: '💬 Contestarle', texto: `Escribe lo que necesita ${n}…` }, { r: 'aprobada', t: '✅ Ya está resuelto' }, { r: 'descartada', t: 'Que lo deje' }],
       importancia: 'alta', motivo: `${n} está parado hasta que le contestes` });
   }
-  await log(agente, `está atascado: ${String(motivo).slice(0, 200)}. ${quien === 'dueno' ? 'Te pregunta a ti.' : `Se lo pide a ${AGENTES[quien].nombre}.`}`, { empresa_id });
+  await log(agente, T`está atascado: ${String(motivo).slice(0, 200)}. ${quien === 'dueno' ? T('Te pregunta a ti.') : T`Se lo pide a ${AGENTES[quien].nombre}.`}`, { empresa_id });
   await marcar(agente);
   return b.id;
 }
@@ -74,7 +75,7 @@ export async function atender(id, { accion, texto } = {}) {
   const b = (await q(`SELECT * FROM bloqueos WHERE id=$1 AND resuelto IS NULL`, [id])).rows[0];
   if (!b) return null;
   const respuesta = String(texto || '').trim();
-  if (accion === 'contestar' && !respuesta) throw Object.assign(new Error('Escribe qué le contestas.'), { codigo: 400 });
+  if (accion === 'contestar' && !respuesta) throw Object.assign(new Error(T('Escribe qué le contestas.')), { codigo: 400 });
   if (accion === 'contestar') await tareas.crear(b.agente, `Estabas atascado («${b.motivo}»). Dirección te contesta: «${respuesta}». Sigue con lo que tenías pendiente.`, { empresa_id: b.empresa_id, origen: 'dueno' });
   await q(`UPDATE bloqueos SET resuelto=now(), como=$2 WHERE id=$1`, [id, accion === 'contestar' ? `Dirección: ${respuesta.slice(0, 200)}` : 'Dirección lo da por resuelto']);
   // Si te lo preguntaba a ti, también sale de tu mesa
@@ -85,7 +86,7 @@ export async function atender(id, { accion, texto } = {}) {
   }
   await trasCerrar(b.agente);
   const n = AGENTES[b.agente]?.nombre ?? b.agente;
-  await log('dueno', accion === 'contestar' ? `le ha contestado a ${n} lo que necesitaba.` : `ha desatascado a ${n}.`, { empresa_id: b.empresa_id });
+  await log('dueno', accion === 'contestar' ? T`le ha contestado a ${n} lo que necesitaba.` : T`ha desatascado a ${n}.`, { empresa_id: b.empresa_id });
   return { ok: true };
 }
 

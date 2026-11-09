@@ -10,6 +10,7 @@ import { llamar } from './llm.js';
 import { idiomaEquipo } from './perfil.js';
 import * as presupuesto from './presupuesto.js';
 import { PERSONAJES, paraPrompt, eventosDeHoy } from './personajes.js';
+import { T } from './en.js';
 
 let activa = true;
 export const estaActiva = () => activa;
@@ -18,7 +19,7 @@ export async function fijar(on) {
   activa = Boolean(on);
   await fijarAjuste('vida_oficina', activa);
   await emitir({ tipo: 'vida', activa });
-  await log('dueno', activa ? 'ha activado la vida de oficina: los agentes vuelven a tener su vida, sus charlas y sus descansos.' : 'ha desactivado la vida de oficina: los agentes solo trabajan.');
+  await log('dueno', activa ? T('ha activado la vida de oficina: los agentes vuelven a tener su vida, sus charlas y sus descansos.') : T('ha desactivado la vida de oficina: los agentes solo trabajan.'));
   return activa;
 }
 
@@ -98,7 +99,7 @@ export function esFiesta(t = madrid()) {
 export async function animo() {
   const n = async (sql) => (await q(sql).catch(() => ({ rows: [{ n: 0 }] }))).rows[0].n;
   const [gracias, mesa, atascos, hechas, cliente] = await Promise.all([
-    n(`SELECT count(*)::int n FROM eventos WHERE datos->>'tipo'='log' AND datos->>'agente'='dueno' AND datos->>'texto' LIKE 'le ha dado las gracias%' AND ts > now() - interval '3 hours'`),
+    n(`SELECT count(*)::int n FROM eventos WHERE datos->>'tipo'='log' AND datos->>'agente'='dueno' AND (datos->>'texto' LIKE 'le ha dado las gracias%' OR datos->>'texto' LIKE 'thanked%') AND ts > now() - interval '3 hours'`),
     n(`SELECT count(*)::int n FROM aprobaciones WHERE estado='pendiente' AND (pospuesta IS NULL OR pospuesta < now())`),
     n(`SELECT count(*)::int n FROM bloqueos WHERE resuelto IS NULL`),
     n(`SELECT count(*)::int n FROM tareas WHERE estado='hecha' AND terminada > date_trunc('day', now() AT TIME ZONE 'Europe/Madrid') AT TIME ZONE 'Europe/Madrid'`),
@@ -132,6 +133,6 @@ export async function fiesta() {
   const hasta = Date.now() + 120_000;
   await fijarAjuste('fiesta_hasta', hasta);
   await emitir({ tipo: 'fiesta', hasta });
-  await log('dueno', 'ha montado una fiesta improvisada. 🎉');
+  await log('dueno', T('ha montado una fiesta improvisada. 🎉'));
   await emitirAnimo(true);
 }

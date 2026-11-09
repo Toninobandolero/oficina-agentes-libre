@@ -1,6 +1,6 @@
 // Secuencias de contacto. Javi prepara SOLO el primer contacto: notas, solicitud de conexión y, si hay
-// teléfono, el guion de la llamada del día siguiente (no se espera a que acepte: la solicitud solo abre
-// la puerta; el correo llega después de la llamada, si en ella acepta recibirlo, que es cuando es legal).
+// teléfono, el guion de la llamada de plan B: primero LinkedIn, que puede llevarnos al dueño directamente, y si en una
+// semana no acepta, se llama (el correo llega después de la llamada, si en ella acepta recibirlo, que es cuando es legal).
 // Los mensajes siguientes se escriben cuando hacen falta: el mensaje 1 cuando Dirección confirma que ha
 // aceptado, y cada seguimiento cuando llega su fecha sin respuesta. Así no se escribe nada que no
 // se vaya a usar y cada texto sale con lo último que sabemos. Paula lleva las fechas (sin gastar IA).
@@ -11,6 +11,7 @@ import * as empresas from './empresas.js';
 import * as miEmpresa from './empresa.js';
 import * as aprobaciones from './aprobaciones.js';
 import * as tareas from './tareas.js';
+import { T } from './en.js';
 
 const ZONA = 'Europe/Madrid';
 export const hoy = () => new Intl.DateTimeFormat('en-CA', { timeZone: ZONA, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -25,7 +26,7 @@ const TIPOS = {
   mensaje1:     { titulo: 'Mensaje 1', canal: 'linkedin', dias: 0, tras_aceptar: true },
   seguimiento1: { titulo: 'Seguimiento 1', canal: 'linkedin', dias: 5 },
   seguimiento2: { titulo: 'Seguimiento 2', canal: 'linkedin', dias: 5 },
-  llamada:      { titulo: 'Llamada', canal: 'telefono', dias: 1 },      // al día siguiente de la solicitud, sin esperar a que acepte
+  llamada:      { titulo: 'Llamada', canal: 'telefono', dias: 1 },      // con LinkedIn, plan B si en una semana no acepta; sin LinkedIn, es el primer contacto
   carta:        { titulo: 'Carta', canal: 'carta', dias: 0 },           // no es un medio electrónico: vale en frío
   visita:       { titulo: 'Visita', canal: 'visita', dias: 0 },
   presentacion: { titulo: 'Pedir presentación', canal: 'presentacion', alternativo: true },
@@ -80,10 +81,12 @@ export async function guardar({ autor, empresa_id, decisor, linkedin_url, notas,
     throw new Error('No se puede usar WhatsApp en frío (LSSI art. 21). Usa LinkedIn, teléfono, correo o presentación por un contacto.');
   }
   limpios.sort((a, b) => ORDEN.indexOf(a.clave) - ORDEN.indexOf(b.clave));
-  // Solo el primer contacto (y la llamada del día siguiente, si la hay): lo demás se escribe cuando sepamos si contesta.
+  // Solo el primer contacto (y la llamada de plan B, si la hay): lo demás se escribe cuando sepamos si contesta.
   // Si no hay LinkedIn (todo son planes B), el primero pasa a ser el principal.
   const principal = limpios.find(p => !p.alternativo) || { ...limpios[0], alternativo: false };
-  const llamada = limpios.find(p => p.clave === 'llamada' && p !== principal);
+  let llamada = limpios.find(p => p.clave === 'llamada' && p !== principal);
+  // Con LinkedIn, primero LinkedIn: puede darnos al dueño directamente. La llamada queda de plan B si en una semana no acepta
+  if (llamada && principal.clave === 'conexion') llamada = { ...llamada, alternativo: true };
   limpios.length = 0; limpios.push(principal, ...(llamada ? [llamada] : []));
 
   // Una versión nueva sustituye a la anterior que aún no habías empezado
@@ -106,7 +109,7 @@ export async function guardar({ autor, empresa_id, decisor, linkedin_url, notas,
   const primero = limpios.find(p => !p.alternativo);
   const id = await aprobaciones.crear({
     agente: autor, tipo: 'mensaje', empresa_id: emp.id, ref: `sec:${sec.id}`, caduca,
-    titulo: `ha preparado ${emp.interes || ['conversacion', 'reunion', 'propuesta', 'cliente'].includes(emp.estado) ? 'la llamada' : 'el primer contacto'} para ${quien(sec, emp)} (${emp.nombre})`,
+    titulo: T`ha preparado ${emp.interes || ['conversacion', 'reunion', 'propuesta', 'cliente'].includes(emp.estado) ? T('la llamada') : T('el primer contacto')} para ${quien(sec, emp)} (${emp.nombre})`,
     texto: await textoSecuencia(sec.id),
     opciones: [{ r: 'aprobada', t: primero.clave === 'conexion' ? '✅ He enviado la conexión' : (OK[primero.canal] || '✅ Hecho') + ` (${primero.titulo.toLowerCase()})` }, { r: 'cambios' }, { r: 'descartada', t: '✖ Esta empresa no' }],
   });
@@ -135,7 +138,7 @@ export async function recortarBorradores() {
 /** Texto completo de la secuencia, tal como lo ves en tu mesa y en Telegram. */
 export async function textoSecuencia(secId) {
   const sec = await leerSec(secId); const ps = await pasosDe(secId);
-  const cuando = p => p.clave === 'conexion' || ps.length === 1 ? 'ahora' : p.tras_aceptar ? 'cuando acepte' : p.alternativo ? 'plan B, si no hay respuesta'
+  const cuando = p => p.clave === 'conexion' || ps.length === 1 ? 'ahora' : p.tras_aceptar ? 'cuando acepte' : p.alternativo ? (p.clave === 'llamada' && ps.some(x => x.clave === 'conexion') ? 'plan B, si en una semana no acepta la conexión' : 'plan B, si no hay respuesta')
     : p.clave === 'llamada' ? `${p.dias === 1 ? 'al día siguiente de la solicitud' : p.dias ? `${p.dias} días después de la solicitud` : 'el mismo día que la solicitud'}, sin esperar a que acepte` : `${p.dias} días después del anterior`;
   const partes = [];
   if (sec.notas) partes.push(`NOTAS PARA DIRECCIÓN (no se envían)\n${sec.notas.trim()}`);
@@ -168,12 +171,12 @@ async function programarSiguiente(secId, anterior) {
     // Paula vigila si acepta (el mensaje 1 se escribe entonces) y, si Javi dejó guion, la llamada va al día siguiente sin esperar
     const f = sumarDias(DIAS_ACEPTACION[0]);
     await q(`UPDATE secuencias SET control='aceptacion', control_fecha=$2, control_veces=0, actualizada=now() WHERE id=$1`, [secId, f]);
-    const ll = ps.find(p => p.clave === 'llamada' && p.estado === 'pendiente');
+    const ll = ps.find(p => p.clave === 'llamada' && p.estado === 'pendiente' && !p.alternativo);
     if (!ll) { await empresas.actualizar(emp.id, { proximo_paso: `Comprobar si ${quien(sec, emp)} ha aceptado`, fecha_proximo_paso: f }); return; }
     const fl = sumarDias(ll.dias ?? 1);
     await q(`UPDATE pasos SET estado='programado', fecha=$2 WHERE id=$1`, [ll.id, fl]);
     await empresas.actualizar(emp.id, { proximo_paso: `Llamar a ${quien(sec, emp)} (sin esperar a que acepte)`, fecha_proximo_paso: fl });
-    await log('paula', `te pone la llamada a ${quien(sec, emp)} (${emp.nombre}) para ${fl <= hoy() ? 'hoy' : 'mañana'}: no esperamos a que acepte la conexión.`, { empresa_id: emp.id });
+    await log('paula', T`te pone la llamada a ${quien(sec, emp)} (${emp.nombre}) para ${fl <= hoy() ? T('hoy') : T('mañana')}: no esperamos a que acepte la conexión.`, { empresa_id: emp.id });
     if (fl <= hoy()) await ponerEnMesa(ll.id);
     return;
   }
@@ -223,7 +226,7 @@ export async function ponerEnMesa(pasoId, aviso = '') {
   opciones.push({ r: 'parar', t: '🛑 Parar la secuencia' });
   const id = await aprobaciones.crear({
     agente: 'paula', tipo: 'paso', empresa_id: emp.id, ref: `paso:${p.id}`,
-    titulo: `te recuerda: toca ${p.titulo.toLowerCase()} a ${quien(sec, emp)} (${emp.nombre})`,
+    titulo: T`te recuerda: toca ${T(p.titulo).toLowerCase()} a ${quien(sec, emp)} (${emp.nombre})`,
     texto: [contexto && `CONTEXTO (no se envía)\n${contexto}`, p.asunto && `ASUNTO (solo si LinkedIn lo pide)\n${p.asunto}`, `${p.titulo.toUpperCase()}\n${p.texto}`].filter(Boolean).join('\n\n'), opciones,
   });
   await q(`UPDATE pasos SET estado='en_mesa', aprobacion_id=$2 WHERE id=$1`, [p.id, id]);
@@ -324,26 +327,26 @@ export async function resolver(ap, resultado, texto = '') {
     await tareas.crear('paula', `${nombre} (${emp.nombre}) ha respondido a la secuencia de contacto.\n\nLo que ha dicho, según Dirección: «${texto}»\n\n` +
       `Lo que ya le habíamos enviado:\n${enviados}\n\n${sec.notas ? `Notas de Javi para Dirección: ${sec.notas}\n\n` : ''}` +
       'Clasifica la respuesta, actualiza la empresa y prepara la contestación con pedir_aprobacion (tipo respuesta).', { empresa_id: emp.id, origen: 'dueno' });
-    return `ha marcado que ${nombre} (${emp.nombre}) ha respondido. Paula prepara la contestación.`;
+    return T`ha marcado que ${nombre} (${emp.nombre}) ha respondido. Paula prepara la contestación.`;
   }
   if (resultado === 'parar') {
     await q(`UPDATE secuencias SET estado='cerrada', control=NULL, control_fecha=NULL, actualizada=now() WHERE id=$1`, [sec.id]);
     await q(`UPDATE pasos SET estado='cancelado' WHERE secuencia_id=$1 AND estado IN ('pendiente','programado','en_mesa')`, [sec.id]);
     await empresas.actualizar(emp.id, { proximo_paso: null, fecha_proximo_paso: null });
-    return `ha parado la secuencia de contacto con ${emp.nombre}.`;
+    return T`ha parado la secuencia de contacto con ${emp.nombre}.`;
   }
   if (resultado === 'perdida') {
     await q(`UPDATE secuencias SET estado='cerrada', control=NULL, control_fecha=NULL, actualizada=now() WHERE id=$1`, [sec.id]);
     await q(`UPDATE pasos SET estado='cancelado' WHERE secuencia_id=$1 AND estado IN ('pendiente','programado','en_mesa')`, [sec.id]);
     if (paso) await q(`UPDATE pasos SET estado='hecho', hecho=now() WHERE id=$1`, [paso.id]);
     await empresas.actualizar(emp.id, { estado: 'perdida', proximo_paso: null, fecha_proximo_paso: null });
-    return `ha dado por perdida ${emp.nombre}.`;
+    return T`ha dado por perdida ${emp.nombre}.`;
   }
   if (resultado === 'aparcar') {
     await q(`UPDATE secuencias SET estado='aparcada', control=NULL, control_fecha=NULL, actualizada=now() WHERE id=$1`, [sec.id]);
     await q(`UPDATE pasos SET estado='cancelado' WHERE secuencia_id=$1 AND estado IN ('pendiente','programado')`, [sec.id]);
     await empresas.actualizar(emp.id, { proximo_paso: 'Retomar el contacto', fecha_proximo_paso: sumarDias(90) });
-    return `ha aparcado ${emp.nombre}: Javi preparará algo nuevo dentro de 3 meses.`;
+    return T`ha aparcado ${emp.nombre}: Javi preparará algo nuevo dentro de 3 meses.`;
   }
   if (tipo === 'ctl') {
     if (resultado === 'aceptado') {
@@ -353,36 +356,36 @@ export async function resolver(ap, resultado, texto = '') {
       else {
         await encargarPaso(sec, 'mensaje1', `${nombre} (${emp.nombre}) ha aceptado la solicitud de conexión de Dirección en LinkedIn.`);
         await empresas.actualizar(emp.id, { proximo_paso: 'Javi prepara el mensaje 1', fecha_proximo_paso: hoy() });
-        return `ha confirmado que ${nombre} (${emp.nombre}) ha aceptado la conexión. Javi escribe el mensaje 1.`;
+        return T`ha confirmado que ${nombre} (${emp.nombre}) ha aceptado la conexión. Javi escribe el mensaje 1.`;
       }
-      return `ha confirmado que ${nombre} (${emp.nombre}) ha aceptado la conexión.`;
+      return T`ha confirmado que ${nombre} (${emp.nombre}) ha aceptado la conexión.`;
     }
     if (resultado === 'aun_no') {
       const veces = sec.control_veces + 1;
       if (veces < DIAS_ACEPTACION.length) {
         await q(`UPDATE secuencias SET control_veces=$2, control_fecha=$3, actualizada=now() WHERE id=$1`, [sec.id, veces, sumarDias(DIAS_ACEPTACION[veces])]);
-        return `dice que ${nombre} aún no ha aceptado. Paula volverá a preguntar en ${DIAS_ACEPTACION[veces]} días.`;
+        return T`dice que ${nombre} aún no ha aceptado. Paula volverá a preguntar en ${DIAS_ACEPTACION[veces]} días.`;
       }
       const planB = ps.find(p => p.alternativo && p.estado === 'pendiente');
       await q(`UPDATE secuencias SET control=NULL, control_fecha=NULL, control_veces=$2, actualizada=now() WHERE id=$1`, [sec.id, veces]);
       if (!planB && emp.telefono && !ps.some(p => p.clave === 'llamada')) {
         await encargarPaso(sec, 'llamada', `${nombre} (${emp.nombre}) no ha aceptado la conexión en más de una semana. Tenemos su teléfono: ${emp.telefono}.`);
-        return `dice que ${nombre} sigue sin aceptar. Javi prepara el guion de la llamada.`;
+        return T`dice que ${nombre} sigue sin aceptar. Javi prepara el guion de la llamada.`;
       }
       if (planB) {
         await q(`UPDATE pasos SET estado='programado', fecha=$2 WHERE id=$1`, [planB.id, hoy()]);
         await ponerEnMesa(planB.id, `${nombre} no ha aceptado la conexión en más de una semana. Toca el plan B.`);
-        return `dice que ${nombre} sigue sin aceptar. Paula te pasa el plan B.`;
+        return T`dice que ${nombre} sigue sin aceptar. Paula te pasa el plan B.`;
       }
       await q(`UPDATE secuencias SET control='cierre', control_fecha=$2 WHERE id=$1`, [sec.id, hoy()]);
       await ponerControl({ ...sec, control: 'cierre' });
-      return `dice que ${nombre} sigue sin aceptar.`;
+      return T`dice que ${nombre} sigue sin aceptar.`;
     }
     if (resultado === 'plan_b') {
       const planB = ps.find(p => p.alternativo && p.estado === 'pendiente');
       if (planB) { await q(`UPDATE pasos SET estado='programado', fecha=$2 WHERE id=$1`, [planB.id, hoy()]); await ponerEnMesa(planB.id); }
-      else { await encargarPaso(sec, 'llamada', `${nombre} (${emp.nombre}) no ha contestado por LinkedIn y Dirección quiere llamar${emp.telefono ? ` (${emp.telefono})` : ''}.`); return `va a llamar a ${emp.nombre}. Javi prepara el guion.`; }
-      return `va a probar el plan B con ${emp.nombre}.`;
+      else { await encargarPaso(sec, 'llamada', `${nombre} (${emp.nombre}) no ha contestado por LinkedIn y Dirección quiere llamar${emp.telefono ? ` (${emp.telefono})` : ''}.`); return T`va a llamar a ${emp.nombre}. Javi prepara el guion.`; }
+      return T`va a probar el plan B con ${emp.nombre}.`;
     }
     return;
   }

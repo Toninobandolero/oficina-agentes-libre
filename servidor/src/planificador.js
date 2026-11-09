@@ -25,6 +25,7 @@ import * as reunion from './reunion.js';
 import * as perfil from './perfil.js';
 import * as busqueda from './busqueda.js';
 import * as boletin from './boletin.js';
+import { T, LOCALE } from './en.js';
 
 const DIAS = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 0 };
 export function madrid(d = new Date()) {
@@ -53,7 +54,7 @@ export async function encolarAnalisisPendientes() {
   if (hueco <= 0) {
     // Que no se pare la cadena en silencio: si quedan empresas sin puntuar, se ve en la actividad (una vez al día)
     const n = (await q(`SELECT count(*)::int n FROM empresas WHERE estado='nueva'`)).rows[0].n;
-    if (n) await unaVez('tope-mateo:' + new Date().toISOString().slice(0, 10), () => log('mateo', `ha llegado a su tope de ${tp.mateo} análisis de hoy y quedan ${n} empresas por puntuar: sigue mañana a primera hora (o activa el modo turbo en el panel, en «IA: …»).`));
+    if (n) await unaVez('tope-mateo:' + new Date().toISOString().slice(0, 10), () => log('mateo', T`ha llegado a su tope de ${tp.mateo} análisis de hoy y quedan ${n} empresas por puntuar: sigue mañana a primera hora (o activa el modo turbo en el panel, en «IA: …»).`));
     return 0;
   }
   const r = await q(`SELECT e.id, e.nombre FROM empresas e
@@ -68,7 +69,7 @@ async function avisoSeguimientos() {
   if (!v.length) return;
   const lista = v.map(e => `• ${e.nombre}: ${e.proximo_paso || 'seguimiento'} (${e.fecha_proximo_paso})`).join('\n');
   await telegram.avisar(`📅 Seguimientos para hoy (${v.length}):\n${lista}\n\nLos textos de seguimiento están en el mensaje que aprobaste de cada empresa.`);
-  await log('sistema', `recuerda ${v.length} seguimiento${v.length === 1 ? '' : 's'} para hoy: ${v.slice(0, 3).map(e => e.nombre).join(', ')}${v.length > 3 ? '…' : ''}`);
+  await log('sistema', T`recuerda ${v.length} seguimiento${v.length === 1 ? '' : 's'} para hoy: ${v.slice(0, 3).map(e => e.nombre).join(', ')}${v.length > 3 ? '…' : ''}`);
 }
 
 /** Clientes que llevan meses sin noticias nuestras (ajuste meses_toque, 6 por defecto): como mucho una vez al día, Paula le propone a Dirección
@@ -203,14 +204,14 @@ export const _flujo = () => { ultimoFlujo = 0; return flujo(); };   // pruebas
 
 /** Al activar el turbo, el equipo empieza ya, sin esperar a la siguiente vuelta, y se cuenta quién se pone a trabajar. */
 export async function arrancarTurbo() {
-  if (await ajuste('pausado', config.pausadoInicial)) return log('rafa', 'tiene el turbo activado, pero el equipo está en pausa: reanúdalo para que empiecen.');
-  if (await ausencia.vacaciones()) return log('rafa', 'tiene el turbo activado, pero estás de vacaciones: no empezamos trabajo nuevo hasta que vuelvas.');
+  if (await ajuste('pausado', config.pausadoInicial)) return log('rafa', T('tiene el turbo activado, pero el equipo está en pausa: reanúdalo para que empiecen.'));
+  if (await ausencia.vacaciones()) return log('rafa', T('tiene el turbo activado, pero estás de vacaciones: no empezamos trabajo nuevo hasta que vuelvas.'));
   const inicio = new Date();
   ultimoFlujo = 0;
   await flujo();
   const r = await q(`SELECT DISTINCT agente FROM tareas WHERE origen='sistema' AND (estado IN ('pendiente','en_curso') OR creada >= $1)`, [inicio]);
   const quien = r.rows.map(x => AGENTES[x.agente]?.nombre ?? x.agente);
-  return log('rafa', quien.length ? `pone el turbo en marcha: ya se ponen a trabajar ${new Intl.ListFormat('es').format(quien)}.` : 'tiene el turbo activado, pero ahora mismo no hay trabajo automático que lanzar.');
+  return log('rafa', quien.length ? T`pone el turbo en marcha: ya se ponen a trabajar ${new Intl.ListFormat(LOCALE()).format(quien)}.` : T('tiene el turbo activado, pero ahora mismo no hay trabajo automático que lanzar.'));
 }
 
 // Llamadas en caliente (Nuria): a empresas que ya nos conocen (nos escribieron, están en conversación, aceptaron
@@ -348,7 +349,7 @@ async function captacion(m, vac) {
     const nombre = AGENTES[g.agente]?.nombre ?? g.agente;
     const podio = g.podio.map((x, i) => `${['🥇', '🥈', '🥉'][i]} ${AGENTES[x.agente]?.nombre ?? x.agente}: ${x.puntos} puntos`).join('\n');
     await telegram.avisar(`🏆 Premio del mes: ${nombre}\n\n${podio}\n\nPuntos por trabajo aprobado, por tus «gracias» y, sobre todo, por contactos que avanzan (conversación, reunión, cliente).`);
-    await log('rafa', `entrega el premio del mes a ${nombre} (${g.puntos} puntos). ¡Enhorabuena!`);
+    await log('rafa', T`entrega el premio del mes a ${nombre} (${g.puntos} puntos). ¡Enhorabuena!`);
     await emitir({ tipo: 'premio', agente: g.agente, mes: g.mes, puntos: g.puntos });
   });
 }

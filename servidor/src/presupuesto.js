@@ -1,6 +1,7 @@
 // Control de gasto de la API de Claude. Si se llega al tope mensual, el equipo se pausa solo.
 import { q, ajuste, fijarAjuste } from './db.js';
 import { config } from './config.js';
+import { T } from './en.js';
 
 export class PresupuestoAgotado extends Error {}
 
@@ -48,11 +49,24 @@ export async function gastoMes() {
   // Al tope solo va lo que se paga de verdad: OpenRouter y lo de Claude que pase de los créditos. (La API no da el saldo: se resta.)
   // ponytail: créditos por mes natural, y en modo semanal la semana dispone de todo lo que quede del mes; prorratear si Dirección usa el semanal
   let creditos_claude = null, cubierto = 0;
-  if (a.creditos) {
-    const mes = (await q(`SELECT coalesce(sum(usd),0)::float AS usd FROM gasto WHERE proveedor='anthropic' AND ts >= ${desdeSql('mensual')}`)).rows[0].usd;
+  const gr = await import('./gastoReal.js'), sal = await gr.saldo().catch(() => null);
+  if (sal) {
+    // Lo más exacto: el saldo que Dirección vio en Billing menos lo gastado desde entonces en toda la cuenta (con todas sus claves)
+    const oficina = (await q(`SELECT coalesce(sum(usd),0)::float AS usd FROM gasto WHERE proveedor='anthropic' AND ts >= ${desdeSql('mensual')}`)).rows[0].usd;
+    const cuenta = await gr.mesCuenta().catch(() => null);
+    const del_periodo = sal.quedan + (usd.anthropic || 0);   // lo gastado en el periodo ya salió del saldo
+    cubierto = Math.min(usd.anthropic || 0, del_periodo) * config.usdEur;
+    creditos_claude = { total: sal.apuntado, gastado: sal.gastado, quedan: sal.quedan, del_periodo: r2(del_periodo * config.usdEur), real: true, desde_saldo: sal.cuando,
+      oficina: r2(oficina), cuenta: cuenta != null ? r2(cuenta) : null, otros: cuenta != null ? r2(Math.max(0, cuenta - oficina)) : null };
+  } else if (a.creditos) {
+    const oficina = (await q(`SELECT coalesce(sum(usd),0)::float AS usd FROM gasto WHERE proveedor='anthropic' AND ts >= ${desdeSql('mensual')}`)).rows[0].usd;
+    // Con la clave de administrador, lo gastado de verdad en toda la cuenta (también con otras claves); si no, solo lo de la oficina
+    const cuenta = await (await import('./gastoReal.js')).mesCuenta().catch(() => null);
+    const mes = cuenta != null ? cuenta : oficina;   // lo de Anthropic manda: la oficina solo estima
     const del_periodo = Math.max(0, a.creditos - (mes - (usd.anthropic || 0)));   // lo que le queda al periodo: lo gastado antes en el mes ya se lo comió
     cubierto = Math.min(usd.anthropic || 0, del_periodo) * config.usdEur;
-    creditos_claude = { total: a.creditos, gastado: r2(mes), quedan: r2(Math.max(0, a.creditos - mes)), del_periodo: r2(del_periodo * config.usdEur) };
+    creditos_claude = { total: a.creditos, gastado: r2(mes), quedan: r2(Math.max(0, a.creditos - mes)), del_periodo: r2(del_periodo * config.usdEur),
+      real: cuenta != null, oficina: r2(oficina), otros: r2(Math.max(0, mes - oficina)) };
   }
   const eur = Object.values(usd).reduce((n, x) => n + x, 0) * config.usdEur - cubierto;
   const base = Number.isFinite(Number(a.fijo[per])) ? Number(a.fijo[per]) : a.eur;
@@ -64,7 +78,7 @@ export async function gastoMes() {
  *  { esteperiodo: 0 } (tope solo para este periodo, p. ej. vacaciones) o { turbo: true|false }. */
 export async function cambiar(c = {}) {
   const a = await ajustes();
-  const n = v => { const x = Number(String(v).replace(',', '.')); if (!Number.isFinite(x) || x < 0 || x > 5000) throw new Error('Pon una cantidad entre 0 y 5000.'); return Math.round(x * 100) / 100; };
+  const n = v => { const x = Number(String(v).replace(',', '.')); if (!Number.isFinite(x) || x < 0 || x > 5000) throw new Error(T('Pon una cantidad entre 0 y 5000.')); return Math.round(x * 100) / 100; };
   if (c.modo) a.modo = c.modo === 'semanal' ? 'semanal' : 'mensual';
   if (c.eur !== undefined && c.eur !== '') a.eur = n(c.eur);
   const per = periodo(a.modo);

@@ -8,6 +8,7 @@ import * as miEmpresa from './empresa.js';
 import { log } from './bus.js';
 import * as tareas from './tareas.js';
 import * as empresas from './empresas.js';
+import { T } from './en.js';
 
 const clave = () => crypto.createHash('sha256').update('acp-chats:' + config.claveCifrado).digest();
 function cifrar(t) {
@@ -38,11 +39,11 @@ export async function cargar() {
 /** Dirección pega el token que le da @BotFather. */
 export async function guardarTelegram(t) {
   const tk = String(t || '').trim();
-  if (!/^\d{6,12}:[A-Za-z0-9_-]{30,}$/.test(tk)) throw new Error('El token no parece válido: cópialo entero del mensaje de @BotFather (números, dos puntos y letras).');
-  if (tk === config.telegramToken) throw new Error('Ese es el bot con el que hablas tú con la oficina. Crea uno nuevo en @BotFather para los clientes.');
+  if (!/^\d{6,12}:[A-Za-z0-9_-]{30,}$/.test(tk)) throw new Error(T('El token no parece válido: cópialo entero del mensaje de @BotFather (números, dos puntos y letras).'));
+  if (tk === config.telegramToken) throw new Error(T('Ese es el bot con el que hablas tú con la oficina. Crea uno nuevo en @BotFather para los clientes.'));
   token = tk;
   const me = await tg('getMe', {});
-  if (!me.ok) { token = null; throw new Error('Telegram no reconoce ese token.'); }
+  if (!me.ok) { token = null; throw new Error(T('Telegram no reconoce ese token.')); }
   bot = me.result.username;
   await fijarAjuste('telegram_contacto', { token: cifrar(tk), usuario: bot });
   await tg('setMyDescription', { description: miEmpresa.texto('descripcionChat') }).catch(() => {});
@@ -104,21 +105,21 @@ export async function recibir(canal, m) {
   }
   const tgDueno = await import('./telegram.js');
   await tgDueno.avisar(`💬 ${nombre} escribe por ${canal}:\n«${texto.slice(0, 500)}»\n\nPaula te prepara la respuesta.`);
-  await log('sistema', `ha recibido un mensaje por ${canal} de ${nombre}: «${texto.slice(0, 140)}»`, { empresa_id: chat.empresa_id || undefined });
+  await log('sistema', T`ha recibido un mensaje por ${canal} de ${nombre}: «${texto.slice(0, 140)}»`, { empresa_id: chat.empresa_id || undefined });
 }
 
 async function enviarTexto(chat, texto, { auto = false } = {}) {
   if (chat.canal === 'telegram') {
     const r = await tg('sendMessage', { chat_id: chat.chat_id, text: texto, disable_web_page_preview: true });
-    if (!r.ok) throw new Error(`Telegram no ha enviado el mensaje: ${r.description || 'error'}`);
-  } else throw new Error(`Canal ${chat.canal} aún no disponible.`);
+    if (!r.ok) throw new Error(T`Telegram no ha enviado el mensaje: ${r.description || 'error'}`);
+  } else throw new Error(T`Canal ${chat.canal} aún no disponible.`);
   await q(`INSERT INTO mensajes_chat (chat, direccion, texto, auto) VALUES ($1,'salida',$2,$3)`, [chat.id, texto, auto]);
 }
 
 /** El hilo de un chat, para Paula y para el panel. */
 export async function hilo(chatId, limite = 30) {
   const chat = (await q(`SELECT * FROM chats WHERE id=$1`, [chatId])).rows[0];
-  if (!chat) throw new Error(`No existe el chat ${chatId}`);
+  if (!chat) throw new Error(T`No existe el chat ${chatId}`);
   const ms = (await q(`SELECT direccion, texto, auto, creado FROM mensajes_chat WHERE chat=$1 AND direccion IN ('entrada','salida') ORDER BY id DESC LIMIT $2`, [chatId, limite])).rows.reverse();
   return { chat: { id: chat.id, canal: chat.canal, nombre: chat.nombre, empresa_id: chat.empresa_id }, mensajes: ms.map(m => ({ de: m.direccion === 'entrada' ? chat.nombre : (m.auto ? 'Acuse automático' : 'Dirección'), texto: m.texto, cuando: m.creado })) };
 }
@@ -126,14 +127,14 @@ export async function hilo(chatId, limite = 30) {
 /** Paula prepara una respuesta: va a la mesa de Dirección con el botón «Enviar». */
 export async function prepararRespuesta({ agente, chatId, texto }) {
   const chat = (await q(`SELECT * FROM chats WHERE id=$1`, [chatId])).rows[0];
-  if (!chat) throw new Error(`No existe el chat ${chatId}`);
-  if (!String(texto || '').trim()) throw new Error('Falta el texto de la respuesta.');
+  if (!chat) throw new Error(T`No existe el chat ${chatId}`);
+  if (!String(texto || '').trim()) throw new Error(T('Falta el texto de la respuesta.'));
   const b = (await q(`INSERT INTO mensajes_chat (chat, direccion, texto) VALUES ($1,'borrador',$2) RETURNING id`, [chat.id, String(texto).trim().slice(0, 4000)])).rows[0];
   const aprobaciones = await import('./aprobaciones.js');
   const ultimos = (await hilo(chat.id, 6)).mensajes.map(m => `${m.de}: ${m.texto}`).join('\n');
   return aprobaciones.crear({
     agente, tipo: 'respuesta', empresa_id: chat.empresa_id, ref: `chat:${b.id}`,
-    titulo: `ha preparado la respuesta por ${chat.canal} a ${chat.nombre}`,
+    titulo: T`ha preparado la respuesta por ${chat.canal} a ${chat.nombre}`,
     texto: `CONVERSACIÓN (no se envía)\n${ultimos}\n\nRESPUESTA POR ${chat.canal.toUpperCase()}\n${String(texto).trim()}`,
     opciones: [{ r: 'enviar', t: `📨 Enviar por ${chat.canal === 'telegram' ? 'Telegram' : chat.canal}` }, { r: 'cambios' }, { r: 'descartada', t: 'Descartar' }],
     importancia: 'alta', motivo: 'Un contacto que nos ha escrito: contestar el mismo día',
@@ -143,8 +144,8 @@ export async function prepararRespuesta({ agente, chatId, texto }) {
 /** Dirección pulsa «Enviar». */
 export async function enviarBorrador(borradorId) {
   const b = (await q(`SELECT m.*, c.canal, c.chat_id, c.nombre, c.empresa_id FROM mensajes_chat m JOIN chats c ON c.id=m.chat WHERE m.id=$1 AND m.direccion='borrador'`, [borradorId])).rows[0];
-  if (!b) throw new Error('Esa respuesta ya no existe o ya se envió.');
+  if (!b) throw new Error(T('Esa respuesta ya no existe o ya se envió.'));
   await enviarTexto({ id: b.chat, canal: b.canal, chat_id: b.chat_id }, b.texto);
   await q(`UPDATE mensajes_chat SET direccion='enviado' WHERE id=$1`, [borradorId]);
-  await log('dueno', `ha contestado por ${b.canal} a ${b.nombre}.`, { empresa_id: b.empresa_id || undefined });
+  await log('dueno', T`ha contestado por ${b.canal} a ${b.nombre}.`, { empresa_id: b.empresa_id || undefined });
 }

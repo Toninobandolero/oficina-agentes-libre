@@ -16,6 +16,7 @@ import { llamar, hayCredito } from './llm.js';
 import * as ausencia from './ausencia.js';
 import * as chat from './chat.js';
 import * as oficina from './oficina.js';
+import { T } from './en.js';
 
 export class Pausado extends Error {}
 const ocupados = new Set();
@@ -24,19 +25,19 @@ let temporizador = null;
 
 export const estaPausado = async () => Boolean(await ajuste('pausado', config.pausadoInicial));
 
-export async function pausar(motivo = 'Pausa manual', { porCredito = false } = {}) {
-  if (porCredito) { motivo += ' El equipo sigue solo en cuanto vuelva.'; ultimaPrueba = Date.now(); }
+export async function pausar(motivo = T('Pausa manual'), { porCredito = false } = {}) {
+  if (porCredito) { motivo += T(' El equipo sigue solo en cuanto vuelva.'); ultimaPrueba = Date.now(); }
   await fijarAjuste('pausado', true);
   await fijarAjuste('pausa_motivo', motivo);
   await fijarAjuste('pausa_credito', porCredito);
   await emitir({ tipo: 'pausa', pausado: true, motivo });
-  await log('sistema', `ha pausado el equipo: ${motivo}`);
+  await log('sistema', T`ha pausado el equipo: ${motivo}`);
   await telegram.avisar(`⏸ Equipo pausado: ${motivo}${porCredito ? '' : '\nEscribe /reanudar para seguir.'}`);
 }
 export async function reanudar() {
   await fijarAjuste('pausado', false);
   await emitir({ tipo: 'pausa', pausado: false });
-  await log('sistema', 'ha reanudado el trabajo del equipo.');
+  await log('sistema', T('ha reanudado el trabajo del equipo.'));
 }
 
 // Parado por falta de crédito: se prueba cada 15 minutos si ha vuelto y, si es así, sigue solo
@@ -198,7 +199,7 @@ export async function ejecutar(t) {
     if (t.tipo === 'pregunta') {
       await emitir({ tipo: 'opinion', agente: t.agente, pregunta: t.instruccion, texto: final });
       const informe_id = await guardarInforme({ agente: t.agente, tipo: 'opinion', titulo: `Pregunta de Dirección: ${recortar(t.instruccion, 110)}`, texto: final, empresa_id: t.empresa_id });
-      await log(t.agente, `responde: «${recortar(final, 280)}»`, { informe_id, empresa_id: t.empresa_id });
+      await log(t.agente, T`responde: «${recortar(final, 280)}»`, { informe_id, empresa_id: t.empresa_id });
       await chat.escribir({ canal: t.canal || t.agente, autor: t.agente, para: 'dueno', texto: final || 'No sé qué decirte con lo que tengo. ¿Me lo concretas?', tarea_id: t.id, informe_id, empresa_id: t.empresa_id }).catch(e => console.error('Chat:', e.message));
       // Si se lo preguntaste en el chat del panel y lo tienes abierto, la respuesta ya la estás viendo
       if (!t.canal || !panelAbierto()) await telegram.avisar(`💬 ${a.nombre}: ${final}`);
@@ -207,8 +208,8 @@ export async function ejecutar(t) {
       if (!ctx.esperando && final) {
         // Aunque haya dejado una línea con anotar, el texto entero se guarda: si no, de un trabajo solo queda el resumen
         informe_id = final.length > 280 ? await guardarInforme({ agente: t.agente, tipo: 'resumen', titulo: recortar(t.instruccion, 110), texto: final, empresa_id: t.empresa_id }) : null;
-        if (!ctx.anotado) await log(t.agente, `informa: «${recortar(final, 280)}»`, { informe_id, empresa_id: t.empresa_id });
-        else if (informe_id) await log(t.agente, 'ha dejado el texto completo de lo anterior.', { informe_id, empresa_id: t.empresa_id });
+        if (!ctx.anotado) await log(t.agente, T`informa: «${recortar(final, 280)}»`, { informe_id, empresa_id: t.empresa_id });
+        else if (informe_id) await log(t.agente, T('ha dejado el texto completo de lo anterior.'), { informe_id, empresa_id: t.empresa_id });
       }
       // Lo que te contesta en el chat, o lo que le devuelve al compañero que se lo encargó (en #trabajo)
       if (t.canal) await chat.escribir({ canal: t.canal, autor: t.agente, para: 'dueno', texto: final || 'Hecho.', tarea_id: t.id, informe_id, empresa_id: t.empresa_id }).catch(e => console.error('Chat:', e.message));
@@ -239,9 +240,9 @@ export async function ejecutar(t) {
     if (e instanceof presupuesto.PresupuestoAgotado) await pausar(msg);
     if (sinCredito && !(await estaPausado())) await pausar(msg, { porCredito: true });
     if (r === 'error') {
-      const porque = ctx.efectos ? 'Se quedó a medias después de guardar cambios; revísalo antes de volver a encargarlo' : 'No se reintenta';
+      const porque = ctx.efectos ? T('Se quedó a medias después de guardar cambios; revísalo antes de volver a encargarlo') : T('No se reintenta');
       await estado(t.agente, 'error', `No he podido terminar: ${recortar(msg, 70)}`, 'excl');
-      await log('sistema', `${a.nombre} no ha podido terminar «${titulo}»: ${recortar(msg, 160)}. ${porque}.`);
+      await log('sistema', T`${a.nombre} no ha podido terminar «${titulo}»: ${recortar(msg, 160)}. ${porque}.`);
       if (t.objetivo_id != null && t.paso != null) (await import('./objetivos.js')).pasoTerminado(t, msg, { error: true }).catch(e => console.error('Objetivo:', e.message));
       if (t.canal || t.tipo === 'pregunta') await chat.escribir({ canal: t.canal || t.agente, autor: 'sistema', para: 'dueno', texto: `${a.nombre} no ha podido contestar (${recortar(msg, 120)}). Vuelve a escribírselo en un rato.`, tarea_id: t.id }).catch(() => {});
       await telegram.avisar(`❗ ${a.nombre} no ha podido terminar «${titulo}»: ${recortar(msg, 300)}\n${porque}.`);

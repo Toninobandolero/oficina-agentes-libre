@@ -13,6 +13,7 @@ import * as presupuesto from './presupuesto.js';
 import * as tareas from './tareas.js';
 import * as vida from './vida.js';
 import { PERSONAJES } from './personajes.js';
+import { T } from './en.js';
 
 const corto = (t, n = 140) => { const s = String(t || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 let enCurso = false;
@@ -40,13 +41,13 @@ async function datos(desde) {
 
 /** Celebra la reunión ahora. Devuelve el acta. */
 export async function celebrar({ convoca = 'sistema' } = {}) {
-  if (enCurso) throw new Error('Ya hay una reunión en marcha.');
+  if (enCurso) throw new Error(T('Ya hay una reunión en marcha.'));
   enCurso = true;
   try {
     const previa = await ajuste('reunion_ultima', null);
     const desde = previa?.fecha && Date.now() - new Date(previa.fecha) < 7 * 86_400_000 ? previa.fecha : new Date(Date.now() - 7 * 86_400_000).toISOString();
     await emitir({ tipo: 'reunion', fase: 'empieza', convoca });
-    await log('rafa', convoca === 'dueno' ? 'convoca la reunión de equipo que ha pedido Dirección. Todos a la sala de reuniones.' : 'convoca la reunión de equipo. Todos a la sala de reuniones.');
+    await log('rafa', convoca === 'dueno' ? T('convoca la reunión de equipo que ha pedido Dirección. Todos a la sala de reuniones.') : T('convoca la reunión de equipo. Todos a la sala de reuniones.'));
     const d = await datos(desde);
     const activa = vida.estaActiva();
     const fichas = IDS.filter(departamentos.trabaja).map(id => {
@@ -75,7 +76,7 @@ Responde SOLO con JSON:
     const t = String(r.mensaje.content || '');
     let j;
     try { j = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); }
-    catch (e) { console.error('Reunión: respuesta no válida', e.message, 'fin:', r.fin, t.slice(0, 200)); throw new Error('Máximo no ha podido redactar el acta. Inténtalo otra vez en un rato.'); }
+    catch (e) { console.error('Reunión: respuesta no válida', e.message, 'fin:', r.fin, t.slice(0, 200)); throw new Error(T('Máximo no ha podido redactar el acta. Inténtalo otra vez en un rato.')); }
 
     const pendientesIds = new Set(Object.values(d).flatMap(x => x.mesa.map(m => m.id)));
     const agentes = (j.agentes || []).filter(a => AGENTES[a.id]).map(a => ({
@@ -105,7 +106,7 @@ Responde SOLO con JSON:
       const lista = agentes.flatMap(a => a.necesita.filter(x => x.de === 'dueno').map(x => `- ${n(a.id)}: ${x.texto}`));
       await (await import('./chat.js')).escribir({ canal: 'general', autor: 'rafa', texto: `🗣 **Reunión de equipo.** ${acta.resumen}\n\nPrioridades:\n${acta.prioridades.map((p, i) => `${i + 1}. ${p}`).join('\n')}${lista.length ? `\n\nLo que necesitamos de ti:\n${lista.join('\n')}` : ''}`, informe_id: acta.informe_id });
     } catch (e) { console.error('Reunión (chat):', e.message); }
-    await log('rafa', `ha cerrado la reunión de equipo. ${paraDueno ? `Hay ${paraDueno} cosa${paraDueno === 1 ? '' : 's'} en las que te necesitamos.` : 'No necesitamos nada de ti por ahora.'}`, { informe_id: acta.informe_id });
+    await log('rafa', T`ha cerrado la reunión de equipo. ${paraDueno ? T`Hay ${paraDueno} cosa${paraDueno === 1 ? '' : 's'} en las que te necesitamos.` : T('No necesitamos nada de ti por ahora.')}`, { informe_id: acta.informe_id });
     try {
       const telegram = await import('./telegram.js');
       const lista = agentes.flatMap(a => a.necesita.filter(x => x.de === 'dueno').map(x => `• ${n(a.id)}: ${x.texto}`));
@@ -122,8 +123,8 @@ export const ultima = () => ajuste('reunion_ultima', null);
 
 /** Dirección contesta a algo que un agente pidió en la reunión: le llega como encargo suyo. */
 export async function responder({ agente, necesidad, texto }) {
-  if (!AGENTES[agente]) throw new Error('No existe ese agente.');
-  if (!String(texto || '').trim()) throw new Error('Escribe la respuesta.');
+  if (!AGENTES[agente]) throw new Error(T('No existe ese agente.'));
+  if (!String(texto || '').trim()) throw new Error(T('Escribe la respuesta.'));
   await tareas.crear(agente, `En la reunión de equipo dijiste que necesitabas: «${corto(necesidad, 300)}».\nDirección te responde: «${String(texto).trim().slice(0, 2000)}».\nActúa en consecuencia con tus herramientas y, si hay algo que preparar, déjalo en su mesa.`, { origen: 'dueno' });
-  await log('dueno', `responde a ${AGENTES[agente].nombre} lo que pidió en la reunión: «${corto(texto, 140)}»`);
+  await log('dueno', T`responde a ${AGENTES[agente].nombre} lo que pidió en la reunión: «${corto(texto, 140)}»`);
 }

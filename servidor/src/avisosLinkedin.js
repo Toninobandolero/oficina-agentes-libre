@@ -7,6 +7,7 @@ import { q } from './db.js';
 import { log } from './bus.js';
 import * as tareas from './tareas.js';
 import * as telegram from './telegram.js';
+import { T } from './en.js';
 
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -66,10 +67,10 @@ export async function procesar(m) {
   const de = emp ? `${a.nombre} (${emp.nombre})` : a.nombre;
 
   if (a.tipo === 'aceptado') {
-    if (!hit?.sec || hit.sec.estado !== 'activa') { await log('sistema', `LinkedIn: ${de} ha aceptado tu invitación.`, { empresa_id: emp?.id }); return 'aceptado-sin-secuencia'; }
+    if (!hit?.sec || hit.sec.estado !== 'activa') { await log('sistema', T`LinkedIn: ${de} ha aceptado tu invitación.`, { empresa_id: emp?.id }); return 'aceptado-sin-secuencia'; }
     await aprobaciones.sustituir(`ctl:${hit.sec.id}`);               // Paula ya no tiene que preguntarte
     const frase = await secuencias.resolver({ ref: `ctl:${hit.sec.id}` }, 'aceptado');
-    await log('sistema', `LinkedIn avisa: ${de} ha aceptado tu invitación. ${frase ? frase.replace(/^ha confirmado que [^.]+\.\s*/, '') : ''}`.trim(), { empresa_id: emp?.id });
+    await log('sistema', T`LinkedIn avisa: ${de} ha aceptado tu invitación. ${frase ? frase.replace(/^(ha confirmado que|confirmed that) [^.]+\.\s*/, '') : ''}`.trim(), { empresa_id: emp?.id });
     await secuencias.emitirCambio?.(emp.id);
     return 'aceptado';
   }
@@ -84,12 +85,12 @@ export async function procesar(m) {
         `${emp ? 'Lee la empresa con leer_empresa, actualízala y' : 'No es una empresa de nuestra base. Si parece un posible cliente, guárdala con guardar_empresas (origen «linkedin") y'} prepara la respuesta para LinkedIn con pedir_aprobacion (tipo respuesta, canal linkedin), en su idioma.`, { empresa_id: emp?.id || null, origen: 'sistema' });
     }
     await telegram.avisar(`💬 ${de} te ha escrito por LinkedIn:\n${a.extracto.slice(0, 500)}\n\nPaula te prepara la respuesta.`);
-    await log('sistema', `LinkedIn avisa: ${de} te ha escrito. Paula prepara la respuesta.`, { empresa_id: emp?.id });
+    await log('sistema', T`LinkedIn avisa: ${de} te ha escrito. Paula prepara la respuesta.`, { empresa_id: emp?.id });
     return 'mensaje';
   }
   if (a.tipo === 'comentario') {
     await tareas.crear('alex', `${de} ha comentado en LinkedIn (aviso por correo):\n\n${a.extracto}\n\nPropón a Dirección una respuesta corta y natural al comentario con pedir_aprobacion (tipo respuesta, canal linkedin), en el idioma del comentario. Si es spam o no merece respuesta, díselo con anotar.`, { empresa_id: emp?.id || null, origen: 'sistema' });
-    await log('sistema', `LinkedIn avisa: ${de} ha comentado. Álex te propone la respuesta.`, { empresa_id: emp?.id });
+    await log('sistema', T`LinkedIn avisa: ${de} ha comentado. Álex te propone la respuesta.`, { empresa_id: emp?.id });
     return 'comentario';
   }
   return null;

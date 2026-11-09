@@ -3,6 +3,7 @@
 import { q, ajuste, fijarAjuste } from './db.js';
 import { config } from './config.js';
 import { emitir, log } from './bus.js';
+import { T, LOCALE } from './en.js';
 
 const ZONA = 'Europe/Madrid';
 export const REDACTORES = ['javi', 'alex', 'nuria', 'leo'];   // lo que escriben acaba en tu mesa
@@ -46,7 +47,7 @@ export async function frenados() {
   const rt = await ritmo().catch(() => null);
   if (rt?.frenar) {
     const clave = 'ritmo_aviso:' + hoy();
-    if (!(await ajuste(clave))) { await fijarAjuste(clave, true); await log('rafa', `para el trabajo automático hasta mañana: hoy ya se han gastado ${rt.hoy.toFixed(2)} € de IA y la parte del día era ${rt.cuota.toFixed(2)} €. Lo que pidas tú sigue funcionando.`); }
+    if (!(await ajuste(clave))) { await fijarAjuste(clave, true); await log('rafa', T`para el trabajo automático hasta mañana: hoy ya se han gastado ${rt.hoy.toFixed(2)} € de IA y la parte del día era ${rt.cuota.toFixed(2)} €. Lo que pidas tú sigue funcionando.`); }
     return (await import('./agentes.js')).IDS;
   }
   if (!e.vacaciones && !e.mesa.llena) return [];
@@ -57,7 +58,7 @@ export async function irse(hasta = null) {
   const v = { activa: true, desde: hoy(), hasta: hasta || null };
   await fijarAjuste('vacaciones', v);
   await emitir({ tipo: 'ausencia', ...(await estado()) });
-  await log('dueno', `se va de vacaciones${hasta ? ` hasta el ${new Date(hasta + 'T12:00:00Z').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'UTC' })}` : ''}. La investigación sigue; lo que depende de él, espera.`);
+  await log('dueno', T`se va de vacaciones${hasta ? T` hasta el ${new Date(hasta + 'T12:00:00Z').toLocaleDateString(LOCALE(), { day: 'numeric', month: 'long', timeZone: 'UTC' })}` : ''}. La investigación sigue; lo que depende de él, espera.`);
   return v;
 }
 
@@ -77,7 +78,7 @@ export async function volver() {
     q(`SELECT count(*)::int n FROM aprobaciones WHERE estado='pendiente'`),
   ]);
   const resumen = { dias, empresas: emp.rows[0].n, dossiers: dos.rows[0].n, mesa: mesa.rows[0].n };
-  await log('dueno', `ha vuelto de vacaciones (${dias} día${dias === 1 ? '' : 's'}). Las secuencias se han movido ${dias} días.`);
+  await log('dueno', T`ha vuelto de vacaciones (${dias} día${dias === 1 ? '' : 's'}). Las secuencias se han movido ${dias} días.`);
   await emitir({ tipo: 'ausencia', ...(await estado()), bienvenida: resumen });
   return resumen;
 }

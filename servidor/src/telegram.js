@@ -5,6 +5,7 @@ import { config } from './config.js';
 // El bot de la oficina (el que habla contigo). Del .env o, si no, configurado desde el panel y vinculado con /start <código>
 import crypto from 'node:crypto';
 import { ajuste, fijarAjuste } from './db.js';
+import { T } from './en.js';
 const cfg = { token: config.telegramToken, chat: config.telegramChatId, user: config.telegramUserId, env: Boolean(config.telegramToken && config.telegramChatId), usuario: null };
 let codigoVinculo = null;
 const apiUrl = () => `https://api.telegram.org/bot${cfg.token}`;
@@ -31,11 +32,11 @@ export async function estado() {
 }
 /** Desde el panel: Dirección pega el token de su bot; luego lo vincula abriendo el enlace y pulsando «Iniciar». */
 export async function configurar(token) {
-  if (cfg.env) throw new Error('El bot de la oficina ya está configurado en el servidor.');
+  if (cfg.env) throw new Error(T('El bot de la oficina ya está configurado en el servidor.'));
   const tk = String(token || '').trim();
-  if (!/^\d{6,12}:[A-Za-z0-9_-]{30,}$/.test(tk)) throw new Error('El token no parece válido: cópialo entero del mensaje de @BotFather.');
+  if (!/^\d{6,12}:[A-Za-z0-9_-]{30,}$/.test(tk)) throw new Error(T('El token no parece válido: cópialo entero del mensaje de @BotFather.'));
   const viejo = cfg.token; cfg.token = tk;
-  if (!(await getMe())) { cfg.token = viejo; throw new Error('Telegram no reconoce ese token.'); }
+  if (!(await getMe())) { cfg.token = viejo; throw new Error(T('Telegram no reconoce ese token.')); }
   cfg.chat = ''; cfg.user = '';
   codigoVinculo = crypto.randomBytes(6).toString('hex');
   await fijarAjuste('telegram_oficina', { token: cifrarT(tk), usuario: cfg.usuario });
@@ -43,7 +44,7 @@ export async function configurar(token) {
   return estado();
 }
 export async function prueba() {
-  if (!activo()) throw new Error('El bot de la oficina no está conectado.');
+  if (!activo()) throw new Error(T('El bot de la oficina no está conectado.'));
   await llamar('sendMessage', { chat_id: cfg.chat, text: '✅ La oficina está conectada contigo. Aquí te llegarán los avisos y lo que haya que aprobar.' });
 }
 

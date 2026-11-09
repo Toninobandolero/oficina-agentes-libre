@@ -50,8 +50,8 @@ export function efectiva({ prioridad, prioridad_motivo, caduca, creada, fecha_pr
   const sinPrisa = (tipo || clase) === 'boletin' || (pospuesta && new Date(pospuesta) > new Date());
   if (!sinPrisa && prev && /^\d{4}-\d{2}-\d{2}$/.test(prev)) {
     const q = dias(prev, hoy);
-    if (q <= 1 && nivel > 1) { nivel = 1; motivo = q < 0 ? `Tenía que salir el ${fechaTxt(prev)}` : q === 0 ? 'Sale hoy' : 'Sale mañana'; }
-    else if (q <= 3 && nivel > 2) { nivel = 2; motivo = `Sale el ${fechaTxt(prev)}`; }
+    if (q <= 0 && nivel > 1) { nivel = 1; motivo = q < 0 ? `Tenía que salir el ${fechaTxt(prev)}` : 'Sale hoy'; }   // mañana aún da tiempo: importante, no urgente
+    else if (q <= 3 && nivel > 2) { nivel = 2; motivo = q === 1 ? 'Sale mañana' : `Sale el ${fechaTxt(prev)}`; }
   }
   const creadaDia = creada ? new Date(creada).toLocaleDateString('en-CA', { timeZone: 'Europe/Madrid' }) : hoy;
   const espera = dias(hoy, creadaDia);

@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { llamar } from './llm.js';
 import * as presupuesto from './presupuesto.js';
 import { emitir, log } from './bus.js';
+import { T } from './en.js';
 
 export const CAMPOS = {
   empresa: ['nombre', 'web', 'linkedin', 'otras_redes', 'telefono', 'localidad', 'zona', 'que_vende', 'precios', 'cliente_ideal', 'sectores', 'diferencia', 'casos'],
@@ -57,7 +58,7 @@ export async function leerWeb() {
   perfil = { ...perfil, resumen_web: resumen.slice(0, MAX), web_leida: url };
   await fijarAjuste('perfil_empresa', perfil);
   await emitir({ tipo: 'perfil' });
-  await log('rafa', `ha leído la web de la empresa (${url}) y ha resumido para el equipo lo que vendemos.`);
+  await log('rafa', T`ha leído la web de la empresa (${url}) y ha resumido para el equipo lo que vendemos.`);
   return resumen;
 }
 

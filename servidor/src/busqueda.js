@@ -2,6 +2,7 @@
 import { q, ajuste, fijarAjuste } from './db.js';
 import { config } from './config.js';
 import * as presupuesto from './presupuesto.js';
+import { T } from './en.js';
 
 const TZ = 'Europe/Madrid';
 const SEMANAS_MES = 52 / 12, DIAS_LABORABLES = 5;
@@ -20,7 +21,7 @@ export async function leer() {
 export async function fijar({ cantidad, periodo, focos } = {}) {
   if (cantidad === '' || cantidad == null) { await fijarAjuste('objetivo_empresas', null); return null; }
   const n = Number(cantidad);
-  if (!Number.isInteger(n) || n < 0 || n > 500) throw new Error('Pon un número entero de empresas entre 0 y 500.');
+  if (!Number.isInteger(n) || n < 0 || n > 500) throw new Error(T('Pon un número entero de empresas entre 0 y 500.'));
   const previo = await ajuste('objetivo_empresas', null);
   await fijarAjuste('objetivo_empresas', { cantidad: n, periodo: periodo === 'dia' ? 'dia' : 'semana', focos: Array.isArray(focos) ? focos.map(f => String(f).trim().slice(0, 200)).filter(Boolean) : previo?.focos || [] });
   return leer();
@@ -51,7 +52,7 @@ const r2 = n => Math.round(n * 100) / 100;
 /** Coste al mes y trabajo en la mesa de Dirección. Es una estimación: no cuenta seguimientos, respuestas, lo fijo de la oficina ni a Lola. */
 export async function estimar({ cantidad, periodo } = {}) {
   const n = Number(cantidad);
-  if (!Number.isFinite(n) || n < 0) throw new Error('Pon un número de empresas.');
+  if (!Number.isFinite(n) || n < 0) throw new Error(T('Pon un número de empresas.'));
   const c = await costes();
   const semana = periodo === 'dia' ? n * DIAS_LABORABLES : n;
   const eurEmpresa = (c.lucia + c.mateo + c.pct_ab * (c.carmen + c.javi)) * config.usdEur;

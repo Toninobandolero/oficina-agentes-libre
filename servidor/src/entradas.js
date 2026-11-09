@@ -10,6 +10,7 @@ import { config } from './config.js';
 import * as tareas from './tareas.js';
 import * as departamentos from './departamentos.js';
 import * as telegram from './telegram.js';
+import { T } from './en.js';
 
 export const TIPOS = ['contacto', 'diagnostico', 'calculadora', 'oficina'];   // oficina = lista de interesados, los que reciben el boletín (no entra en el embudo)
 const ORIGEN_WEB = ['web', 'google', 'anuncio', 'redes', 'linkedin', 'gestoria', 'evento', 'recomendacion'];
@@ -44,10 +45,10 @@ export function validar(b = {}) {
     datos: limpiarDatos(b.datos),
     consentimiento: b.consentimiento === true || b.consentimiento === 'true' || b.consentimiento === 'on',
   };
-  if (d.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email)) return { ok: false, error: 'Revisa el correo electrónico.' };
-  if (!d.email && !d.telefono) return { ok: false, error: 'Déjanos un correo o un teléfono para poder contestarte.' };
-  if (!d.nombre) return { ok: false, error: 'Dinos tu nombre.' };
-  if (!d.consentimiento) return { ok: false, error: 'Necesitamos tu permiso para contestarte.' };
+  if (d.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email)) return { ok: false, error: T('Revisa el correo electrónico.') };
+  if (!d.email && !d.telefono) return { ok: false, error: T('Déjanos un correo o un teléfono para poder contestarte.') };
+  if (!d.nombre) return { ok: false, error: T('Dinos tu nombre.') };
+  if (!d.consentimiento) return { ok: false, error: T('Necesitamos tu permiso para contestarte.') };
   return { ok: true, datos: d };
 }
 
@@ -75,7 +76,7 @@ const resumenCalculadora = x => {
 /** Recibe un envío del formulario. */
 export async function recibir(b, ip) {
   if (b?.sitio_web) return { ok: true };                 // trampa para robots: se ignora sin decir nada
-  if (frenar(ip)) return { ok: false, codigo: 429, error: `Has enviado varios formularios seguidos. Prueba dentro de un rato${config.empresa.correoContacto ? ` o escríbenos a ${config.empresa.correoContacto}` : ''}.` };
+  if (frenar(ip)) return { ok: false, codigo: 429, error: T`Has enviado varios formularios seguidos. Prueba dentro de un rato${config.empresa.correoContacto ? T` o escríbenos a ${config.empresa.correoContacto}` : ''}.` };
   const v = validar(b);
   if (!v.ok) return { ok: false, codigo: 400, error: v.error };
   const d = v.datos;
@@ -92,7 +93,7 @@ export async function recibir(b, ip) {
       [emp.id, d.tipo, d.nombre, d.empresa || null, d.email || null, d.telefono || null, d.sector || null, d.mensaje || null, d.datos, d.pagina || null, d.origen, d.consentimiento, huella(ip)]);
     const x = d.datos || {}, detalle = [x.opcion && `opción: ${x.opcion}`, x.departamentos && `departamentos: ${[].concat(x.departamentos).join(', ')}`].filter(Boolean).join(' · ');
     await telegram.avisar(`📝 Lista de interesados: ${d.nombre}${d.empresa ? ` · ${d.empresa}` : ''}${d.sector ? ` · ${d.sector}` : ''}\n${d.email ? `📧 ${d.email}\n` : ''}${d.telefono ? `📞 ${d.telefono}\n` : ''}${detalle ? detalle + '\n' : ''}${d.mensaje ? `💬 «${d.mensaje.slice(0, 400)}»\n` : ''}Está en la ficha de la empresa; nadie le escribe hasta que tú lo digas.`);
-    await log('sistema', `ha apuntado a ${d.nombre}${d.empresa ? ` (${d.empresa})` : ''} en la lista de interesados${detalle ? ` (${detalle})` : ''}.`, { empresa_id: emp.id });
+    await log('sistema', T`ha apuntado a ${d.nombre}${d.empresa ? ` (${d.empresa})` : ''} en la lista de interesados${detalle ? ` (${detalle})` : ''}.`, { empresa_id: emp.id });
     return { ok: true, id: r.rows[0].id };
   }
   const campos = { estado: 'conversacion', ultimo_contacto: new Date().toISOString().slice(0, 10) };
@@ -105,11 +106,11 @@ export async function recibir(b, ip) {
                      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
     [e.id, d.tipo, d.nombre, d.empresa || null, d.email || null, d.telefono || null, d.sector || null, d.mensaje || null, d.datos, d.pagina || null, d.origen, d.consentimiento, huella(ip)]);
   const calc = resumenCalculadora(d.datos);
-  const QUE = { diagnostico: 'pide el diagnóstico gratis', calculadora: 'ha usado la calculadora de horas', contacto: 'nos escribe' };
+  const QUE = { diagnostico: T('pide el diagnóstico gratis'), calculadora: T('ha usado la calculadora de horas'), contacto: T('nos escribe') };
   const ficha = [`👤 ${d.nombre}${d.empresa ? ` · ${d.empresa}` : ''}${d.sector ? ` · ${d.sector}` : ''}`,
     d.email && `📧 ${d.email}`, d.telefono && `📞 ${d.telefono}`, calc && `⏱ ${calc}`, d.mensaje && `💬 «${d.mensaje.slice(0, 600)}»`].filter(Boolean).join('\n');
   await telegram.avisar(`🔔 Contacto nuevo desde la web: ${QUE[d.tipo]}\n\n${ficha}\n\n${d.tipo === 'diagnostico' ? 'Nuria prepara el diagnóstico y el correo; te lo deja en la mesa.' : 'Paula te prepara la respuesta y te la deja en la mesa.'}`);
-  await log('sistema', `ha recibido un contacto desde la web: ${d.nombre}${d.empresa ? ` (${d.empresa})` : ''} ${QUE[d.tipo]}.`, { empresa_id: e.id });
+  await log('sistema', T`ha recibido un contacto desde la web: ${d.nombre}${d.empresa ? ` (${d.empresa})` : ''} ${QUE[d.tipo]}.`, { empresa_id: e.id });
 
   const contexto = `Datos del formulario (entrada ${r.rows[0].id}):\n${ficha}${d.datos ? `\nRespuestas: ${JSON.stringify(d.datos)}` : ''}\nPágina: ${d.pagina || '—'} · Origen: ${d.origen}\nHa dado su consentimiento para que le contestemos.`;
   const canalRespuesta = d.email

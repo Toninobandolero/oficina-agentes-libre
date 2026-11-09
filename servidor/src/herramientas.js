@@ -23,6 +23,7 @@ import * as oficina from './oficina.js';
 import * as contactos from './contactos.js';
 import { herramientaOpenAI } from './llm.js';
 import { comprobarVeto } from './empresa.js';
+import { T } from './en.js';
 
 const str = (description, extra = {}) => ({ type: 'string', description, ...extra });
 const CAMPOS_EMPRESA = {
@@ -148,7 +149,7 @@ export const DEFINICIONES = {
       linkedin_url: str('URL del perfil de LinkedIn del decisor SOLO si está verificado (que es él y esta empresa). Si no, vacío y explícalo en las notas.'),
       notas: str('Notas para Dirección que no se envían: decisor, cómo tratarle, qué está verificado y qué no, qué evitar, horario de llamada…'),
       caduca: str('Opcional. Fecha (AAAA-MM-DD) en que el gancho deja de valer (p. ej. «abren el 5 de noviembre»)'),
-      pasos: { type: 'array', description: 'El primer contacto: «conexion» (solicitud de LinkedIn) y, si hay teléfono, también «llamada» (el guion para llamar al día siguiente, sin esperar a que acepte). Sin LinkedIn, el paso de la vía que haya: «llamada», «visita», «carta» o «presentacion». Lo demás no se guarda: se escribe cuando toque.', items: { type: 'object', properties: {
+      pasos: { type: 'array', description: 'El primer contacto: «conexion» (solicitud de LinkedIn) y, si hay teléfono, también «llamada» (el guion de plan B: se llama solo si en una semana no acepta la conexión). Sin LinkedIn, el paso de la vía que haya: «llamada», «visita», «carta» o «presentacion». Lo demás no se guarda: se escribe cuando toque.', items: { type: 'object', properties: {
         clave: str('Qué paso es', { enum: secuencias.CLAVES }),
         canal: str('Por dónde', { enum: ['linkedin', 'telefono', 'visita', 'email', 'whatsapp', 'presentacion'] }),
         texto: str('El texto exacto listo para copiar (en llamada, el guion)'),
@@ -421,7 +422,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
       const campos = Object.fromEntries(Object.entries(input.campos || {}).filter(([k]) => SOLO_CONTACTO.includes(k)));
       if (!Object.keys(campos).length) throw new Error(`Indica qué corregir: ${SOLO_CONTACTO.join(', ')}.`);
       const e = await empresas.actualizar(input.id, campos, { desdeAgente: true });
-      await log(ctx.agente, `ha corregido el contacto en la ficha de ${e.nombre}: ${Object.keys(campos).join(', ')}.`, { empresa_id: e.id });
+      await log(ctx.agente, T`ha corregido el contacto en la ficha de ${e.nombre}: ${Object.keys(campos).join(', ')}.`, { empresa_id: e.id });
       return { ok: true, id: e.id, decisor: e.decisor, linkedin_url: e.linkedin_url };
     }
     case 'guardar_dossier': {
@@ -528,7 +529,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
       if (emp && !String(input.detalle || '').trim()) return { error: 'Di en «detalle» por qué: lo que dijo o lo acordado, con su fecha. Un recordatorio sin motivo no sirve.' };
       const id = await (await import('./agenda.js')).recordar({ dia: input.dia, hora: input.hora, texto: input.texto, clase: input.tipo === 'llamada' ? 'llamada' : null, creado_por: ctx.agente,
         empresa_id: emp, telefono: input.telefono || null, detalle: input.detalle || null });
-      await log(ctx.agente, `ha apuntado en tu calendario${input.tipo === 'llamada' ? ' una llamada' : ''} para el ${input.dia}${input.hora ? ` a las ${input.hora}` : ''}: ${String(input.texto).slice(0, 160)}`, { empresa_id: emp || undefined });
+      await log(ctx.agente, T`ha apuntado en tu calendario${input.tipo === 'llamada' ? T(' una llamada') : ''} para el ${input.dia}${input.hora ? T` a las ${input.hora}` : ''}: ${String(input.texto).slice(0, 160)}`, { empresa_id: emp || undefined });
       return { ok: true, id };
     }
     case 'registrar_interes': return (await import('./protocolo.js')).registrar(input.empresa_id || ctx.tarea.empresa_id, input.nivel, { frase: input.frase, canal: input.canal, cuando: input.cuando, por: ctx.agente });
@@ -546,14 +547,14 @@ export async function ejecutar(ctx, nombre, input = {}) {
       const id = input.empresa_id || ctx.tarea.empresa_id;
       if (!id) throw new Error('Di de qué empresa es (empresa_id).');
       const c = await contactos.guardar(id, input);
-      await log(ctx.agente, `ha apuntado a ${c.nombre || c.telefono || c.email}${c.cargo ? `, ${c.cargo},` : ''} en los contactos de la empresa.`, { empresa_id: id });
+      await log(ctx.agente, T`ha apuntado a ${c.nombre || c.telefono || c.email}${c.cargo ? `, ${c.cargo},` : ''} en los contactos de la empresa.`, { empresa_id: id });
       return { ok: true, contacto: c.id };
     }
     case 'retirar_tarjeta': {
       const r = (await q(`UPDATE aprobaciones SET estado='superada', resuelta=now() WHERE id=$1 AND estado='pendiente' RETURNING id, titulo, empresa_id`, [String(input.id || '')])).rows[0];
       if (!r) return { error: 'Esa tarjeta ya no está en la mesa: míralo con ver_mesa.' };
       await emitir({ tipo: 'aprobacion_resuelta', id: r.id, resultado: 'superada' });
-      await log(ctx.agente, `ha retirado de tu mesa «${String(r.titulo).slice(0, 100)}»: ${String(input.motivo || '').slice(0, 200)}`, { empresa_id: r.empresa_id || undefined });
+      await log(ctx.agente, T`ha retirado de tu mesa «${String(r.titulo).slice(0, 100)}»: ${String(input.motivo || '').slice(0, 200)}`, { empresa_id: r.empresa_id || undefined });
       return { ok: true };
     }
     case 'limpiar_empresa': return { ok: true, ...(await (await import('./mesaViva.js')).ocurrio(input.empresa_id || ctx.tarea.empresa_id, { que: input.que })) };
@@ -565,7 +566,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
     case 'priorizar_tarjeta': {
       const ap = await aprobaciones.priorizar(input.id, input.nivel, input.motivo);
       const urgente = input.nivel === 'urgente';
-      await log(ctx.agente, `${urgente ? 'pone como urgente' : `pone en «${String(input.nivel).replace('_', ' ')}»`}: ${ap.titulo}. ${String(input.motivo).slice(0, 200)}`, { aprobacion_id: ap.id, empresa_id: ap.empresa_id, urgente: urgente || null });
+      await log(ctx.agente, `${urgente ? T('pone como urgente') : T`pone en «${T(String(input.nivel).replace('_', ' '))}»`}: ${ap.titulo}. ${String(input.motivo).slice(0, 200)}`, { aprobacion_id: ap.id, empresa_id: ap.empresa_id, urgente: urgente || null });
       if (urgente) await telegram.avisar(`🔴 ${AGENTES[ctx.agente].nombre} lo pone como urgente: ${ap.titulo}\n${String(input.motivo).slice(0, 200)}`);
       ctx.anotado = true;
       return { ok: true, id: ap.id, nivel: input.nivel };
@@ -576,7 +577,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
     }
     case 'mover_tarea': {
       const t = await tareas.mover(Number(input.id), input.accion, input.motivo);
-      await log(ctx.agente, `${input.accion === 'adelantar' ? 'adelanta' : 'cancela'} el trabajo de ${AGENTES[t.agente]?.nombre ?? t.agente}: «${t.instruccion.split('\n')[0].slice(0, 120)}». ${String(input.motivo || '').slice(0, 160)}`, { empresa_id: t.empresa_id });
+      await log(ctx.agente, T`${input.accion === 'adelantar' ? T('adelanta') : T('cancela')} el trabajo de ${AGENTES[t.agente]?.nombre ?? t.agente}: «${t.instruccion.split('\n')[0].slice(0, 120)}». ${String(input.motivo || '').slice(0, 160)}`, { empresa_id: t.empresa_id });
       return { ok: true };
     }
     case 'guardar_nota': return { ok: true, nota: await memoria.apuntar(ctx.agente, input.texto) };
@@ -586,7 +587,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
       const texto = String(input.texto || '').trim().slice(0, 400);
       if (!texto) throw new Error('Falta lo que has aprendido.');
       await aprendizajes.nuevaRegla(texto, ctx.agente);
-      await log(ctx.agente, `ha aprendido de tu corrección: «${texto}»`);
+      await log(ctx.agente, T`ha aprendido de tu corrección: «${texto}»`);
       return { ok: true, nota: 'Guardado: se aplica desde tu siguiente tarea. Cuéntaselo a Dirección en una línea.' };
     }
     case 'olvidar_nota': return { ok: await memoria.olvidar(ctx.agente, Number(input.id)) };
@@ -612,12 +613,12 @@ export async function ejecutar(ctx, nombre, input = {}) {
       if (ctx.agente === 'rafa' && pideDueno(ctx)) {
         const r = await aprendizajes.nuevaRegla(input.texto, input.agente || null, { activa: true });
         await apuntarCambio({ tipo: 'norma', id: r.id, que: r.texto });
-        await log('rafa', `ha aplicado una norma nueva${input.agente ? ` para ${AGENTES[input.agente].nombre}` : ''}: «${r.texto}»`);
+        await log('rafa', T`ha aplicado una norma nueva${input.agente ? T` para ${AGENTES[input.agente].nombre}` : ''}: «${r.texto}»`);
         return { ok: true, nota: 'Ya se aplica. Díselo en una línea y recuérdale que se puede deshacer.' };
       }
       const r = await aprendizajes.nuevaRegla(input.texto, input.agente || null, { activa: false });
-      const para = input.agente ? ` para ${AGENTES[input.agente].nombre}` : ' para todo el equipo';
-      await aprobaciones.crear({ agente: ctx.agente, tipo: 'regla', titulo: `propone esta regla${para}`, texto: r.texto, ref: String(r.id) });
+      const para = input.agente ? T` para ${AGENTES[input.agente].nombre}` : T(' para todo el equipo');
+      await aprobaciones.crear({ agente: ctx.agente, tipo: 'regla', titulo: T`propone esta regla${para}`, texto: r.texto, ref: String(r.id) });
       ctx.esperando = true;
       return { ok: true, nota: 'Propuesta enviada a Dirección. Se aplicará cuando la apruebe. Díselo así en tu respuesta.' };
     }
@@ -634,7 +635,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
       const antes = await busqueda.leer();
       const o = await busqueda.fijar({ cantidad: input.cantidad, periodo: input.periodo, ...(input.focos?.length ? { focos: input.focos } : {}) });
       await apuntarCambio({ tipo: 'objetivo', antes });
-      await log('rafa', `ha cambiado el objetivo de empresas: ${o?.cantidad ?? 'sin objetivo'}${o ? ` al ${o.periodo === 'dia' ? 'día' : 'semana'}` : ''}.`);
+      await log('rafa', T`ha cambiado el objetivo de empresas: ${o?.cantidad ?? T('sin objetivo')}${o ? T` al ${o.periodo === 'dia' ? T('día') : T('semana')}` : ''}.`);
       return { ok: true, objetivo: o };
     }
     case 'deshacer_cambio': {
@@ -645,7 +646,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
       if (c.tipo === 'norma_quitada') await aprendizajes.activar(c.id);
       if (c.tipo === 'objetivo') await (await import('./busqueda.js')).fijar(c.antes ? { ...c.antes } : { cantidad: '' });
       await fijarAjuste('cambios_rafa', lista);
-      await log('rafa', `ha deshecho su último cambio (${c.tipo}).`);
+      await log('rafa', T`ha deshecho su último cambio (${c.tipo}).`);
       return { ok: true, deshecho: c };
     }
     case 'destacar': {
@@ -674,7 +675,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
     case 'listar_alianzas': return alianzas.listar(input);
     case 'guardar_alianzas': {
       const r = await alianzas.guardar(input.alianzas || []);
-      if (r.creadas.length) await log(ctx.agente, `ha añadido ${r.creadas.length} alianza${r.creadas.length === 1 ? '' : 's'}: ${r.creadas.slice(0, 3).map(a => a.nombre).join(', ')}${r.creadas.length > 3 ? '…' : ''}`);
+      if (r.creadas.length) await log(ctx.agente, T`ha añadido ${r.creadas.length} alianza${r.creadas.length === 1 ? '' : 's'}: ${r.creadas.slice(0, 3).map(a => a.nombre).join(', ')}${r.creadas.length > 3 ? '…' : ''}`);
       return r;
     }
     case 'actualizar_alianza': return { ok: true, alianza: await alianzas.actualizar(input.id, input.campos || {}) };
@@ -697,7 +698,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
       await telegram.avisar(`📊 Informe de ${AGENTES[ctx.agente].nombre}\n\n${input.texto}`);
       const primera = String(input.texto).split('\n').find(l => l.trim()) || 'Informe';
       const informe_id = await guardarInforme({ agente: ctx.agente, titulo: primera.slice(0, 120), texto: String(input.texto), empresa_id: ctx.tarea.empresa_id });
-      await log(ctx.agente, `ha enviado el informe: ${primera.slice(0, 200)}`, { informe_id, empresa_id: ctx.tarea.empresa_id });
+      await log(ctx.agente, T`ha enviado el informe: ${primera.slice(0, 200)}`, { informe_id, empresa_id: ctx.tarea.empresa_id });
       // Lo importante llega también por el chat (en su canal si Dirección se lo pidió ahí; si no, en #general), con el informe enlazado
       await (await import('./chat.js')).escribir({ canal: ctx.tarea.canal || 'general', autor: ctx.agente, para: 'dueno', texto: `📊 ${primera.slice(0, 200)}`, tarea_id: ctx.tarea.id || null, informe_id, empresa_id: ctx.tarea.empresa_id }).catch(e => console.error('Chat:', e.message));
       ctx.anotado = true;

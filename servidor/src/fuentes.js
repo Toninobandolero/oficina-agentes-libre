@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { log } from './bus.js';
 import { cifrar, descifrar, limpiarClave } from './ia.js';
 import { normalizar } from './empresas.js';
+import { T } from './en.js';
 
 const BOE = 'https://boe.es', PLACES = 'https://places.googleapis.com';
 const AGENTE = 'Mozilla/5.0 (compatible; OficinaAgentesBot/1.0)';
@@ -124,29 +125,29 @@ async function textSearch(k, cuerpo, campos) {
   const r = await pedir(`${PLACES}/v1/places:searchText`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': k, 'X-Goog-FieldMask': campos }, body: JSON.stringify({ languageCode: 'es', regionCode: 'ES', ...cuerpo }) });
   if (r.status === 400 || r.status === 401 || r.status === 403) throw new Error(porQueGoogle(r.texto));
   if (r.status === 429) throw new Error('Google Maps ha llegado al límite de consultas de esta clave. Sigue con buscar_web.');
-  if (r.status !== 200) throw new Error(`Google Maps respondió ${r.status}.`);
+  if (r.status !== 200) throw new Error(T`Google Maps respondió ${r.status}.`);
   return JSON.parse(r.texto);
 }
 
 /** Dirección pega su clave. Se comprueba pidiendo solo identificadores, que Google no cobra. */
 export async function conectarMaps(k) {
   k = limpiarClave(k);
-  if (!/^AIza[\w-]{30,}$/.test(k)) throw new Error('Esa no parece una clave de Google: empieza por AIza. Créala en console.cloud.google.com con «Places API (New)» activada.');
+  if (!/^AIza[\w-]{30,}$/.test(k)) throw new Error(T('Esa no parece una clave de Google: empieza por AIza. Créala en console.cloud.google.com con «Places API (New)» activada.'));
   await textSearch(k, { textQuery: 'restaurante Madrid', pageSize: 1 }, 'places.id');
   await fijarAjuste('google_maps', { clave: cifrar(k) });
   claveMaps = k;
-  await log('dueno', 'ha conectado Google Maps: Lucía y Carmen ya pueden buscar negocios por zona y sector.');
+  await log('dueno', T('ha conectado Google Maps: Lucía y Carmen ya pueden buscar negocios por zona y sector.'));
   return estadoMaps();
 }
 export async function quitarMaps() {
   await fijarAjuste('google_maps', null);
   claveMaps = null;
-  await log('dueno', 'ha quitado la clave de Google Maps.');
+  await log('dueno', T('ha quitado la clave de Google Maps.'));
   return estadoMaps();
 }
 
 export async function buscarMaps(consulta) {
-  if (!claveMaps) throw new Error('Google Maps no está conectado.');
+  if (!claveMaps) throw new Error(T('Google Maps no está conectado.'));
   const j = await textSearch(claveMaps, { textQuery: consulta, pageSize: 10 }, CAMPOS);
   const pagada = (await usoMaps()).consultas_mes >= GRATIS_MES;   // las 1.000 primeras del mes no cuestan nada
   return { coste_usd: pagada ? USD_CONSULTA : 0, resultados: (j.places || []).map(p => ({ place_id: p.id, nombre: p.displayName?.text, direccion: p.formattedAddress, web: p.websiteUri, telefono: p.nationalPhoneNumber,

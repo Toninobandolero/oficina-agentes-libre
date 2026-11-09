@@ -6,6 +6,7 @@ import * as empresas from './empresas.js';
 import * as agenda from './agenda.js';
 import { opciones as telefonos, deEmpresa as personas } from './contactos.js';
 import { siguienteHueco } from './horario.js';
+import { T } from './en.js';
 
 // De lo más frío a lo más caliente. «dias» es cuándo se vuelve si no dijo fecha (sin «dias», no se vuelve) e «intentos», cuántas veces se insiste antes de dejarlo.
 export const NIVELES = {
@@ -83,10 +84,10 @@ export async function registrar(empresa_id, nivel, { frase = '', canal = '', cua
   const proximo = agotado ? `Decidir si seguir: ${intento - 1} intentos sin avanzar` : siguiente ? siguiente.texto : null;
   await empresas.actualizar(e.id, { ...(n.estado ? { estado: n.estado } : {}), ultimo_contacto: dia, proximo_paso: proximo, fecha_proximo_paso: siguiente?.dia || null }, { desdeAgente: true });
 
-  const linea = `${n.emoji} ${e.nombre}: ${n.nombre.toLowerCase()}. Dijo «${dijo}».${agotado ? ` Van ${intento - 1} intentos sin avanzar: decide tú si seguir.` : siguiente ? ` Siguiente paso el ${siguiente.dia}.` : ''}`;
+  const linea = T`${n.emoji} ${e.nombre}: ${T(n.nombre).toLowerCase()}. Dijo «${dijo}».${agotado ? T` Van ${intento - 1} intentos sin avanzar: decide tú si seguir.` : siguiente ? T` Siguiente paso el ${siguiente.dia}.` : ''}`;
   await log(por, linea, { empresa_id: e.id, urgente: n.urgente || null });
   if (n.urgente) await (await import('./telegram.js')).avisar(`🔥 ${e.nombre} quiere verse cuanto antes.\nDijo: «${dijo}»\n${n.hacer}`);
-  await (await import('./mesaViva.js')).ocurrio(e.id, { cuando: new Date(Date.now() - 120_000), que: 'lo que dijo' });   // con margen: lo recién preparado a raíz de esto no está desfasado
+  await (await import('./mesaViva.js')).ocurrio(e.id, { cuando: new Date(Date.now() - 120_000), que: T('lo que dijo') });   // con margen: lo recién preparado a raíz de esto no está desfasado
   for (const c of cartas.rows) await emitir({ tipo: 'aprobacion_resuelta', id: c.id, resultado: 'superada' });
   return { ok: true, nivel, hacer: agotado ? 'Ya se ha insistido lo que marca el protocolo: no prepares más, Dirección decide.' : n.hacer, siguiente, agotado };
 }

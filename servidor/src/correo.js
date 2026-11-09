@@ -13,6 +13,7 @@ import * as telegram from './telegram.js';
 import { AGENTES } from './agentes.js';
 import * as cuentas from './cuentasCorreo.js';
 import { PRO, M } from './modulos.js';
+import { T } from './en.js';
 
 export const activo = () => Boolean(cuentas.predeterminada());
 const dominio = s => String(s || '').toLowerCase().replace(/^.*@/, '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
@@ -25,15 +26,15 @@ export const _ultimoEnvio = () => ultimoSimulado;
 /** Por qué no ha salido, dicho para Dirección. */
 export function motivoEnvio(e, c) {
   const m = String(e?.message || e);
-  if (e?.code === 'EAUTH' || /\b535\b|invalid login|authentication/i.test(m)) return `No ha salido: el servidor de correo no acepta la contraseña de ${c.direccion}.`;
-  if (['ETIMEDOUT', 'ESOCKET', 'ECONNECTION', 'EDNS', 'ECONNREFUSED'].includes(e?.code) || /timeout|ECONN|greeting/i.test(m)) return `No ha salido: no se puede conectar con el servidor de correo de ${c.direccion}.`;
-  return `No ha salido: el servidor de correo dice «${m.slice(0, 200)}».`;
+  if (e?.code === 'EAUTH' || /\b535\b|invalid login|authentication/i.test(m)) return T`No ha salido: el servidor de correo no acepta la contraseña de ${c.direccion}.`;
+  if (['ETIMEDOUT', 'ESOCKET', 'ECONNECTION', 'EDNS', 'ECONNREFUSED'].includes(e?.code) || /timeout|ECONN|greeting/i.test(m)) return T`No ha salido: no se puede conectar con el servidor de correo de ${c.direccion}.`;
+  return T`No ha salido: el servidor de correo dice «${m.slice(0, 200)}».`;
 }
 
 async function mandar(c, mensaje) {
   const info = await cuentas.transporte(c).sendMail({ from: { name: c.nombre, address: c.direccion }, ...mensaje }).catch(e => { throw new Error(motivoEnvio(e, c)); });
   if (process.env.CORREO_SIMULADO) ultimoSimulado = JSON.parse(info.message);
-  if (info.rejected?.length && !info.accepted?.length) throw new Error(`El servidor de correo no lo ha aceptado: ${info.rejected.join(', ')}`);
+  if (info.rejected?.length && !info.accepted?.length) throw new Error(T`El servidor de correo no lo ha aceptado: ${info.rejected.join(', ')}`);
   return info;
 }
 
@@ -55,7 +56,7 @@ export async function preparar({ agente, empresa_id = null, para, asunto, texto,
   if (previo && emp && !previo.empresa_id) await q(`UPDATE correos SET empresa_id=$1, clase='lead' WHERE id=$2`, [emp.id, previo.id]);
   const apId = await aprobaciones.crear({
     agente, tipo: 'correo', empresa_id: emp?.id ?? previo?.empresa_id ?? null, ref: `correo:${id}`,
-    titulo: `ha preparado un correo para ${para}${emp ? ` (${emp.nombre})` : ''}`,
+    titulo: T`ha preparado un correo para ${para}${emp ? ` (${emp.nombre})` : ''}`,
     texto: `Para: ${para}\nAsunto: ${asu}${adjunto ? `\nAdjunto: ${adjunto.nombre}` : ''}\n\n${String(texto).trim()}\n\n${firma()}`,
     opciones: [{ r: 'enviar', t: '📧 Enviar' }, { r: 'fuera', t: 'Ya lo envié por otro lado' }, { r: 'cambios' }, { r: 'descartada', t: 'Descartar' }],
     importancia: previo ? 'alta' : null, motivo: previo ? 'Respuesta a un correo que nos han enviado' : null,
@@ -79,7 +80,7 @@ export async function acuse({ para, nombre, tipo, empresa_id = null }) {
   const info = await mandar(c, { to: para, subject: asunto, text: `${texto}\n\n${firma(c)}` });
   await q(`INSERT INTO correos (direccion, de, para, asunto, texto, empresa_id, message_id, enviado) VALUES ('salida',$1,$2,$3,$4,$5,$6, now())`,
     [c.direccion, limpiarDir(para), asunto, texto, empresa_id, info.messageId || null]);
-  await log('sistema', `ha enviado el acuse automático a ${para}: «${asunto}»`, { empresa_id });
+  await log('sistema', T`ha enviado el acuse automático a ${para}: «${asunto}»`, { empresa_id });
   return info.messageId;
 }
 
@@ -172,21 +173,21 @@ export async function borradorDeDocumento(id) {
 }
 export async function enviarDocumento(id, { para, asunto, texto, formato, cuenta } = {}) {
   const ap = await documentoDe(id);
-  if (!ap) throw new Error('Ese documento ya no existe.');
-  if (!activo()) throw new Error('No hay ninguna cuenta de correo conectada: añádela en Configuración › Conexiones.');
+  if (!ap) throw new Error(T('Ese documento ya no existe.'));
+  if (!activo()) throw new Error(T('No hay ninguna cuenta de correo conectada: añádela en Configuración › Conexiones.'));
   const dir = limpiarDir(para), asu = String(asunto || '').trim().slice(0, 200), cuerpo = String(texto || '').trim();
-  if (!dir || !asu || !cuerpo) throw new Error('El correo necesita dirección, asunto y texto.');
+  if (!dir || !asu || !cuerpo) throw new Error(T('El correo necesita dirección, asunto y texto.'));
   const fmt = formato === 'texto' ? 'texto' : 'diseno', cta = cuentas.elegir(cuenta)?.id;
   const nuevo = (await q(`INSERT INTO correos (direccion, de, para, asunto, texto, empresa_id, adjunto, formato, cuenta) VALUES ('borrador',$1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, [cuentas.elegir(cuenta).direccion, dir, asu, cuerpo, ap.empresa_id, id, fmt, cta])).rows[0].id;
   try { await enviarBorrador(nuevo); }
-  catch (e) { await q(`UPDATE correos SET direccion='descartado' WHERE id=$1`, [nuevo]); await log('sistema', `no ha podido enviar el PDF a ${dir}. ${e.message}`, { empresa_id: ap.empresa_id || undefined }); throw e; }
+  catch (e) { await q(`UPDATE correos SET direccion='descartado' WHERE id=$1`, [nuevo]); await log('sistema', T`no ha podido enviar el PDF a ${dir}. ${e.message}`, { empresa_id: ap.empresa_id || undefined }); throw e; }
 }
 export async function enviarDesdeTarjeta(id, { para, asunto, texto, formato, cuenta, cerrar = false } = {}) {
   const ap = (await q(`SELECT * FROM aprobaciones WHERE id=$1 AND estado='pendiente'`, [id])).rows[0];
-  if (!ap) throw new Error('Esa tarjeta ya no está en la mesa.');
-  if (!activo()) throw new Error('No hay ninguna cuenta de correo conectada: añádela en Configuración › Conexiones.');
+  if (!ap) throw new Error(T('Esa tarjeta ya no está en la mesa.'));
+  if (!activo()) throw new Error(T('No hay ninguna cuenta de correo conectada: añádela en Configuración › Conexiones.'));
   const dir = limpiarDir(para), asu = String(asunto || '').trim().slice(0, 200), cuerpo = String(texto || '').trim();
-  if (!dir || !asu || !cuerpo) throw new Error('El correo necesita dirección, asunto y texto.');
+  if (!dir || !asu || !cuerpo) throw new Error(T('El correo necesita dirección, asunto y texto.'));
   const fmt = formato === 'texto' ? 'texto' : 'diseno', cta = cuentas.elegir(cuenta)?.id;
   const [rt, rid] = String(ap.ref || '').split(':');
   if (rt === 'correo') {
@@ -198,7 +199,7 @@ export async function enviarDesdeTarjeta(id, { para, asunto, texto, formato, cue
   const adjunto = ap.tipo === 'propuesta' || ap.documento ? id : null;
   const nuevo = (await q(`INSERT INTO correos (direccion, de, para, asunto, texto, empresa_id, adjunto, formato, cuenta) VALUES ('borrador',$1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, [cuentas.elegir(cuenta).direccion, dir, asu, cuerpo, ap.empresa_id, adjunto, fmt, cta])).rows[0].id;
   try { await enviarBorrador(nuevo); }
-  catch (e) { await q(`UPDATE correos SET direccion='descartado' WHERE id=$1`, [nuevo]); await log('sistema', `no ha podido enviar el correo a ${dir}. ${e.message}`, { empresa_id: ap.empresa_id || undefined }); throw e; }
+  catch (e) { await q(`UPDATE correos SET direccion='descartado' WHERE id=$1`, [nuevo]); await log('sistema', T`no ha podido enviar el correo a ${dir}. ${e.message}`, { empresa_id: ap.empresa_id || undefined }); throw e; }
   // Ya ha salido: la tarjeta se va siempre. Si es un paso de una secuencia, esta sigue su curso
   // «Correo y cerrar»: se le escribe y no se insiste más
   const hecho = cerrar && ap.opciones?.some(o => o.r === 'descartada') ? 'descartada' : ap.opciones ? ap.opciones.find(o => ['hecho', 'aprobada'].includes(o.r))?.r : 'aprobada';
@@ -210,7 +211,7 @@ export async function enviarDesdeTarjeta(id, { para, asunto, texto, formato, cue
 
 /** Lo que estaba preparado antes para esta empresa ya no vale: se le acaba de escribir. */
 async function limpiarTrasEnviar(ap) {
-  if (ap.empresa_id) await (await import('./mesaViva.js')).ocurrio(ap.empresa_id, { que: 'tu correo', excepto: ap.id });
+  if (ap.empresa_id) await (await import('./mesaViva.js')).ocurrio(ap.empresa_id, { que: T('tu correo'), excepto: ap.id });
 }
 
 /** El PDF que acompaña a un correo: se genera al enviar, así lleva lo último de la tarjeta. */
@@ -222,11 +223,11 @@ export async function adjuntos(b) {
 
 export async function enviarBorrador(id) {
   const b = (await q(`SELECT * FROM correos WHERE id=$1 AND direccion='borrador'`, [id])).rows[0];
-  if (!b) throw new Error('Ese borrador ya no existe o ya se envió.');
+  if (!b) throw new Error(T('Ese borrador ya no existe o ya se envió.'));
   const emp = b.empresa_id ? await empresas.leer(b.empresa_id) : null;
-  if (!dirValida(limpiarDir(b.para))) throw new Error('La dirección no es válida.');
+  if (!dirValida(limpiarDir(b.para))) throw new Error(T('La dirección no es válida.'));
   const c = cuentas.elegir(b.cuenta);
-  if (!c) throw new Error('No hay ninguna cuenta de correo conectada: añádela en Configuración › Conexiones.');
+  if (!c) throw new Error(T('No hay ninguna cuenta de correo conectada: añádela en Configuración › Conexiones.'));
   const conDiseno = PRO.correoDiseno && b.formato !== 'texto', logoAdjunto = (await import('./documento.js')).logoBuffer();
   const info = await mandar(c, {
     to: b.para, subject: b.asunto, text: `${b.texto}\n\n${firma(c)}`,
@@ -236,7 +237,7 @@ export async function enviarBorrador(id) {
   });
   await q(`UPDATE correos SET direccion='salida', de=$3, message_id=$2, enviado=now() WHERE id=$1`, [id, info.messageId || null, c.direccion]);
   if (emp) await empresas.actualizar(emp.id, { ultimo_contacto: new Date().toISOString().slice(0, 10), estado: 'contactada' }, { desdeAgente: true });   // el estado solo avanza, nunca retrocede
-  await log('dueno', `ha enviado un correo a ${b.para}: «${b.asunto}»`, { empresa_id: b.empresa_id });
+  await log('dueno', T`ha enviado un correo a ${b.para}: «${b.asunto}»`, { empresa_id: b.empresa_id });
   return info.messageId;
 }
 
@@ -271,7 +272,7 @@ export async function procesarEntrante(m, cuenta = null) {
   // Avisos automáticos (no-reply, la centralita…): nadie los contesta; lo demás de un desconocido lo revisa Paula
   const automatico = /^(no-?reply|noreply|mailer-daemon|postmaster|notifica|notification|bounce|alert)/i.test(de) || /@zadarma\./i.test(de) || cab.has?.('auto-submitted') && cab.get('auto-submitted') !== 'no';
   const clase = emp ? 'lead' : esBoletin ? 'boletin' : automatico ? 'aviso' : 'otro';
-  if (emp) await (await import('./mesaViva.js')).ocurrio(emp.id, { cuando: new Date(), que: 'su correo' });
+  if (emp) await (await import('./mesaViva.js')).ocurrio(emp.id, { cuando: new Date(), que: T('su correo') });
   const r = await q(`INSERT INTO correos (direccion, de, para, asunto, texto, message_id, en_respuesta_a, empresa_id, clase, creada)
                      VALUES ('entrada',$1,$2,$3,$4,$5,$6,$7,$8,coalesce($9, now())) RETURNING id`,
     [de, config.correo.usuario, String(m.subject || '').slice(0, 300), texto, mid, m.inReplyTo || null, emp?.id ?? null, clase, m.date || null]);
@@ -279,12 +280,12 @@ export async function procesarEntrante(m, cuenta = null) {
   if (clase === 'lead') {
     if (['contactada', 'dossier', 'puntuada', 'nueva'].includes(emp.estado)) await empresas.actualizar(emp.id, { estado: 'conversacion' });
     await empresas.actualizar(emp.id, { ultimo_contacto: new Date().toISOString().slice(0, 10), proximo_paso: 'Contestar a su correo', fecha_proximo_paso: new Date().toISOString().slice(0, 10) });
-    await log('sistema', `📩 ${nombre} (${emp.nombre}) ha escrito por correo: «${String(m.subject || '').slice(0, 120)}»`, { empresa_id: emp.id });
+    await log('sistema', T`📩 ${nombre} (${emp.nombre}) ha escrito por correo: «${String(m.subject || '').slice(0, 120)}»`, { empresa_id: emp.id });
     await telegram.avisar(`📩 ${nombre} (${emp.nombre}) ha escrito por correo:\n«${String(m.subject || '')}»\n\n${texto.slice(0, 800)}${texto.length > 800 ? '…' : ''}\n\nPaula te prepara la respuesta.`);
     await tareas.crear('paula', `${nombre} <${de}> (${emp.nombre}) nos ha escrito por correo.\nAsunto: «${m.subject || ''}»\n\n${texto.slice(0, 6000)}\n\n` +
       `Clasifícalo, actualiza la empresa y prepara la respuesta con preparar_correo (en_respuesta_a: ${id}). Si no hay que contestar por correo, dilo con anotar.`, { empresa_id: emp.id, origen: 'sistema' });
   } else if (clase === 'otro') {   // alguien que no tenemos: puede ser un cliente nuevo, así que Paula lo mira
-    await log('sistema', `ha llegado un correo de ${nombre}: «${String(m.subject || '').slice(0, 120)}» (no es de ninguna empresa nuestra; lo revisa Paula)`);
+    await log('sistema', T`ha llegado un correo de ${nombre}: «${String(m.subject || '').slice(0, 120)}» (no es de ninguna empresa nuestra; lo revisa Paula)`);
     await tareas.crear('paula', `Ha llegado un correo de alguien que no tenemos en la oficina: ${nombre} <${de}>.\nAsunto: «${m.subject || ''}»\n\n${texto.slice(0, 6000)}\n\n` +
       `Decide qué es. Si es un posible cliente o alguien que nos pide algo: créalo con guardar_empresas (origen «otro», con su correo) y prepara la respuesta con preparar_correo (en_respuesta_a: ${id}, empresa_id: el de la empresa creada). ` +
       `Si es publicidad, spam, un aviso o no pide nada: déjalo dicho con anotar en una línea y no hagas nada más.`, { origen: 'sistema' });

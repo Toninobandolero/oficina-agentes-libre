@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import { ajuste, fijarAjuste } from './db.js';
 import { config } from './config.js';
 import { log } from './bus.js';
+import { T } from './en.js';
 
 const clave = () => crypto.createHash('sha256').update('acp-ia:' + config.claveCifrado).digest();
 export function cifrar(t) {
@@ -63,9 +64,9 @@ async function probar(cual, k) {
     r = cual === 'anthropic'
       ? await fetch(`${config.anthropicUrl}/v1/models?limit=1`, { headers: { 'x-api-key': k, 'anthropic-version': '2023-06-01' }, signal: AbortSignal.timeout(15000) })
       : await fetch(`${config.openrouterUrl}/key`, { headers: { Authorization: `Bearer ${k}` }, signal: AbortSignal.timeout(15000) });
-  } catch (e) { throw new Error(`No se ha podido comprobar la clave (${e.message}). Inténtalo otra vez en un rato.`); }
-  if (r.status === 401 || r.status === 403) throw new Error(`${NOMBRE[cual]} no acepta esa clave. Cópiala entera otra vez.`);
-  if (!r.ok) throw new Error(`${NOMBRE[cual]} respondió ${r.status} al comprobar la clave. Inténtalo otra vez en un rato.`);
+  } catch (e) { throw new Error(T`No se ha podido comprobar la clave (${e.message}). Inténtalo otra vez en un rato.`); }
+  if (r.status === 401 || r.status === 403) throw new Error(T`${NOMBRE[cual]} no acepta esa clave. Cópiala entera otra vez.`);
+  if (!r.ok) throw new Error(T`${NOMBRE[cual]} respondió ${r.status} al comprobar la clave. Inténtalo otra vez en un rato.`);
 }
 
 const FORMATO = { anthropic: /^sk-ant-[A-Za-z0-9_-]{20,}$/, openrouter: /^sk-or-[A-Za-z0-9_-]{20,}$/ };
@@ -76,10 +77,10 @@ export const limpiarClave = k => String(k ?? '').replace(/^\s*(export\s+)?[A-Z_]
 /** Por qué no encaja, sin enseñar la clave: el principio que tiene, cuánto mide y qué signos raros lleva. */
 export function porQue(cual, k) {
   const pre = cual === 'anthropic' ? 'sk-ant-' : 'sk-or-';
-  if (!k.startsWith(pre)) return `empieza por «${k.slice(0, Math.min(7, k.length))}…» y debería empezar por «${pre}»`;
-  const raros = [...new Set(k.slice(pre.length).replace(/[A-Za-z0-9_-]/g, ''))].map(c => c === ' ' ? 'espacio' : `«${c}» (U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')})`);
-  if (raros.length) return `lleva signos que no son de una clave: ${raros.slice(0, 5).join(', ')}`;
-  return `es demasiado corta: ${k.length} caracteres`;
+  if (!k.startsWith(pre)) return T`empieza por «${k.slice(0, Math.min(7, k.length))}…» y debería empezar por «${pre}»`;
+  const raros = [...new Set(k.slice(pre.length).replace(/[A-Za-z0-9_-]/g, ''))].map(c => c === ' ' ? T('espacio') : `«${c}» (U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')})`);
+  if (raros.length) return T`lleva signos que no son de una clave: ${raros.slice(0, 5).join(', ')}`;
+  return T`es demasiado corta: ${k.length} caracteres`;
 }
 const ABREVIADA = /[.…•*]/;   // la lista de claves de Anthropic solo enseña el principio y el final: sk-ant-api03-…AbCd
 const AYUDA = { anthropic: 'cópiala entera desde platform.claude.com → API keys (empieza por sk-ant-)', openrouter: 'cópiala entera desde openrouter.ai → Keys (empieza por sk-or-)' };
@@ -93,36 +94,36 @@ export async function guardar(d = {}) {
   for (const cual of PROVEEDORES) {
     const k = limpiarClave(d[cual]);
     if (!k) continue;
-    if (ABREVIADA.test(k)) throw new Error(`Esa es la clave abreviada que se ve en la lista. La completa solo se enseña una vez, al crearla: crea una nueva en ${cual === 'anthropic' ? 'platform.claude.com → API keys' : 'openrouter.ai → Keys'} y cópiala entera en ese momento.`);
-    if (!FORMATO[cual].test(k)) throw new Error(`La clave de ${NOMBRE[cual]} no parece válida (${porQue(cual, k)}): ${AYUDA[cual]}.`);
+    if (ABREVIADA.test(k)) throw new Error(T`Esa es la clave abreviada que se ve en la lista. La completa solo se enseña una vez, al crearla: crea una nueva en ${cual === 'anthropic' ? 'platform.claude.com → API keys' : 'openrouter.ai → Keys'} y cópiala entera en ese momento.`);
+    if (!FORMATO[cual].test(k)) throw new Error(T`La clave de ${NOMBRE[cual]} no parece válida (${porQue(cual, k)}): ${T(AYUDA[cual])}.`);
     await probar(cual, k);
     panel[cual] = k;
-    cambios.push(`la clave de ${NOMBRE[cual]}`);
+    cambios.push(T`la clave de ${NOMBRE[cual]}`);
   }
   if (d.proveedor !== undefined && d.proveedor !== null && d.proveedor !== '') {
-    if (!PROVEEDORES.includes(d.proveedor)) throw new Error('Elige Claude u OpenRouter.');
-    if (d.proveedor !== panel.proveedor) cambios.push(`que trabajen con ${NOMBRE[d.proveedor]}`);
+    if (!PROVEEDORES.includes(d.proveedor)) throw new Error(T('Elige Claude u OpenRouter.'));
+    if (d.proveedor !== panel.proveedor) cambios.push(T`que trabajen con ${NOMBRE[d.proveedor]}`);
     panel.proveedor = d.proveedor;
   }
   if (typeof d.respaldo === 'boolean') {
-    if (d.respaldo !== config.respaldoOpenrouter) cambios.push(d.respaldo ? 'OpenRouter como respaldo si se acaba el crédito de Claude' : 'sin respaldo de OpenRouter');
+    if (d.respaldo !== config.respaldoOpenrouter) cambios.push(d.respaldo ? T('OpenRouter como respaldo si se acaba el crédito de Claude') : T('sin respaldo de OpenRouter'));
     panel.respaldo = d.respaldo;
   }
   const elegido = panel.proveedor || env.proveedor || null;
   const tiene = cual => Boolean(panel[cual] || env[cual]);
-  if (elegido && !tiene(elegido)) throw new Error(`Para usar ${NOMBRE[elegido]} pega primero su clave.`);
+  if (elegido && !tiene(elegido)) throw new Error(T`Para usar ${NOMBRE[elegido]} pega primero su clave.`);
   await guardarPanel();
-  if (cambios.length) await log('dueno', `ha configurado la IA de la oficina: ${cambios.join(' y ')}.`);
+  if (cambios.length) await log('dueno', T`ha configurado la IA de la oficina: ${cambios.join(T(' y '))}.`);
   return estado();
 }
 
 /** Quita la clave guardada en el panel de «anthropic» u «openrouter» (si había una en .env, se vuelve a usar esa). */
 export async function quitar(cual) {
-  if (!PROVEEDORES.includes(cual)) throw new Error('No sé qué clave quitar.');
+  if (!PROVEEDORES.includes(cual)) throw new Error(T('No sé qué clave quitar.'));
   panel[cual] = null;
   if (panel.proveedor === cual) panel.proveedor = null;
   await guardarPanel();
-  await log('dueno', `ha quitado la clave de ${NOMBRE[cual]} de la oficina.`);
+  await log('dueno', T`ha quitado la clave de ${NOMBRE[cual]} de la oficina.`);
   return estado();
 }
 

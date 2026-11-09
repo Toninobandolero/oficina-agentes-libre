@@ -12,6 +12,7 @@ import { AGENTES, IDS } from './agentes.js';
 import * as departamentos from './departamentos.js';
 import { idPorNombre } from './plantilla.js';
 import * as tareas from './tareas.js';
+import { T } from './en.js';
 
 export const CANALES = [
   { id: 'general', nombre: 'general', desc: 'Tú y el equipo. Te contesta Máximo; escribe «@Mateo …» para hablar con alguien delante de todos.' },
@@ -55,7 +56,7 @@ async function escribiendo(canal) {
 
 /** Mensajes de un canal (los últimos, o los anteriores a «antes»). En #café solo lo que ya ha pasado. */
 export async function historial(canal, { antes = null, limite = 60 } = {}) {
-  if (!esCanal(canal)) throw new Error('Ese canal no existe.');
+  if (!esCanal(canal)) throw new Error(T('Ese canal no existe.'));
   const n = Math.min(Math.max(Number(limite) || 60, 1), 200);
   if (canal === 'actividad') {
     const ev = await q(`SELECT id, ts, datos FROM eventos WHERE datos->>'tipo'='log' AND ($1::bigint IS NULL OR id < $1) ORDER BY id DESC LIMIT $2`, [antes ? Number(antes) : null, n + 1]);
@@ -112,11 +113,11 @@ export async function empresaDeLaConversacion(canal, texto) {
 /** Lo que escribes tú en el chat del panel. */
 export async function deDueno(canal, texto) {
   texto = String(texto ?? '').trim();
-  if (!texto) throw new Error('Escribe algo.');
+  if (!texto) throw new Error(T('Escribe algo.'));
   texto = recortar(texto, 4000);
   const c = CANALES.find(x => x.id === canal);
-  if (!c && !IDS.includes(canal)) throw new Error('Ese canal no existe.');
-  if (c?.soloLectura) throw new Error(`En #${c.nombre} escriben ellos solos. Escríbeles en #general o por privado.`);
+  if (!c && !IDS.includes(canal)) throw new Error(T('Ese canal no existe.'));
+  if (c?.soloLectura) throw new Error(T`En #${c.nombre} escriben ellos solos. Escríbeles en #general o por privado.`);
   if (esTeclazo(texto)) return escribir({ canal, autor: 'dueno', para: IDS.includes(canal) ? canal : 'rafa', texto, via: 'panel' });
   const empresa_id = await empresaDeLaConversacion(canal, texto);
   if (IDS.includes(canal)) {

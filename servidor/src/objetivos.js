@@ -9,6 +9,7 @@ import { AGENTES, IDS } from './agentes.js';
 import * as departamentos from './departamentos.js';
 import * as tareas from './tareas.js';
 import * as presupuesto from './presupuesto.js';
+import { T, enIngles } from './en.js';
 
 const recortar = (s, n) => (String(s || '').length > n ? String(s).slice(0, n - 1) + '…' : String(s || ''));
 const nombre = id => AGENTES[id]?.nombre || id;
@@ -23,7 +24,7 @@ async function avisarCambio(id) { const o = await detalle(id).catch(() => null);
 /** Dirección plantea un objetivo: Máximo prepara el plan. */
 export async function crear(texto, { via = 'panel' } = {}) {
   texto = recortar(String(texto || '').trim(), 1500);
-  if (texto.length < 8) throw new Error('Cuéntale a Máximo el objetivo en una frase (qué quieres conseguir y para cuándo).');
+  if (texto.length < 8) throw new Error(T('Cuéntale a Máximo el objetivo en una frase (qué quieres conseguir y para cuándo).'));
   const o = (await q(`INSERT INTO objetivos (texto) VALUES ($1) RETURNING *`, [texto])).rows[0];
   await (await chat()).escribir({ canal: 'general', autor: 'dueno', para: 'rafa', texto: `🎯 Objetivo: ${texto}`, via });
   await tareas.crear('rafa', `Dirección plantea un OBJETIVO (nº ${o.id}): «${texto}»
@@ -36,7 +37,7 @@ Prepara el plan para conseguirlo con el equipo y entrégaselo con proponer_plan 
 - Di cómo sabremos que se ha conseguido (medida).
 - Si el objetivo no está claro del todo, propón el plan más razonable y di en el resumen qué has supuesto.
 No uses enviar_informe: el plan le llega a Dirección a su mesa y al chat.`, { origen: 'dueno', objetivo_id: o.id });
-  await log('dueno', `plantea un objetivo: «${recortar(texto, 140)}». Máximo prepara el plan.`);
+  await log('dueno', T`plantea un objetivo: «${recortar(texto, 140)}». Máximo prepara el plan.`);
   await avisarCambio(o.id);
   return detalle(o.id);
 }
@@ -65,7 +66,7 @@ export async function proponer({ objetivo_id, resumen, medida, pasos }) {
   const aprobaciones = await import('./aprobaciones.js');
   // Si había un plan anterior (Dirección pidió cambios), su tarjeta ya no vale
   await aprobaciones.sustituir(`plan:${o.id}`);
-  const apId = await aprobaciones.crear({ agente: 'rafa', tipo: 'otro', titulo: `propone un plan para «${recortar(o.texto, 70)}»: ${plan.length} pasos, ≈ ${total.toFixed(2).replace('.', ',')} €`, texto: md,
+  const apId = await aprobaciones.crear({ agente: 'rafa', tipo: 'otro', titulo: T`propone un plan para «${recortar(o.texto, 70)}»: ${plan.length} pasos, ≈ ${enIngles() ? total.toFixed(2) : total.toFixed(2).replace('.', ',')} €`, texto: md,
     ref: `plan:${o.id}`, importancia: 'alta', motivo: 'Plan para un objetivo tuyo',
     opciones: [{ r: 'aprobada', t: '✅ Adelante con el plan' }, { r: 'cambios', t: '✏️ Pedir cambios' }, { r: 'descartada', t: '🗑 Descartar' }] });
   await q(`UPDATE objetivos SET aprobacion_id=$2 WHERE id=$1`, [o.id, apId]);
@@ -106,7 +107,7 @@ export async function lanzar(id) {
   for (const i of iniciales) await arrancarPaso(o, i);
   await guardarPlan(o);
   await (await chat()).escribir({ canal: 'general', autor: 'rafa', texto: `🎯 ¡Arrancamos con «${recortar(o.texto, 120)}»! Empiezan ${iniciales.map(i => nombre(o.plan[i].agente)).join(' y ')}; el resto, en cuanto les toque. Os lo dejo en #trabajo paso a paso.` });
-  await log('rafa', `arranca el plan del objetivo «${recortar(o.texto, 100)}» (${o.plan.length} pasos).`);
+  await log('rafa', T`arranca el plan del objetivo «${recortar(o.texto, 100)}» (${o.plan.length} pasos).`);
   await avisarCambio(id);
 }
 
@@ -141,7 +142,7 @@ Escríbele a Dirección en #general un resumen corto (4–6 frases): qué se ha 
 /** Dirección lo para: lo que no ha empezado se cancela (lo que ya está en marcha termina). */
 export async function detener(id) {
   const o = await leer(id);
-  if (!o) throw new Error('No existe ese objetivo.');
+  if (!o) throw new Error(T('No existe ese objetivo.'));
   if (['hecho', 'descartado', 'detenido'].includes(o.estado)) return detalle(id);
   for (const p of o.plan || []) if (p.estado === 'pendiente') p.estado = 'cancelado';
   await q(`UPDATE tareas SET estado='error', resultado='Cancelada: Dirección ha detenido el objetivo', terminada=now() WHERE objetivo_id=$1 AND estado='pendiente'`, [id]);

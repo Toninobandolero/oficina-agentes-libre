@@ -5,6 +5,7 @@
 import crypto from 'node:crypto';
 import { ajuste, fijarAjuste } from './db.js';
 import { config } from './config.js';
+import { T } from './en.js';
 
 const V = 'v21.0';
 const GRAPH = `https://graph.facebook.com/${V}`;
@@ -35,8 +36,8 @@ export async function cargarApp() {
 /** Dirección pega el App ID y la clave secreta de su app de Meta. */
 export async function guardarApp({ appId, appSecret }) {
   const id = String(appId || '').trim(), sec = String(appSecret || '').trim();
-  if (!/^\d{8,20}$/.test(id)) throw new Error('El identificador de la app son solo números (lo ves arriba en developers.facebook.com).');
-  if (!/^[a-f0-9]{32}$/i.test(sec)) throw new Error('La clave secreta tiene 32 letras y números. Pulsa «Mostrar» en Configuración › Básica y cópiala entera.');
+  if (!/^\d{8,20}$/.test(id)) throw new Error(T('El identificador de la app son solo números (lo ves arriba en developers.facebook.com).'));
+  if (!/^[a-f0-9]{32}$/i.test(sec)) throw new Error(T('La clave secreta tiene 32 letras y números. Pulsa «Mostrar» en Configuración › Básica y cópiala entera.'));
   await fijarAjuste('facebook_app', { id, secreto: cifrar(sec) });
   app.id = id; app.secreto = sec;
   return estado();
@@ -54,7 +55,7 @@ export async function estado() {
 }
 
 export function urlConexion() {
-  if (!configurado()) throw new Error('Falta pegar el App ID y la clave secreta de la app de Meta en el panel (Tu mesa).');
+  if (!configurado()) throw new Error(T('Falta pegar el App ID y la clave secreta de la app de Meta en el panel (Tu mesa).'));
   const st = crypto.randomBytes(16).toString('hex');
   estados.set(st, Date.now() + 15 * 60_000);
   const p = new URLSearchParams({ client_id: app.id, redirect_uri: redireccion(), state: st, response_type: 'code' });
@@ -72,9 +73,9 @@ async function get(ruta, params) {
 
 /** Vuelta de Facebook: cambia el código por un token largo y se queda con el de la página de la empresa. */
 export async function vuelta({ code, state, error_description, error_message }) {
-  if (error_description || error_message) throw new Error(`Facebook ha devuelto: ${error_description || error_message}`);
+  if (error_description || error_message) throw new Error(T`Facebook ha devuelto: ${error_description || error_message}`);
   const cad = estados.get(state); estados.delete(state);
-  if (!cad || cad < Date.now()) throw new Error('El enlace de conexión ha caducado. Vuelve a pulsar «Conectar Facebook».');
+  if (!cad || cad < Date.now()) throw new Error(T('El enlace de conexión ha caducado. Vuelve a pulsar «Conectar Facebook».'));
   const corto = await get('/oauth/access_token', { client_id: app.id, client_secret: app.secreto, redirect_uri: redireccion(), code });
   const largo = await get('/oauth/access_token', { grant_type: 'fb_exchange_token', client_id: app.id, client_secret: app.secreto, fb_exchange_token: corto.access_token });
   const cuentas = await get('/me/accounts', { access_token: largo.access_token, fields: 'id,name,access_token,instagram_business_account{id,username}' });
@@ -89,7 +90,7 @@ export async function vuelta({ code, state, error_description, error_message }) 
     }
     if (!paginas.length) console.error('Facebook (vuelta): sin páginas; permisos:', JSON.stringify(dbg.data?.granular_scopes || dbg.data?.scopes || dbg));
   }
-  if (!paginas.length) throw new Error('No he visto ninguna página. Al conectar, marca la página de la empresa.');
+  if (!paginas.length) throw new Error(T('No he visto ninguna página. Al conectar, marca la página de la empresa.'));
   const p = paginas.find(x => /c[oó]digo\s*abierto/i.test(x.name)) || paginas[0];
   await fijarAjuste('facebook', { pagina: p.id, nombre: p.name, token: cifrar(p.access_token),
     instagram: p.instagram_business_account?.id || null, instagram_usuario: p.instagram_business_account?.username || null, conectado: new Date().toISOString() });
@@ -101,7 +102,7 @@ export async function desconectar() { await fijarAjuste('facebook', null); }
 /** Publica un texto en la página. Devuelve la URL del post. */
 export async function publicar(texto, imagen = null) {
   const g = await ajuste('facebook', null);
-  if (!g) throw new Error('Facebook no está conectado. Conéctalo desde el panel (Tu mesa).');
+  if (!g) throw new Error(T('Facebook no está conectado. Conéctalo desde el panel (Tu mesa).'));
   if (process.env.FACEBOOK_SIMULADO) return { id: 'simulado', url: 'https://www.facebook.com/simulado' };
   let r;
   if (imagen?.png) {
@@ -114,8 +115,8 @@ export async function publicar(texto, imagen = null) {
     body: new URLSearchParams({ message: String(texto).slice(0, 60000), access_token: descifrar(g.token) }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || j.error) {
-    if (j.error?.code === 190) throw new Error('Facebook ha retirado el permiso. Vuelve a conectarlo desde el panel.');
-    throw new Error(`Facebook no ha publicado el post: ${j.error?.message || r.status}`);
+    if (j.error?.code === 190) throw new Error(T('Facebook ha retirado el permiso. Vuelve a conectarlo desde el panel.'));
+    throw new Error(T`Facebook no ha publicado el post: ${j.error?.message || r.status}`);
   }
   const pid = j.post_id || j.id;
   const [pag, post] = String(pid || '').split('_');

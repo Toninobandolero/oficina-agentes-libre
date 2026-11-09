@@ -18,6 +18,7 @@ import * as linkedin from './linkedin.js';
 import * as facebook from './facebook.js';
 import * as disenio from './disenio.js';
 import * as video from './video.js';
+import { T, LOCALE } from './en.js';
 const RED = { linkedin: 'LinkedIn', facebook: 'Facebook' };
 const publicador = canal => canal === 'facebook' ? facebook : linkedin;
 
@@ -142,11 +143,15 @@ export async function crear({ agente, tipo, titulo, texto, empresa_id = null, re
   if (tipo === 'propuesta' && emp) for (const v of (await q(`UPDATE aprobaciones SET estado='sustituida', resuelta=now() WHERE empresa_id=$1 AND tipo='propuesta' AND estado='pendiente' AND id<>$2 RETURNING id, telegram_msg_id`, [emp.id, id])).rows) {
     await emitir({ tipo: 'aprobacion_resuelta', id: v.id, resultado: 'sustituida' });
   }
+  // El mismo post (misma red, mismo día, mismo título) preparado otra vez: en la mesa, solo el último
+  if (tipo === 'post') for (const v of (await q(`UPDATE aprobaciones SET estado='sustituida', resuelta=now() WHERE tipo='post' AND estado='pendiente' AND id<>$1 AND canal IS NOT DISTINCT FROM $2 AND fecha_prevista IS NOT DISTINCT FROM $3 AND titulo=$4 RETURNING id`, [id, canal, prevista, titulo])).rows) {
+    await emitir({ tipo: 'aprobacion_resuelta', id: v.id, resultado: 'sustituida' });
+  }
   const doc_empresa = emp ? (await q(`SELECT id FROM aprobaciones WHERE empresa_id=$1 AND tipo='propuesta' AND estado NOT IN ('sustituida','superada') ORDER BY creada DESC LIMIT 1`, [emp.id])).rows[0]?.id ?? null : null;
   const prio = prioridadDe({ prioridad: b.nivel, prioridad_motivo: b.motivo, caduca: cad, creada: fila.creada, fecha_prevista: prevista });
   await emitir({ tipo: 'traspaso', de: agente, a: 'dueno', carga: true });
   await emitir({ tipo: 'aprobacion', id, agente, clase: tipo, doc_empresa, ref_tipo: String(ref || '').split(':')[0], categoria: emp?.categoria ?? null, puntuacion: emp?.puntuacion ?? null, empresa: emp?.nombre ?? null, linkedin_url: emp?.linkedin_url ?? null, linkedin_empresa: emp?.linkedin_empresa ?? null, decisor: emp?.decisor ?? null, telefono: emp?.telefono ?? null, empresa_id: emp?.id ?? null, perfil_url: perfil, buscar: buscar || null, titulo, texto, opciones, creada: fila.creada, prio, prioridad: b.nivel, prioridad_motivo: b.motivo, caduca: cad, canal, fecha_prevista: prevista, imagen: conImagen, video: tipo === 'video' ? video.ficha(texto) : undefined });
-  await log(agente, `${titulo.replace(/\.$/, '')}. Está en tu mesa.`, { empresa_id: emp?.id, aprobacion_id: id });
+  await log(agente, T`${titulo.replace(/\.$/, '')}. Está en tu mesa.`, { empresa_id: emp?.id, aprobacion_id: id });
   if (emp) await telegramDeEmpresa(emp.id);
   else if (prio.nivel <= 2) {
     const msgId = await telegram.enviarAprobacion({ id, tipo, titulo, texto, opciones, prio, canal, fecha_prevista: prevista, auto }, { nombreAgente: AGENTES[agente]?.nombre ?? agente });
@@ -193,7 +198,7 @@ alResolverTarjeta(async ({ id, resultado }) => {
   if (PRO.voz && a.tipo === 'lola' && resultado === 'aprobada') {   // lo aprobado para Lola se le aplica solo, sin copiar nada a mano
     const texto = String(a.texto || '').split(/\n\s*\n/).filter(p => !/no se env[ií]an?/i.test(p.split('\n')[0])).join('\n\n').trim();
     const fallo = await (await import('./elevenlabs.js')).aplicarCaso({ titulo: String(a.titulo).replace(/^.*?:\s*/, '').slice(0, 120), texto });
-    if (fallo) await crear({ agente: 'rafa', tipo: 'otro', titulo: 'no ha podido cambiar a Lola todavía', texto: `${fallo}\n\nLo que aprobaste está guardado y se le aplica solo en cuanto se pueda.`, importancia: 'alta' });
+    if (fallo) await crear({ agente: 'rafa', tipo: 'otro', titulo: T('no ha podido cambiar a Lola todavía'), texto: T`${fallo}\n\nLo que aprobaste está guardado y se le aplica solo en cuanto se pueda.`, importancia: 'alta' });
   }
   if (['superada', 'sustituida'].includes(resultado) && a.telegram_msg_id) {
     await telegram.retirar(a.telegram_msg_id);
@@ -247,7 +252,7 @@ export async function priorizar(id, nivel, motivo) {
 /** Opción elegida que necesita que escribas algo (p. ej. qué te ha respondido). */
 export const PIDE_TEXTO = new Set(['respondido', 'responder']);
 
-export const textoCuando = d => new Date(d).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+export const textoCuando = d => new Date(d).toLocaleString(LOCALE(), { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
 
 export async function resolver(id, resultado, texto = '') {
   const previa = (await q(`SELECT * FROM aprobaciones WHERE id=$1`, [id])).rows[0];
@@ -258,7 +263,7 @@ export async function resolver(id, resultado, texto = '') {
     return { ...previa, generando: true };
   }
   const validas = previa.opciones ? previa.opciones.map(o => o.r).filter(r => r !== 'cambios') : ['aprobada', 'descartada'];
-  if (!validas.includes(resultado)) throw new Error('Resultado no válido');
+  if (!validas.includes(resultado)) throw new Error(T('Resultado no válido'));
   if (PIDE_TEXTO.has(resultado) && !String(texto).trim()) return { pideTexto: true, ...previa };
   // Correo: primero se envía; si falla, sigue en la mesa y Dirección ve el motivo
   const [rt, rid] = String(previa.ref || '').split(':');
@@ -273,22 +278,22 @@ export async function resolver(id, resultado, texto = '') {
   if (resultado === 'programar') {
     const [cuando, extra] = String(texto || '').split('|');
     programadaPara = cuando ? deMadrid(cuando) : deMadrid((await sugerencia(previa.canal, { fecha_prevista: previa.fecha_prevista, excluir: id })).cuando);
-    if (!programadaPara) throw new Error('La fecha no es válida.');
-    if (programadaPara < new Date(Date.now() + 2 * 60_000)) throw new Error('Elige una hora que aún no haya pasado (al menos dentro de unos minutos).');
+    if (!programadaPara) throw new Error(T('La fecha no es válida.'));
+    if (programadaPara < new Date(Date.now() + 2 * 60_000)) throw new Error(T('Elige una hora que aún no haya pasado (al menos dentro de unos minutos).'));
     const red = previa.canal === 'facebook' ? 'facebook' : 'linkedin';
-    if (!(await publicador(red).estado()).conectado) throw new Error(`${RED[red]} no está conectado: conéctalo desde «Tu mesa».`);
+    if (!(await publicador(red).estado()).conectado) throw new Error(T`${RED[red]} no está conectado: conéctalo desde «Tu mesa».`);
     const fecha = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(programadaPara);
     await q(`UPDATE aprobaciones SET publicar_en=$2, fecha_prevista=$3, tambien=$4 WHERE id=$1`, [id, programadaPara, fecha, extra === 'ambas' && red === 'linkedin' ? 'facebook' : null]);
     estadoFinal = 'programada';
   }
   if (resultado === 'publicar' || resultado === 'publicar_ambas') {
     const redes = [previa.canal === 'facebook' ? 'facebook' : 'linkedin', ...(resultado === 'publicar_ambas' ? ['facebook'] : [])];
-    for (const red of redes) if (!(await publicador(red).estado()).conectado) throw new Error(`${RED[red]} no está conectado: conéctalo desde «Tu mesa».`);
+    for (const red of redes) if (!(await publicador(red).estado()).conectado) throw new Error(T`${RED[red]} no está conectado: conéctalo desde «Tu mesa».`);
     const img = await imagenDe(id);
     const enlaces = [];
     for (const red of redes) enlaces.push((await publicador(red).publicar(linkedin.textoDelPost(previa.texto), img)).url);
     enlace = enlaces[0]; estadoFinal = 'publicada';
-    if (enlaces[1]) await log('dueno', `ha publicado también en Facebook: ${previa.titulo}`, { aprobacion_id: id, url: enlaces[1] });
+    if (enlaces[1]) await log('dueno', T`ha publicado también en Facebook: ${previa.titulo}`, { aprobacion_id: id, url: enlaces[1] });
   }
   const r = await q(`UPDATE aprobaciones SET estado=$2, resuelta=now(), enlace=coalesce($3, enlace) WHERE id=$1 AND estado='pendiente' RETURNING *`, [id, estadoFinal, enlace]);
   const ap = r.rows[0];
@@ -313,7 +318,7 @@ export async function resolver(id, resultado, texto = '') {
     if (resultado === 'descartada') await tareas.crear(ap.agente, `Dirección dice que dejes lo que te tenía atascado («${ap.titulo.replace(/^está atascado y te necesita: /, '')}») y sigas con otra cosa.`, { origen: 'dueno', tipo: 'pregunta' });
     await atascos.resolver(ap.agente, resultado === 'responder' ? `Dirección: ${String(texto).trim().slice(0, 200)}` : resultado);
     await estado(ap.agente, 'inactivo', 'Esperando trabajo', 'zz');
-    await log('dueno', resultado === 'responder' ? `le ha contestado a ${AGENTES[ap.agente]?.nombre ?? ap.agente} lo que necesitaba.` : `ha desatascado a ${AGENTES[ap.agente]?.nombre ?? ap.agente}.`);
+    await log('dueno', resultado === 'responder' ? T`le ha contestado a ${AGENTES[ap.agente]?.nombre ?? ap.agente} lo que necesitaba.` : T`ha desatascado a ${AGENTES[ap.agente]?.nombre ?? ap.agente}.`);
     return ap;
   }
   if (refTipo === 'sec') {
@@ -326,35 +331,35 @@ export async function resolver(id, resultado, texto = '') {
     if (ap.empresa_id) await secuencias.emitirCambio(ap.empresa_id);
   }
   const emp = ap.empresa_id ? await empresas.leer(ap.empresa_id) : null;
-  const de = emp ? ` para ${emp.nombre}` : '';
+  const de = emp ? T` para ${emp.nombre}` : '';
 
   if (estadoFinal === 'programada') {
-    await log('dueno', `ha programado en ${RED[ap.canal] || 'LinkedIn'}${ap.tambien === 'facebook' ? ' y Facebook' : ''} para el ${textoCuando(ap.publicar_en || cuandoPorDefecto(ap.fecha_prevista))}: ${ap.titulo}`, { aprobacion_id: ap.id });
+    await log('dueno', T`ha programado en ${RED[ap.canal] || 'LinkedIn'}${ap.tambien === 'facebook' ? T(' y Facebook') : ''} para el ${textoCuando(ap.publicar_en || cuandoPorDefecto(ap.fecha_prevista))}: ${ap.titulo}`, { aprobacion_id: ap.id });
     await emitir({ tipo: 'calendario' });
   } else if (resultado === 'aprobada' || resultado === 'publicar' || resultado === 'publicar_ambas') {
     if (ap.tipo === 'mensaje' && emp && refTipo === 'sec') {
-      await log('dueno', `ha enviado la solicitud de conexión${de}. En 3 días Paula le pregunta si ha aceptado; entonces Javi escribe el mensaje 1.`);
+      await log('dueno', T`ha enviado la solicitud de conexión${de}. En 3 días Paula le pregunta si ha aceptado; entonces Javi escribe el mensaje 1.`);
     } else if (ap.tipo === 'mensaje' && emp) {
       await empresas.actualizar(emp.id, { estado: 'contactada', ultimo_contacto: sumarDias(0), proximo_paso: 'Seguimiento 1', fecha_proximo_paso: laborable(sumarDias(5)) });
-      await log('dueno', `ha enviado el mensaje${de}. Seguimiento programado en 5 días.`);
+      await log('dueno', T`ha enviado el mensaje${de}. Seguimiento programado en 5 días.`);
     } else if (CONTENIDO.has(ap.tipo)) {
       await memoria.publicar({ aprobacion_id: ap.id, agente: ap.agente, titulo: ap.titulo, texto: ap.texto, canal: ap.canal || 'linkedin', formato: ap.tipo, enlace });
-      const QUE = { post: enlace ? `ha publicado en ${RED[ap.canal] || 'LinkedIn'}` : 'ha publicado', video: 'ha publicado el vídeo', articulo: 'ha aprobado el artículo', boletin: 'ha aprobado el boletín', anuncio: 'ha aprobado el anuncio' };
-      await log('dueno', `${QUE[ap.tipo]}: ${ap.titulo}. ${AGENTES[ap.agente]?.nombre ?? ap.agente} lo tendrá en cuenta para no repetirse.`, { aprobacion_id: ap.id, url: enlace });
+      const QUE = { post: enlace ? T`ha publicado en ${RED[ap.canal] || 'LinkedIn'}` : T('ha publicado'), video: T('ha publicado el vídeo'), articulo: T('ha aprobado el artículo'), boletin: T('ha aprobado el boletín'), anuncio: T('ha aprobado el anuncio') };
+      await log('dueno', T`${QUE[ap.tipo]}: ${ap.titulo}. ${AGENTES[ap.agente]?.nombre ?? ap.agente} lo tendrá en cuenta para no repetirse.`, { aprobacion_id: ap.id, url: enlace });
     } else if (ap.tipo === 'regla' && ap.ref) {
       const rg = await aprendizajes.activar(Number(ap.ref));
-      await log('dueno', `ha aprobado la regla${rg?.agente ? ' para ' + (AGENTES[rg.agente]?.nombre ?? rg.agente) : ''}: «${rg?.texto ?? ap.texto}»`);
+      await log('dueno', T`ha aprobado la regla${rg?.agente ? T(' para ') + (AGENTES[rg.agente]?.nombre ?? rg.agente) : ''}: «${rg?.texto ?? ap.texto}»`);
     } else if (ap.tipo === 'propuesta' && emp) {
       await empresas.actualizar(emp.id, { estado: 'propuesta', proximo_paso: 'Seguimiento de la propuesta', fecha_proximo_paso: laborable(sumarDias(5)) });
-      await log('dueno', `ha aprobado la propuesta${de}.`);
+      await log('dueno', T`ha aprobado la propuesta${de}.`);
     } else {
-      await log('dueno', `ha aprobado: ${ap.titulo}`);
+      await log('dueno', T`ha aprobado: ${ap.titulo}`);
     }
   } else if (resultado === 'enviar') {
     // El envío ya lo ha contado quien envía. Del boletín, Álex tiene que saber que ha salido para no repetirse
     if (ap.tipo === 'boletin') await memoria.publicar({ aprobacion_id: ap.id, agente: ap.agente, titulo: ap.titulo, texto: ap.texto, canal: 'boletin', formato: 'boletin' });
   } else {
-    await log('dueno', `ha descartado: ${ap.titulo}`);
+    await log('dueno', T`ha descartado: ${ap.titulo}`);
   }
   await liberar(ap.agente);
   return ap;
@@ -398,8 +403,8 @@ export async function publicarProgramadas() {
       const img = await imagenDe(ap.id);
       const { url } = await publicador(red).publicar(linkedin.textoDelPost(ap.texto), img);
       if (ap.tambien === 'facebook' && red !== 'facebook') {
-        try { const fb = await facebook.publicar(linkedin.textoDelPost(ap.texto), img); await log('dueno', `ha publicado también en Facebook (programado): ${ap.titulo}`, { aprobacion_id: ap.id, url: fb.url }); }
-        catch (e) { await log('sistema', `no ha podido publicar en Facebook «${ap.titulo}»: ${e.message}`, { aprobacion_id: ap.id }); }
+        try { const fb = await facebook.publicar(linkedin.textoDelPost(ap.texto), img); await log('dueno', T`ha publicado también en Facebook (programado): ${ap.titulo}`, { aprobacion_id: ap.id, url: fb.url }); }
+        catch (e) { await log('sistema', T`no ha podido publicar en Facebook «${ap.titulo}»: ${e.message}`, { aprobacion_id: ap.id }); }
       }
       await q(`UPDATE aprobaciones SET estado='publicada', enlace=$2, resuelta=coalesce(resuelta, now()), publicar_en=coalesce(publicar_en, now()), fallo_pub=NULL WHERE id=$1`, [ap.id, url]);
       await emitir({ tipo: 'calendario' });
@@ -409,11 +414,11 @@ export async function publicarProgramadas() {
         await liberar(ap.agente);
       }
       await memoria.publicar({ aprobacion_id: ap.id, agente: ap.agente, titulo: ap.titulo, texto: ap.texto, canal: red, formato: 'post', enlace: url });
-      await log(ap.estado === 'pendiente' ? 'alex' : 'dueno', `${ap.estado === 'pendiente' ? `ha publicado en ${RED[red]} (automático)` : `ha publicado en ${RED[red]} (programado)`}: ${ap.titulo}`, { aprobacion_id: ap.id, url });
+      await log(ap.estado === 'pendiente' ? 'alex' : 'dueno', `${ap.estado === 'pendiente' ? T`ha publicado en ${RED[red]} (automático)` : T`ha publicado en ${RED[red]} (programado)`}: ${ap.titulo}`, { aprobacion_id: ap.id, url });
       await telegram.avisar(`🚀 Publicado en ${RED[red]}: ${ap.titulo}\n${url}`);
       n++;
     } catch (e) {
-      await log('sistema', `no ha podido publicar en ${RED[ap.canal] || 'LinkedIn'} «${ap.titulo}»: ${e.message}`, { aprobacion_id: ap.id });
+      await log('sistema', T`no ha podido publicar en ${RED[ap.canal] || 'LinkedIn'} «${ap.titulo}»: ${e.message}`, { aprobacion_id: ap.id });
       await q(`UPDATE aprobaciones SET fallo_pub=now() WHERE id=$1`, [ap.id]);
       await telegram.avisar(`⚠️ No se ha podido publicar en ${RED[ap.canal] || 'LinkedIn'} «${ap.titulo}»: ${e.message}\nLo intento otra vez dentro de 3 horas. Lo ves en el calendario de publicaciones.`);
     }
@@ -434,7 +439,7 @@ export async function pedirCambios(id, comentario) {
   const esPlan = String(ap.ref || '').startsWith('plan:');
   if (esCorreo) await q(`UPDATE correos SET direccion='descartado' WHERE id=$1 AND direccion='borrador'`, [Number(ap.ref.split(':')[1])]);
   if (esSecuencia) await secuencias.descartar(Number(ap.ref.split(':')[1]));
-  await log('dueno', `ha pedido cambios a ${AGENTES[ap.agente]?.nombre ?? ap.agente}: «${comentario.slice(0, 160)}»`);
+  await log('dueno', T`ha pedido cambios a ${AGENTES[ap.agente]?.nombre ?? ap.agente}: «${comentario.slice(0, 160)}»`);
   await tareas.crear(ap.agente,
     `Dirección ha pedido cambios en un trabajo tuyo. Rehazlo aplicando su corrección y vuelve a entregarlo con ${esPlan ? `proponer_plan (objetivo_id ${ap.ref.split(':')[1]})` : esSecuencia ? 'guardar_secuencia' : esCorreo ? 'preparar_correo' : 'pedir_aprobacion'}. Si su corrección vale también para próximos trabajos, guárdala antes con aprender, en una frase que se entienda sin contexto; si solo vale para este, no guardes nada.\n\nCorrección de Dirección: «${comentario}»\n\nTrabajo anterior (${ap.tipo}) — ${ap.titulo}:\n${ap.texto}`,
     { empresa_id: ap.empresa_id, origen: 'dueno', objetivo_id: esPlan ? Number(ap.ref.split(':')[1]) : null });
@@ -472,20 +477,20 @@ export async function calendario(desde, hasta) {
 /** Cambia el día y la hora de un post programado. */
 export async function reprogramar(id, cuando, ambas) {
   const ap = (await q(`SELECT * FROM aprobaciones WHERE id=$1`, [id])).rows[0];
-  if (!ap || ap.estado !== 'programada') throw new Error('Ese post ya no está programado.');
+  if (!ap || ap.estado !== 'programada') throw new Error(T('Ese post ya no está programado.'));
   const d = deMadrid(cuando);
-  if (!d || d < new Date(Date.now() + 2 * 60_000)) throw new Error('Elige un día y una hora que aún no hayan pasado.');
+  if (!d || d < new Date(Date.now() + 2 * 60_000)) throw new Error(T('Elige un día y una hora que aún no hayan pasado.'));
   const fecha = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(d);
   await q(`UPDATE aprobaciones SET publicar_en=$2, fecha_prevista=$3, fallo_pub=NULL, tambien=$4 WHERE id=$1`, [id, d, fecha, ambas === undefined ? ap.tambien : (ambas && ap.canal === 'linkedin' ? 'facebook' : null)]);
-  await log('dueno', `ha movido al ${textoCuando(d)} la publicación «${ap.titulo}».`, { aprobacion_id: id });
+  await log('dueno', T`ha movido al ${textoCuando(d)} la publicación «${ap.titulo}».`, { aprobacion_id: id });
   await emitir({ tipo: 'calendario' });
 }
 
 /** Deja de estar programado y vuelve a la mesa de Dirección. */
 export async function desprogramar(id) {
   const r = await q(`UPDATE aprobaciones SET estado='pendiente', resuelta=NULL, publicar_en=NULL, fallo_pub=NULL WHERE id=$1 AND estado='programada' RETURNING *`, [id]);
-  if (!r.rows[0]) throw new Error('Ese post ya no está programado.');
-  await log('dueno', `ha quitado del calendario «${r.rows[0].titulo}»: vuelve a su mesa.`, { aprobacion_id: id });
+  if (!r.rows[0]) throw new Error(T('Ese post ya no está programado.'));
+  await log('dueno', T`ha quitado del calendario «${r.rows[0].titulo}»: vuelve a su mesa.`, { aprobacion_id: id });
   await emitir({ tipo: 'calendario' }); await emitir({ tipo: 'mesa_cambiada' });
 }
 
@@ -494,22 +499,22 @@ export async function desprogramar(id) {
 export async function apuntarExterno({ canal, cuando, titulo, texto }) {
   const red = ['linkedin', 'facebook', 'instagram'].includes(canal) ? canal : 'linkedin';
   const d = deMadrid(cuando);
-  if (!d) throw new Error('Pon el día y la hora a la que lo tienes programado.');
+  if (!d) throw new Error(T('Pon el día y la hora a la que lo tienes programado.'));
   const t = String(titulo || '').trim() || String(texto || '').trim().split('\n')[0].slice(0, 90);
-  if (!t) throw new Error('Pon un título o pega el texto del post.');
+  if (!t) throw new Error(T('Pon un título o pega el texto del post.'));
   const id = crypto.randomBytes(5).toString('hex');
   const fecha = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(d);
   await q(`INSERT INTO aprobaciones (id, agente, tipo, titulo, texto, ref, canal, fecha_prevista, publicar_en, estado, resuelta)
            VALUES ($1,'dueno','post',$2,$3,'externo',$4,$5,$6,$7,$8)`,
     [id, t.slice(0, 160), String(texto || '').trim() || t, red, fecha, d, d > new Date() ? 'externa' : 'publicada', d > new Date() ? null : d]);
   if (d <= new Date()) await memoria.publicar({ aprobacion_id: id, agente: 'dueno', titulo: t, texto: String(texto || '').trim() || t, canal: red, formato: 'post' });
-  await log('dueno', `ha apuntado en el calendario un post que tiene programado en ${RED[red] || red} para el ${textoCuando(d)}: ${t.slice(0, 120)}`);
+  await log('dueno', T`ha apuntado en el calendario un post que tiene programado en ${RED[red] || red} para el ${textoCuando(d)}: ${t.slice(0, 120)}`);
   await emitir({ tipo: 'calendario' });
   return id;
 }
 export async function quitarExterno(id) {
   const r = await q(`DELETE FROM aprobaciones WHERE id=$1 AND ref='externo' RETURNING titulo`, [id]);
-  if (!r.rows[0]) throw new Error('Ese post no está apuntado como externo.');
+  if (!r.rows[0]) throw new Error(T('Ese post no está apuntado como externo.'));
   await q(`DELETE FROM publicaciones WHERE aprobacion_id=$1`, [id]).catch(() => {});
   await emitir({ tipo: 'calendario' });
 }
@@ -517,13 +522,13 @@ export async function quitarExterno(id) {
 /** «Más tarde» con fecha: la tarjeta baja al fondo hasta ese momento y queda apuntada en el calendario (te avisa a esa hora). */
 export async function posponer(id, { dias = 7, hasta = null, llamada = false } = {}) {
   const ap = (await q(`SELECT a.*, e.nombre AS empresa, e.telefono AS tel FROM aprobaciones a LEFT JOIN empresas e ON e.id=a.empresa_id WHERE a.id=$1`, [id])).rows[0];
-  if (!ap || ap.estado !== 'pendiente') throw Object.assign(new Error('Ya no está en la mesa.'), { status: 409 });
+  if (!ap || ap.estado !== 'pendiente') throw Object.assign(new Error(T('Ya no está en la mesa.')), { status: 409 });
   const agenda = await import('./agenda.js');
   if (hasta) {
     const m = String(hasta).match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
-    if (!m) throw new Error('Elige el día y la hora.');
+    if (!m) throw new Error(T('Elige el día y la hora.'));
     const cuando = (await q(`SELECT ($1::timestamp AT TIME ZONE 'Europe/Madrid') AS t`, [`${m[1]} ${m[2]}`])).rows[0].t;
-    if (new Date(cuando) <= new Date()) throw new Error('Esa fecha ya ha pasado.');
+    if (new Date(cuando) <= new Date()) throw new Error(T('Esa fecha ya ha pasado.'));
     const r = (await q(`UPDATE aprobaciones SET pospuesta=$2 WHERE id=$1 AND estado='pendiente' RETURNING pospuesta`, [id, cuando])).rows[0];
     const previo = (await q(`SELECT id FROM recordatorios WHERE aprobacion_id=$1 AND hecho IS NULL ORDER BY id DESC LIMIT 1`, [id])).rows[0];
     const texto = `${llamada ? 'Llamar: ' : ''}${ap.empresa ? ap.empresa + ' · ' : ''}${String(ap.titulo).replace(/\.$/, '')}`;
@@ -542,7 +547,7 @@ export async function posponer(id, { dias = 7, hasta = null, llamada = false } =
 /** Cuándo conviene retomarla: para llamadas, el mejor hueco según el sector de la empresa; si no, el siguiente día laborable por la mañana. */
 export async function sugerirCuando(id, lang) {
   const ap = (await q(`SELECT a.empresa_id, e.sector FROM aprobaciones a LEFT JOIN empresas e ON e.id=a.empresa_id WHERE a.id=$1`, [id])).rows[0];
-  if (!ap) throw Object.assign(new Error('Ya no está en la mesa.'), { status: 404 });
+  if (!ap) throw Object.assign(new Error(T('Ya no está en la mesa.')), { status: 404 });
   const consejo = await consejoHora(ap.empresa_id, lang);
   const ahora = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Madrid', hour: '2-digit', hourCycle: 'h23' }).format(new Date());
   const h = siguienteHueco(ap.sector, Number(ahora) < 14 ? '10:00' : '16:00');

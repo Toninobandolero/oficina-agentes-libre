@@ -3,6 +3,7 @@ import dns from 'node:dns/promises';
 import net from 'node:net';
 import { config } from './config.js';
 import { llamar } from './llm.js';
+import { T } from './en.js';
 
 /** Busca en la web. Devuelve resultados con URL, título y extracto, y el coste de la búsqueda. */
 export async function buscar(consulta, { max = 8 } = {}) {
@@ -28,12 +29,12 @@ function esIpPrivada(ip) {
 
 async function comprobarUrl(u) {
   let url;
-  try { url = new URL(u); } catch { throw new Error('URL no válida'); }
-  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Solo se pueden leer páginas http o https');
-  if (url.port && !['80', '443'].includes(url.port)) throw new Error('Puerto no permitido');
-  if (/^(localhost|.*\.local|.*\.internal|db|oficina)$/i.test(url.hostname)) throw new Error('Dirección no permitida');
+  try { url = new URL(u); } catch { throw new Error(T('URL no válida')); }
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error(T('Solo se pueden leer páginas http o https'));
+  if (url.port && !['80', '443'].includes(url.port)) throw new Error(T('Puerto no permitido'));
+  if (/^(localhost|.*\.local|.*\.internal|db|oficina)$/i.test(url.hostname)) throw new Error(T('Dirección no permitida'));
   const ips = net.isIP(url.hostname) ? [{ address: url.hostname }] : await dns.lookup(url.hostname, { all: true });
-  if (!ips.length || ips.some(x => esIpPrivada(x.address))) throw new Error('Dirección no permitida');
+  if (!ips.length || ips.some(x => esIpPrivada(x.address))) throw new Error(T('Dirección no permitida'));
   return url;
 }
 
@@ -70,16 +71,16 @@ export async function leer(u, { max = 12000 } = {}) {
   for (let saltos = 0; saltos < 4; saltos++) {
     const r = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(15000), headers: { 'User-Agent': `Mozilla/5.0 (compatible; OficinaAgentesBot/1.0${config.empresa.web ? `; +https://${config.empresa.web}` : ''})`, Accept: 'text/html,text/plain' } });
     if ([301, 302, 303, 307, 308].includes(r.status)) { url = await comprobarUrl(new URL(r.headers.get('location'), url).href); continue; }
-    if (!r.ok) throw new Error(`La página respondió ${r.status}`);
+    if (!r.ok) throw new Error(T`La página respondió ${r.status}`);
     const tipo = r.headers.get('content-type') || '';
-    if (!/text\/html|text\/plain|application\/xhtml/.test(tipo)) throw new Error(`No es una página de texto (${tipo || 'tipo desconocido'})`);
+    if (!/text\/html|text\/plain|application\/xhtml/.test(tipo)) throw new Error(T`No es una página de texto (${tipo || T('tipo desconocido')})`);
     const lector = r.body.getReader(); let bytes = 0; const trozos = [];
     while (true) { const { done, value } = await lector.read(); if (done) break; bytes += value.length; trozos.push(value); if (bytes > 2_000_000) { lector.cancel(); break; } }
     const html = Buffer.concat(trozos).toString('utf8');
     const { titulo, texto } = tipo.includes('html') ? aTexto(html) : { titulo: '', texto: html };
     return { url: url.href, titulo, programas_detectados: detectarProgramas(html), texto: texto.length > max ? texto.slice(0, max) + ' […]' : texto };
   }
-  throw new Error('Demasiadas redirecciones');
+  throw new Error(T('Demasiadas redirecciones'));
 }
 
 export const _interno = { esIpPrivada, comprobarUrl };

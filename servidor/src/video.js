@@ -13,6 +13,7 @@ import { cabecera, esc, opcionesPng, partir, sobreColor } from './disenio.js';
 import * as marca from './marca.js';
 import * as miEmpresa from './empresa.js';
 import { AGENTES } from './agentes.js';
+import { T } from './en.js';
 
 const RENDER = fileURLToPath(new URL('./videoRender.js', import.meta.url));
 const W = 1080, H = 1920, ANCHO_TEXTO = 880, ALTO_TEXTO = 1060, CENTRO_TEXTO = 860, Y_WEB = H - 380;
@@ -25,24 +26,24 @@ const anchoEm = (t, e) => [...t].reduce((n, ch) => n + (/\p{Lu}/u.test(ch) ? e.m
 /** Lee el bloque ESCENAS DEL VÍDEO del guion: una escena por línea, «frase | frase en color | segundos». Si algo no vale, { error } dice qué. */
 export function leerEscenas(texto) {
   const b = bloques(texto).find(x => /^ESCENAS/.test(x.titulo));
-  if (!b?.cuerpo) return { error: 'El guion no trae el bloque ESCENAS DEL VÍDEO.' };
+  if (!b?.cuerpo) return { error: T('El guion no trae el bloque ESCENAS DEL VÍDEO.') };
   const escenas = [];
   for (const l of b.cuerpo.split('\n').map(s => s.trim()).filter(Boolean)) {
     const c = l.split('|').map(s => s.replace(/\p{Extended_Pictographic}|️/gu, '').trim());
-    const mal = motivo => ({ error: `Escena «${l.slice(0, 60)}»: ${motivo}` });
-    if (c.length < 2 || c.length > 3) return mal('tiene que ser «frase | frase en color | segundos».');
+    const mal = motivo => ({ error: T`Escena «${l.slice(0, 60)}»: ${motivo}` });
+    if (c.length < 2 || c.length > 3) return mal(T('tiene que ser «frase | frase en color | segundos».'));
     const segundos = Number(c.at(-1).replace(',', '.').replace(/\s*s(eg(undos)?)?\.?$/i, ''));
     const frase = c[0], color = c.length === 3 ? c[1] : '';
-    if (!c.at(-1) || !(segundos >= TOPE.minimo && segundos <= TOPE.maximo)) return mal(`los segundos tienen que ser un número entre ${TOPE.minimo} y ${TOPE.maximo}.`);
-    if (!frase && !color) return mal('no tiene ninguna frase.');
-    if ((frase + color).length > TOPE.frase) return mal(`es demasiado larga (máximo ${TOPE.frase} caracteres).`);
-    if (new RegExp(`\\S{${TOPE.palabra + 1}}`).test(`${frase} ${color}`)) return mal(`tiene una palabra de más de ${TOPE.palabra} letras.`);
+    if (!c.at(-1) || !(segundos >= TOPE.minimo && segundos <= TOPE.maximo)) return mal(T`los segundos tienen que ser un número entre ${TOPE.minimo} y ${TOPE.maximo}.`);
+    if (!frase && !color) return mal(T('no tiene ninguna frase.'));
+    if ((frase + color).length > TOPE.frase) return mal(T`es demasiado larga (máximo ${TOPE.frase} caracteres).`);
+    if (new RegExp(`\\S{${TOPE.palabra + 1}}`).test(`${frase} ${color}`)) return mal(T`tiene una palabra de más de ${TOPE.palabra} letras.`);
     escenas.push({ frase, color, segundos });
   }
   const total = +escenas.reduce((n, e) => n + e.segundos, 0).toFixed(1);
-  if (!escenas.length) return { error: 'El bloque ESCENAS DEL VÍDEO está vacío.' };
-  if (escenas.length > TOPE.escenas) return { error: `Son ${escenas.length} escenas y el máximo es ${TOPE.escenas}.` };
-  if (total > TOPE.segundos) return { error: `El vídeo duraría ${segundosTxt(total)} s y el máximo es ${TOPE.segundos} s.` };
+  if (!escenas.length) return { error: T('El bloque ESCENAS DEL VÍDEO está vacío.') };
+  if (escenas.length > TOPE.escenas) return { error: T`Son ${escenas.length} escenas y el máximo es ${TOPE.escenas}.` };
+  if (total > TOPE.segundos) return { error: T`El vídeo duraría ${segundosTxt(total)} s y el máximo es ${TOPE.segundos} s.` };
   return { escenas, total };
 }
 
@@ -92,9 +93,9 @@ function renderizar(dir, limite) {
     h.on('error', e => { clearTimeout(t); mal(e); });
     h.on('close', codigo => {
       clearTimeout(t);
-      if (parado) mal(new Error(`Ha tardado más de ${Math.max(1, Math.round(limite / 60_000))} min y se ha parado.`));
+      if (parado) mal(new Error(T`Ha tardado más de ${Math.max(1, Math.round(limite / 60_000))} min y se ha parado.`));
       else if (codigo === 0) ok();
-      else mal(new Error(err.trim().split('\n').pop() || `El proceso ha fallado (código ${codigo}).`));
+      else mal(new Error(err.trim().split('\n').pop() || T`El proceso ha fallado (código ${codigo}).`));
     });
   });
 }
@@ -132,14 +133,14 @@ async function producir(ap, escenas, total, { limite, porTelegram }) {
     await renderizar(dir, limite);
     await q(`UPDATE videos SET estado='listo', error=NULL, mp4=$2, segundos=$3, generado=now() WHERE aprobacion_id=$1`, [ap.id, fs.readFileSync(path.join(dir, 'video.mp4')), total]);
     await emitir({ tipo: 'video', id: ap.id, video: ficha(ap.texto, await leerFila(ap.id)) });
-    await log(ap.agente, `ha generado el vídeo (${segundosTxt(total)} s, sin voz): ${resto}. Está en tu mesa; aún no está publicado.`, { aprobacion_id: ap.id });
+    await log(ap.agente, T`ha generado el vídeo (${segundosTxt(total)} s, sin voz): ${resto}. Está en tu mesa; aún no está publicado.`, { aprobacion_id: ap.id });
     await avisoTg(`🎬 Vídeo listo (${segundosTxt(total)} s): ${resto}. Míralo y descárgalo en tu mesa del panel. Aún no está publicado.`);
   } catch (e) {
     const motivo = String(e.message).slice(0, 400);
     console.error('Vídeo:', motivo);
     await q(`UPDATE videos SET estado='error', error=$2 WHERE aprobacion_id=$1`, [ap.id, motivo]);
     await emitir({ tipo: 'video', id: ap.id, video: ficha(ap.texto, await leerFila(ap.id)) });
-    await log('sistema', `no ha podido generar el vídeo (${resto}): ${motivo}`, { aprobacion_id: ap.id });
+    await log('sistema', T`no ha podido generar el vídeo (${resto}): ${motivo}`, { aprobacion_id: ap.id });
     await avisoTg(`⚠️ No se ha podido generar el vídeo (${resto}): ${motivo}`);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -152,9 +153,9 @@ let cola = Promise.resolve();
 /** Pide el vídeo de un guion. Vuelve enseguida; el resultado llega con el evento «video» y en la tarjeta. */
 export async function generar(id, { limite = LIMITE, porTelegram = false } = {}) {
   const ap = (await q(`SELECT id, agente, tipo, titulo, texto, estado FROM aprobaciones WHERE id=$1`, [id])).rows[0];
-  if (!ap || ap.tipo !== 'video' || ap.estado !== 'pendiente') throw Object.assign(new Error('Ese guion ya no está en tu mesa.'), { status: 409 });
+  if (!ap || ap.tipo !== 'video' || ap.estado !== 'pendiente') throw Object.assign(new Error(T('Ese guion ya no está en tu mesa.')), { status: 409 });
   const { escenas, total, error } = leerEscenas(ap.texto);
-  if (error) throw new Error(`${error} Pide cambios a ${AGENTES[ap.agente]?.nombre ?? ap.agente} para que lo arregle.`);
+  if (error) throw new Error(T`${error} Pide cambios a ${AGENTES[ap.agente]?.nombre ?? ap.agente} para que lo arregle.`);
   // Dos clics seguidos no lanzan dos vídeos: la segunda vez no cambia ninguna fila
   const nueva = (await q(`INSERT INTO videos (aprobacion_id, estado) VALUES ($1, 'generando')
                           ON CONFLICT (aprobacion_id) DO UPDATE SET estado='generando', error=NULL WHERE videos.estado <> 'generando' RETURNING aprobacion_id`, [id])).rows[0];

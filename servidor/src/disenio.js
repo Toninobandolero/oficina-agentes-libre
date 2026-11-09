@@ -8,6 +8,7 @@ import * as marca from './marca.js';
 import { textoDelPost } from './linkedin.js';
 import { config } from './config.js';
 import * as miEmpresa from './empresa.js';
+import { T } from './en.js';
 
 const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'disenio');
 const FUENTES = ['PlayfairDisplay-SemiBold.ttf', 'PlayfairDisplay-Medium.ttf', 'Inter-Regular.ttf', 'Inter-SemiBold.ttf'].map(f => path.join(DIR, f));
@@ -86,15 +87,15 @@ export function png(datos, m) {
 /** Comprueba el logo subido y lo deja como data: URI. Un SVG pasa a PNG: así nunca se sirve tal cual. */
 export function logoDeSubida(uri) {
   const m = /^data:image\/(png|jpeg|svg\+xml);base64,([A-Za-z0-9+/=]+)$/.exec(String(uri || ''));
-  if (!m) throw new Error('El logo tiene que ser PNG, JPG o SVG.');
+  if (!m) throw new Error(T('El logo tiene que ser PNG, JPG o SVG.'));
   const b = Buffer.from(m[2], 'base64');
-  if (b.length > MAX_LOGO) throw new Error('El logo pesa más de 2 MB.');
+  if (b.length > MAX_LOGO) throw new Error(T('El logo pesa más de 2 MB.'));
   if (m[1] === 'svg+xml') {
     try { return `data:image/png;base64,${Buffer.from(new Resvg(b.toString('utf8'), { ...opcionesPng, fitTo: { mode: 'width', value: 800 } }).render().asPng()).toString('base64')}`; }
-    catch { throw new Error('Ese SVG no se puede leer.'); }
+    catch { throw new Error(T('Ese SVG no se puede leer.')); }
   }
   const firma = { png: '89504e47', jpeg: 'ffd8ff' }[m[1]];
-  if (b.subarray(0, firma.length / 2).toString('hex') !== firma) throw new Error('Ese archivo no es una imagen válida.');
+  if (b.subarray(0, firma.length / 2).toString('hex') !== firma) throw new Error(T('Ese archivo no es una imagen válida.'));
   return uri;
 }
 

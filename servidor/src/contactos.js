@@ -1,6 +1,7 @@
 // Las personas y los teléfonos de cada empresa. El teléfono de la ficha es el general; aquí va quién es quién: el dueño, el encargado, su móvil.
 // Lo que ya esté escrito en las notas y el dossier se recoge solo, para que al pulsar «Llamar» salga y su llamada se reconozca. Sin saber de quién es, va sin nombre: es un teléfono de la empresa, no una persona.
 import { q } from './db.js';
+import { T } from './en.js';
 
 export const clave = t => String(t || '').replace(/\D/g, '').slice(-9);
 const valido = t => /^[6789]\d{8}$/.test(clave(t)) && !/^\d(\d)\1{7}$/.test(clave(t));   // 600 000 000 es un número de relleno
@@ -130,9 +131,9 @@ export async function migrarDecisores() {
 export async function guardar(empresa_id, datos = {}, { origen = 'equipo' } = {}) {
   const texto = (v, n) => { const t = String(v ?? '').trim(); return t ? t.slice(0, n) : null; };
   const nombre = texto(datos.nombre, 120), cargo = texto(datos.cargo, 120), telefono = texto(datos.telefono, 40), email = texto(datos.email, 200), linkedin_url = texto(datos.linkedin_url, 300), notas = texto(datos.notas, 300);
-  if (telefono && !valido(telefono)) throw new Error('Ese teléfono no parece válido: tienen que ser 9 cifras de un número español.');
-  if (!telefono && !email && !nombre) throw new Error('Pon al menos un nombre, un teléfono o un correo.');
-  if (!(await q(`SELECT 1 FROM empresas WHERE id=$1`, [empresa_id])).rows.length) throw new Error(`No existe la empresa ${empresa_id}`);
+  if (telefono && !valido(telefono)) throw new Error(T('Ese teléfono no parece válido: tienen que ser 9 cifras de un número español.'));
+  if (!telefono && !email && !nombre) throw new Error(T('Pon al menos un nombre, un teléfono o un correo.'));
+  if (!(await q(`SELECT 1 FROM empresas WHERE id=$1`, [empresa_id])).rows.length) throw new Error(T`No existe la empresa ${empresa_id}`);
   const k = telefono ? clave(telefono) : null;
   const previo = datos.id ? (await q(`SELECT id FROM contactos WHERE id=$1 AND empresa_id=$2`, [datos.id, empresa_id])).rows[0]
     : (k ? (await q(`SELECT id FROM contactos WHERE empresa_id=$1 AND clave=$2`, [empresa_id, k])).rows[0] : null)
@@ -151,13 +152,13 @@ export async function guardar(empresa_id, datos = {}, { origen = 'equipo' } = {}
 
 export async function hacerPreferente(id) {
   const c = (await q(`SELECT empresa_id FROM contactos WHERE id=$1`, [id])).rows[0];
-  if (!c) throw new Error('Ese contacto ya no existe.');
+  if (!c) throw new Error(T('Ese contacto ya no existe.'));
   await q(`UPDATE contactos SET preferente = (id = $1) WHERE empresa_id=$2`, [id, c.empresa_id]);
 }
 
 /** Se marca como quitado en vez de borrarlo: así un número equivocado que sigue en las notas no vuelve a salir. */
 export async function quitar(id) {
   const r = await q(`UPDATE contactos SET borrado=true, preferente=false WHERE id=$1 RETURNING id, empresa_id, decide`, [id]);
-  if (!r.rows.length) throw new Error('Ese contacto ya no existe.');
+  if (!r.rows.length) throw new Error(T('Ese contacto ya no existe.'));
   if (r.rows[0].decide) await fijarDecisor(r.rows[0].empresa_id, {});   // era quien decide: la ficha se queda sin decisor
 }

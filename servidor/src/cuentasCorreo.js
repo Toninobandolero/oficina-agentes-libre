@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import nodemailer from 'nodemailer';
 import { ajuste, fijarAjuste } from './db.js';
 import { config } from './config.js';
+import { T } from './en.js';
 
 const clave = () => crypto.createHash('sha256').update('acp-correo:' + config.claveCifrado).digest();
 function cifrar(t) {
@@ -62,16 +63,16 @@ const servidoresDe = dir => (/@(gmail|googlemail)\.com$/.test(dir) ? { smtp: 'sm
 /** Añade una cuenta, o cambia la que tenga esa dirección. Antes comprueba que se puede entrar: una cuenta que no funciona no se guarda. */
 export async function guardar({ nombre, direccion, clave: pass, smtp, imap, leer } = {}) {
   const dir = String(direccion || '').trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(dir)) throw new Error('Esa dirección de correo no es válida.');
-  if (delServidor()?.direccion === dir) throw new Error('Esa cuenta ya está: es la del servidor.');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(dir)) throw new Error(T('Esa dirección de correo no es válida.'));
+  if (delServidor()?.direccion === dir) throw new Error(T('Esa cuenta ya está: es la del servidor.'));
   const previa = extra.find(c => c.direccion === dir);
   const contrasena = String(pass || '').trim() || (previa ? descifrar(previa.clave) : '');
-  if (!contrasena) throw new Error('Pon la contraseña de esa cuenta.');
+  if (!contrasena) throw new Error(T('Pon la contraseña de esa cuenta.'));
   const base = servidoresDe(dir);
   const cuenta = { id: previa?.id || crypto.randomBytes(4).toString('hex'), nombre: String(nombre || '').trim().slice(0, 80) || config.correo.nombre, direccion: dir,
     smtp: String(smtp || '').trim() || previa?.smtp || base.smtp, imap: String(imap || '').trim() || previa?.imap || base.imap, leer: Boolean(leer) };
   try { await crear({ ...cuenta, clave: contrasena }).verify(); }
-  catch (e) { throw new Error(`No se ha podido entrar en ${dir}: revisa la contraseña y el servidor (${cuenta.smtp}). Gmail y otros piden una contraseña de aplicación. ${String(e.message || '').slice(0, 120)}`); }
+  catch (e) { throw new Error(T`No se ha podido entrar en ${dir}: revisa la contraseña y el servidor (${cuenta.smtp}). Gmail y otros piden una contraseña de aplicación. ${String(e.message || '').slice(0, 120)}`); }
   extra = [...extra.filter(c => c.direccion !== dir), { ...cuenta, clave: cifrar(contrasena) }];
   await fijarAjuste('correo_cuentas', extra);
   transportes.delete(cuenta.id);
@@ -79,7 +80,7 @@ export async function guardar({ nombre, direccion, clave: pass, smtp, imap, leer
 }
 
 export async function quitar(id) {
-  if (id === 'principal') throw new Error('Esa cuenta está en la configuración del servidor: no se puede quitar desde aquí.');
+  if (id === 'principal') throw new Error(T('Esa cuenta está en la configuración del servidor: no se puede quitar desde aquí.'));
   extra = extra.filter(c => c.id !== id);
   await fijarAjuste('correo_cuentas', extra);
   transportes.delete(id);

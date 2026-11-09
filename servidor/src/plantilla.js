@@ -6,6 +6,7 @@ import { AGENTES, IDS } from './agentes.js';
 import * as departamentos from './departamentos.js';
 import { config } from './config.js';
 import { emitir, log } from './bus.js';
+import { T } from './en.js';
 
 const FIJOS = {};
 /** Lo de fábrica de un agente, para volver a ello. Los de un módulo (ines.js) se apuntan al montarse. */
@@ -98,25 +99,25 @@ export function listar() {
 function limpiarLook(look) {
   if (!look || typeof look !== 'object') return null;
   const out = {};
-  for (const k of ['skin', 'hair', 'shirt', 'beardColor', 'pants', 'cap']) if (look[k] != null) { if (!HEX.test(look[k])) throw new Error(`Color no válido en ${k}`); out[k] = look[k].toLowerCase(); }
-  if (look.style != null) { if (!ESTILOS.includes(look.style)) throw new Error('Peinado no válido'); out.style = look.style; }
+  for (const k of ['skin', 'hair', 'shirt', 'beardColor', 'pants', 'cap']) if (look[k] != null) { if (!HEX.test(look[k])) throw new Error(T`Color no válido en ${k}`); out[k] = look[k].toLowerCase(); }
+  if (look.style != null) { if (!ESTILOS.includes(look.style)) throw new Error(T('Peinado no válido')); out.style = look.style; }
   for (const k of ['glasses', 'beard', 'hawaiana', 'bermudas', 'auris']) if (look[k] != null) out[k] = Boolean(look[k]);
   return Object.keys(out).length ? out : null;
 }
 
 /** Guarda los cambios de un agente (o de Dirección: solo su aspecto). */
 export async function guardar(id, datos = {}) {
-  if (id !== 'dueno' && !IDS.includes(id)) throw new Error('Agente desconocido');
+  if (id !== 'dueno' && !IDS.includes(id)) throw new Error(T('Agente desconocido'));
   const look = limpiarLook(datos.look);
   let nombre = null, rol = null, modelo = null;
   if (id !== 'dueno') {
     nombre = String(datos.nombre ?? '').trim() || null;
-    if (nombre && !departamentos.NOMBRE.test(nombre)) throw new Error('El nombre solo puede tener letras y espacios (2–20 caracteres).');
-    if (nombre && IDS.some(o => o !== id && AGENTES[o].nombre.toLowerCase() === nombre.toLowerCase())) throw new Error('Ya hay otro agente con ese nombre.');
+    if (nombre && !departamentos.NOMBRE.test(nombre)) throw new Error(T('El nombre solo puede tener letras y espacios (2–20 caracteres).'));
+    if (nombre && IDS.some(o => o !== id && AGENTES[o].nombre.toLowerCase() === nombre.toLowerCase())) throw new Error(T('Ya hay otro agente con ese nombre.'));
     rol = String(datos.rol ?? '').trim().slice(0, 60) || null;
     modelo = String(datos.modelo ?? '').trim() || null;
-    if (modelo && !MODELO.test(modelo)) throw new Error('El modelo debe tener el formato proveedor/modelo (p. ej. anthropic/claude-haiku-5.5).');
-    if (modelo && config.proveedor === 'anthropic' && !modelo.startsWith('anthropic/')) throw new Error('La oficina trabaja con Claude: elige un modelo de Anthropic (Haiku, Sonnet u Opus).');
+    if (modelo && !MODELO.test(modelo)) throw new Error(T('El modelo debe tener el formato proveedor/modelo (p. ej. anthropic/claude-haiku-5.5).'));
+    if (modelo && config.proveedor === 'anthropic' && !modelo.startsWith('anthropic/')) throw new Error(T('La oficina trabaja con Claude: elige un modelo de Anthropic (Haiku, Sonnet u Opus).'));
     if (nombre === BASE(id).nombre) nombre = null;
     if (rol === BASE(id).rol) rol = null;
     if (modelo === BASE(id).modelo) modelo = null;
@@ -135,8 +136,8 @@ export async function guardar(id, datos = {}) {
   filas[id] = r.rows[0];
   if (id !== 'dueno') aplicar(id);
   const despues = id !== 'dueno' ? AGENTES[id].nombre : 'Dirección';
-  await log('dueno', id === 'dueno' ? 'ha cambiado su aspecto en la oficina.'
-    : antes !== despues ? `ha cambiado el nombre de ${antes}: ahora es ${despues}.` : `ha cambiado la configuración de ${despues}.`);
+  await log('dueno', id === 'dueno' ? T('ha cambiado su aspecto en la oficina.')
+    : antes !== despues ? T`ha cambiado el nombre de ${antes}: ahora es ${despues}.` : T`ha cambiado la configuración de ${despues}.`);
   await emitir({ tipo: 'plantilla', ...listar() });
   return listar();
 }
@@ -145,7 +146,7 @@ export async function restablecer(id) {
   await q(`DELETE FROM config_agentes WHERE id=$1`, [id]);
   delete filas[id];
   if (IDS.includes(id)) aplicar(id);
-  await log('dueno', `ha devuelto a ${id === 'dueno' ? 'Dirección' : AGENTES[id]?.nombre || id} su configuración original.`);
+  await log('dueno', T`ha devuelto a ${id === 'dueno' ? 'Dirección' : AGENTES[id]?.nombre || id} su configuración original.`);
   await emitir({ tipo: 'plantilla', ...listar() });
   return listar();
 }

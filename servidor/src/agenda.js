@@ -5,6 +5,7 @@ import { q, ajuste, fijarAjuste } from './db.js';
 import { config } from './config.js';
 import { emitir, log } from './bus.js';
 import * as aprobaciones from './aprobaciones.js';
+import { T } from './en.js';
 
 export const TIPOS = ['post', 'evento', 'seguimiento', 'paso', 'llamada', 'reunion', 'recordatorio'];
 const madridDia = d => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(d);
@@ -46,10 +47,10 @@ export async function entre(desde, hasta, tipos = TIPOS) {
 }
 
 export async function recordar({ dia, hora, texto, creado_por = 'dueno', clase = null, empresa_id = null, telefono = null, detalle = null, aprobacion_id = null }) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dia || ''))) throw new Error('Elige el día.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dia || ''))) throw new Error(T('Elige el día.'));
   const h = /^\d{2}:\d{2}$/.test(String(hora || '')) ? hora : null;
   const t = String(texto || '').trim();
-  if (!t) throw new Error('Escribe qué hay que recordar.');
+  if (!t) throw new Error(T('Escribe qué hay que recordar.'));
   const r = (await q(`INSERT INTO recordatorios (dia, hora, texto, creado_por, clase, empresa_id, telefono, detalle, aprobacion_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
     [dia, h, t.slice(0, 500), creado_por, clase === 'llamada' ? 'llamada' : null, empresa_id || null, telefono ? String(telefono).slice(0, 30) : null, detalle ? String(detalle).slice(0, 600) : null, aprobacion_id || null])).rows[0];
   await emitir({ tipo: 'calendario' });
@@ -64,7 +65,7 @@ async function conSuTarjeta(id, cuando) {
 }
 
 export async function mover(id, { dia, hora }) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dia || ''))) throw new Error('Elige el día.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dia || ''))) throw new Error(T('Elige el día.'));
   await q(`UPDATE recordatorios SET dia=$2, hora=$3, avisado=NULL WHERE id=$1`, [id, dia, /^\d{2}:\d{2}$/.test(String(hora || '')) ? hora : null]);
   await conSuTarjeta(id, `(r.dia + coalesce(r.hora, '09:00')::time) AT TIME ZONE 'Europe/Madrid'`);
   await emitir({ tipo: 'calendario' });
@@ -90,7 +91,7 @@ export async function avisarRecordatorios() {
   for (const x of r) {
     await q(`UPDATE recordatorios SET avisado=now() WHERE id=$1`, [x.id]);
     const llamada = x.clase === 'llamada';
-    await log('sistema', `${llamada ? 'te recuerda que toca devolver una llamada' : 'te recuerda'}${x.hora ? ` (${x.hora})` : ''}: ${x.texto}${x.telefono ? ` · ${x.telefono}` : ''}`, { empresa_id: x.empresa_id || undefined });
+    await log('sistema', `${llamada ? T('te recuerda que toca devolver una llamada') : T('te recuerda')}${x.hora ? ` (${x.hora})` : ''}: ${x.texto}${x.telefono ? ` · ${x.telefono}` : ''}`, { empresa_id: x.empresa_id || undefined });
     try { (await import('./telegram.js')).avisar(`${llamada ? '📞 Toca devolver la llamada' : '⏰ Recordatorio'}${x.hora ? ` · ${x.hora}` : ''}\n${x.texto}${x.telefono ? `\nTel: ${x.telefono}` : ''}${x.detalle ? `\n\n${String(x.detalle).slice(0, 500)}` : ''}`); } catch {}
   }
   return r.length;
