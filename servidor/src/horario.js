@@ -57,6 +57,13 @@ export function siguienteHueco(sector, horaAnterior = '10:00', desde = null) {
 }
 
 /** Lo último que Paula ha visto que Dirección puede mejorar al hablar: lo ve antes de llamar y lo usan quienes le escriben los guiones. En la edición Libre no hay análisis de llamadas y sale vacío. */
-export async function mejorasRecientes(n = 3) {
-  return (await q(`SELECT mejoras FROM llamadas WHERE mejoras IS NOT NULL ORDER BY coalesce(inicio, creada) DESC LIMIT $1`, [n])).rows.map(r => r.mejoras);
+/** Consejos de llamadas anteriores para la que vas a hacer: primero los de esta misma empresa y luego los de su sector.
+ *  Los de otros sectores no: a un concesionario no le sirven frases pensadas para una clínica. */
+export async function mejorasRecientes(empresaId = null, n = 3) {
+  // Sin empresa (las instrucciones de quien escribe guiones): las últimas, de cualquier llamada
+  if (!empresaId) return (await q(`SELECT mejoras FROM llamadas WHERE mejoras IS NOT NULL ORDER BY coalesce(inicio, creada) DESC LIMIT $1`, [n])).rows.map(r => r.mejoras);
+  return (await q(`WITH yo AS (SELECT lower(split_part(split_part(coalesce(sector,''), ':', 1), ' ', 1)) AS s FROM empresas WHERE id=$1)
+    SELECT l.mejoras FROM llamadas l LEFT JOIN empresas e ON e.id=l.empresa_id, yo
+     WHERE l.mejoras IS NOT NULL AND (l.empresa_id=$1 OR (yo.s <> '' AND lower(split_part(split_part(coalesce(e.sector,''), ':', 1), ' ', 1)) = yo.s))
+     ORDER BY (l.empresa_id=$1) DESC, coalesce(l.inicio, l.creada) DESC LIMIT $2`, [empresaId, n])).rows.map(r => r.mejoras);
 }

@@ -13,6 +13,11 @@ export function T(s, ...v) {
 }
 
 export const EN = {
+  "Este correo ya se le envió a {0} el {1}: no se manda dos veces. Si quieres escribirle otra cosa, cambia el asunto y el texto.": "This email was already sent to {0} on {1}: it isn't sent twice. To write something else, change the subject and text.",
+  "Empieza la reunión de equipo": "The team meeting is starting",
+  "Cada uno cuenta lo que lleva. Máximo te deja el acta en la actividad cuando acabe.": "Everyone reports on their work. Máximo leaves you the minutes in the activity when it ends.",
+  "Ha terminado la reunión de equipo": "The team meeting has ended",
+  "El acta está en la actividad: lo que te piden va enlazado.": "The minutes are in the activity: what they ask of you is linked.",
   // agenda.js
   "Elige el día.": "Choose the day.",
   "Escribe qué hay que recordar.": "Write what needs remembering.",
@@ -376,6 +381,24 @@ export const EN = {
   "propone un plan para «{0}»: {1} pasos, ≈ {2} €": "proposes a plan for “{0}”: {1} steps, ≈ €{2}",
   "arranca el plan del objetivo «{0}» ({1} pasos).": "starts the plan for the goal “{0}” ({1} steps).",
   "No existe ese objetivo.": "That goal doesn't exist.",
+  // arranque.js (la pantalla corta del principio)
+  "Dinos tu nombre, tu empresa, a qué os dedicáis y cuántos sois.": "Tell us your name, your company, what you do and how many you are.",
+  "Primero pega tu clave de IA.": "First paste your AI key.",
+  "La oficina ya está en marcha: sigue en el chat.": "The office is already set up: carry on in the chat.",
+  "Solo yo": "Just me",
+  "De 2 a 9 personas": "2 to 9 people",
+  "De 10 a 49 personas": "10 to 49 people",
+  "50 personas o más": "50 people or more",
+  "Menos de 100.000 € al año": "Less than €100,000 a year",
+  "De 100.000 a 500.000 € al año": "€100,000 to €500,000 a year",
+  "De 500.000 € a 2 millones al año": "€500,000 to €2 million a year",
+  "Más de 2 millones al año": "More than €2 million a year",
+  "Me llamo {0}.": "My name is {0}.",
+  "Nuestra web: {0}.": "Our website: {0}.",
+  "Mi empresa: {0}.": "My company: {0}.",
+  "Nos dedicamos a: {0}": "What we do: {0}",
+  "Somos: {0}.": "We are: {0}.",
+  "Facturación: {0}.": "Turnover: {0}.",
   // perfil.js
   "ha leído la web de la empresa ({0}) y ha resumido para el equipo lo que vendemos.": "read the company website ({0}) and summarised what we sell for the team.",
   // planificador.js

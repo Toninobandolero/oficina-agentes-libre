@@ -209,6 +209,21 @@ export async function enviarDesdeTarjeta(id, { para, asunto, texto, formato, cue
   return hecha;
 }
 
+/** Un correo que escribe Dirección desde el panel (al pulsar una dirección): sale con su clic, por el mismo camino que los demás. */
+export async function escribir({ para, asunto, texto, cuenta, formato, empresa_id = null } = {}) {
+  if (!activo()) throw new Error(T('No hay ninguna cuenta de correo conectada: añádela en Configuración › Conexiones.'));
+  const dir = limpiarDir(para), asu = String(asunto || '').trim().slice(0, 200), cuerpo = String(texto || '').trim();
+  if (!dir || !asu || !cuerpo) throw new Error(T('El correo necesita dirección, asunto y texto.'));
+  const emp = empresa_id || (await q(`SELECT empresa_id FROM contactos WHERE lower(email)=$1 AND NOT borrado LIMIT 1`, [dir]).catch(() => ({ rows: [] }))).rows[0]?.empresa_id
+    || (await q(`SELECT id AS empresa_id FROM empresas WHERE lower(email)=$1 LIMIT 1`, [dir])).rows[0]?.empresa_id || null;
+  const fmt = formato === 'texto' ? 'texto' : 'diseno', c = cuentas.elegir(cuenta);
+  const nuevo = (await q(`INSERT INTO correos (direccion, de, para, asunto, texto, empresa_id, formato, cuenta) VALUES ('borrador',$1,$2,$3,$4,$5,$6,$7) RETURNING id`, [c.direccion, dir, asu, cuerpo, emp, fmt, c.id])).rows[0].id;
+  try { await enviarBorrador(nuevo); }
+  catch (e) { await q(`UPDATE correos SET direccion='descartado' WHERE id=$1`, [nuevo]); throw e; }
+  if (emp) await limpiarTrasEnviar({ empresa_id: emp, id: null });
+  return { ok: true };
+}
+
 /** Lo que estaba preparado antes para esta empresa ya no vale: se le acaba de escribir. */
 async function limpiarTrasEnviar(ap) {
   if (ap.empresa_id) await (await import('./mesaViva.js')).ocurrio(ap.empresa_id, { que: T('tu correo'), excepto: ap.id });
@@ -228,6 +243,10 @@ export async function enviarBorrador(id) {
   if (!dirValida(limpiarDir(b.para))) throw new Error(T('La dirección no es válida.'));
   const c = cuentas.elegir(b.cuenta);
   if (!c) throw new Error(T('No hay ninguna cuenta de correo conectada: añádela en Configuración › Conexiones.'));
+  // El mismo correo no sale dos veces: misma dirección y mismo asunto o mismo texto, ya enviado
+  const ya = (await q(`SELECT to_char(enviado AT TIME ZONE 'Europe/Madrid', 'DD/MM HH24:MI') AS cuando FROM correos WHERE direccion='salida' AND id<>$1 AND lower(trim(para))=lower(trim($2))
+    AND (lower(trim(asunto))=lower(trim($3)) OR trim(texto)=trim($4)) ORDER BY enviado DESC LIMIT 1`, [id, b.para, b.asunto || '', b.texto || ''])).rows[0];
+  if (ya) throw new Error(T`Este correo ya se le envió a ${b.para} el ${ya.cuando}: no se manda dos veces. Si quieres escribirle otra cosa, cambia el asunto y el texto.`);
   const conDiseno = PRO.correoDiseno && b.formato !== 'texto', logoAdjunto = (await import('./documento.js')).logoBuffer();
   const info = await mandar(c, {
     to: b.para, subject: b.asunto, text: `${b.texto}\n\n${firma(c)}`,
@@ -340,7 +359,7 @@ export async function bandeja(limite = 60) {
 
 export async function deEmpresa(empresaId) {
   return (await q(`SELECT id, direccion, de, para, asunto, adjunto, left(texto, 4000) AS texto, coalesce(enviado, creada) AS fecha FROM correos
-                    WHERE empresa_id=$1 AND direccion <> 'borrador' ORDER BY coalesce(enviado, creada)`, [empresaId])).rows;
+                    WHERE empresa_id=$1 AND direccion IN ('salida', 'entrada') ORDER BY coalesce(enviado, creada)`, [empresaId])).rows;
 }
 
 export const nombreAgente = id => AGENTES[id]?.nombre ?? id;

@@ -51,6 +51,17 @@ export async function recordar({ dia, hora, texto, creado_por = 'dueno', clase =
   const h = /^\d{2}:\d{2}$/.test(String(hora || '')) ? hora : null;
   const t = String(texto || '').trim();
   if (!t) throw new Error(T('Escribe qué hay que recordar.'));
+  // Una sola llamada pendiente por empresa: si ya hay una apuntada (de Paula, de Máximo o tuya) en estos días, se pone al día esa y no se añade otra
+  if (clase === 'llamada' && empresa_id && creado_por !== 'dueno') {   // las tuyas se respetan siempre
+    const ya = (await q(`SELECT id, detalle FROM recordatorios WHERE clase='llamada' AND empresa_id=$1 AND hecho IS NULL AND creado_por <> 'dueno' AND dia BETWEEN ($2::date - 3) AND ($2::date + 3) ORDER BY creado DESC LIMIT 1`, [empresa_id, dia])).rows[0];
+    if (ya) {
+      const det = [ya.detalle, detalle].filter(Boolean).filter((x, i, l) => l.indexOf(x) === i).join(' · ').slice(-600);
+      await q(`UPDATE recordatorios SET dia=$2, hora=coalesce($3, hora), texto=$4, telefono=coalesce($5, telefono), detalle=$6, avisado=NULL WHERE id=$1`, [ya.id, dia, h, t.slice(0, 500), telefono ? String(telefono).slice(0, 30) : null, det || null]);
+      await emitir({ tipo: 'calendario' });
+      return ya.id;
+    }
+  }
+  if (!clase && (await q(`SELECT 1 FROM recordatorios WHERE dia=$1 AND texto=$2 AND hecho IS NULL`, [dia, t.slice(0, 500)])).rows.length) return null;
   const r = (await q(`INSERT INTO recordatorios (dia, hora, texto, creado_por, clase, empresa_id, telefono, detalle, aprobacion_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
     [dia, h, t.slice(0, 500), creado_por, clase === 'llamada' ? 'llamada' : null, empresa_id || null, telefono ? String(telefono).slice(0, 30) : null, detalle ? String(detalle).slice(0, 600) : null, aprobacion_id || null])).rows[0];
   await emitir({ tipo: 'calendario' });
@@ -87,10 +98,15 @@ export async function borrar(id) { await conSuTarjeta(id, 'NULL'); await q(`DELE
 /** Cada vuelta del planificador: los recordatorios que llegan a su hora (o a las 9:00 si son de todo el día) avisan a Dirección. */
 export async function avisarRecordatorios() {
   const hoy = madridDia(new Date()), ahora = madridHora();
+  // Llamadas repetidas a la misma empresa el mismo día (de antes de juntarlas): se queda la última apuntada
+  await q(`UPDATE recordatorios r SET hecho=now() WHERE r.hecho IS NULL AND r.clase='llamada' AND r.empresa_id IS NOT NULL AND r.creado_por <> 'dueno'
+    AND EXISTS (SELECT 1 FROM recordatorios o WHERE o.id<>r.id AND o.hecho IS NULL AND o.clase='llamada' AND o.creado_por <> 'dueno' AND o.empresa_id=r.empresa_id AND o.dia=r.dia AND (o.creado, o.id) > (r.creado, r.id))`);
   const r = (await q(`SELECT * FROM recordatorios WHERE avisado IS NULL AND hecho IS NULL AND (dia < $1 OR (dia = $1 AND coalesce(hora, '09:00') <= $2))`, [hoy, ahora])).rows;
   for (const x of r) {
     await q(`UPDATE recordatorios SET avisado=now() WHERE id=$1`, [x.id]);
     const llamada = x.clase === 'llamada';
+    // Que salte en el panel, no solo en la actividad: con su botón de llamar
+    await emitir({ tipo: 'aviso_agenda', id: x.id, clase: llamada ? 'llamada' : 'recordatorio', hora: x.hora, titulo: x.texto, detalle: x.detalle || null, empresa_id: x.empresa_id || null, telefono: x.telefono || null });
     await log('sistema', `${llamada ? T('te recuerda que toca devolver una llamada') : T('te recuerda')}${x.hora ? ` (${x.hora})` : ''}: ${x.texto}${x.telefono ? ` · ${x.telefono}` : ''}`, { empresa_id: x.empresa_id || undefined });
     try { (await import('./telegram.js')).avisar(`${llamada ? '📞 Toca devolver la llamada' : '⏰ Recordatorio'}${x.hora ? ` · ${x.hora}` : ''}\n${x.texto}${x.telefono ? `\nTel: ${x.telefono}` : ''}${x.detalle ? `\n\n${String(x.detalle).slice(0, 500)}` : ''}`); } catch {}
   }

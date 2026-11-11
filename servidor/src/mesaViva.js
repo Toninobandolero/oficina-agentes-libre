@@ -107,6 +107,11 @@ export async function repasar() {
       AND EXISTS (SELECT 1 FROM aprobaciones a WHERE a.empresa_id=c.empresa_id AND a.estado='pendiente' AND a.creada < c.creada)
     ORDER BY c.empresa_id, c.creada DESC`)).rows;
   for (const c of correos) await ocurrio(c.empresa_id, { cuando: c.cuando, que: T('su correo') });
+  // El mismo post preparado dos veces (misma red, mismo día, mismo título): en la mesa, solo el último
+  for (const { id } of (await q(`UPDATE aprobaciones a SET estado='sustituida', resuelta=now() WHERE a.estado='pendiente' AND a.tipo='post'
+    AND EXISTS (SELECT 1 FROM aprobaciones b WHERE b.estado='pendiente' AND b.tipo='post' AND b.id<>a.id AND b.titulo=a.titulo
+      AND b.canal IS NOT DISTINCT FROM a.canal AND b.fecha_prevista IS NOT DISTINCT FROM a.fecha_prevista AND (b.creada, b.id) > (a.creada, a.id)) RETURNING a.id`)).rows)
+    await emitir({ tipo: 'aprobacion_resuelta', id, resultado: 'sustituida' });
   // Una llamada en la mesa no sigue si ya hay otra acordada para más adelante
   for (const { id } of (await q(`UPDATE aprobaciones a SET estado='superada', resuelta=now() WHERE a.estado='pendiente' AND a.empresa_id IS NOT NULL AND a.opciones::text LIKE '%Ya he llamado%'
     AND EXISTS (SELECT 1 FROM recordatorios r WHERE r.empresa_id=a.empresa_id AND r.hecho IS NULL AND r.clase='llamada' AND r.dia > CURRENT_DATE AND r.aprobacion_id IS DISTINCT FROM a.id) RETURNING a.id`)).rows) await emitir({ tipo: 'aprobacion_resuelta', id, resultado: 'superada' });

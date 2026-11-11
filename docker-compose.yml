@@ -6,6 +6,9 @@ services:
     image: postgres:16-alpine
     container_name: agentes-db
     restart: unless-stopped
+    logging:   # los registros no crecen sin fin en el disco: 3 archivos de 10 MB como mucho
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     environment:
       POSTGRES_DB: agentes
       POSTGRES_USER: agentes
@@ -21,6 +24,9 @@ services:
     build: .
     container_name: agentes-oficina
     restart: unless-stopped
+    logging:   # los registros no crecen sin fin en el disco: 3 archivos de 10 MB como mucho
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     env_file: .env
     environment:
       DATABASE_URL: postgres://agentes:${DB_PASSWORD}@agentes-db:5432/agentes

@@ -8,7 +8,7 @@ import { emitir, log } from './bus.js';
 import { T } from './en.js';
 
 export const CAMPOS = {
-  empresa: ['nombre', 'web', 'linkedin', 'otras_redes', 'telefono', 'localidad', 'zona', 'que_vende', 'precios', 'cliente_ideal', 'sectores', 'diferencia', 'casos'],
+  empresa: ['nombre', 'web', 'linkedin', 'otras_redes', 'telefono', 'localidad', 'empleados', 'facturacion', 'zona', 'que_vende', 'precios', 'cliente_ideal', 'sectores', 'diferencia', 'casos'],
   dueno: ['nombre', 'presentacion', 'presentacion_llamada', 'respuestas_llamada', 'linkedin', 'trayectoria', 'tono', 'evitar'],
   extra: ['texto'],
 };
@@ -67,7 +67,7 @@ export function paraPrompt() {
   const e = perfil.empresa || {}, d = perfil.dueno || {};
   const l = (t, v) => v ? `- ${t}: ${v}` : '';
   const emp = [l('Nombre', e.nombre), l('Web', e.web), l('LinkedIn de la empresa', e.linkedin), l('Otras redes', e.otras_redes), l('Teléfono de la empresa (el que se da a los clientes y sale al llamar)', e.telefono), l('Zona', e.zona),
-    l('Qué vende', e.que_vende), l('Precios', e.precios), l('Cliente ideal', e.cliente_ideal), l('Sectores prioritarios', e.sectores),
+    l('Cuántos son', e.empleados), l('Facturación', e.facturacion), l('Qué vende', e.que_vende), l('Precios', e.precios), l('Cliente ideal', e.cliente_ideal), l('Sectores prioritarios', e.sectores),
     l('Qué la diferencia', e.diferencia), l('Casos y clientes', e.casos)].filter(Boolean);
   const due = [l('Nombre', d.nombre), l('Cómo presentarle', d.presentacion), l('Cómo se presenta al llamar por teléfono', d.presentacion_llamada), l('Lo que contesta al teléfono si le preguntan quién es, por qué llama o dónde está su empresa (el sistema lo pone tal cual al final de cada guion de llamada: no lo repitas)', d.respuestas_llamada), l('LinkedIn', d.linkedin), l('Trayectoria', d.trayectoria),
     l('Tono al escribir en su nombre', d.tono), l('Lo que NUNCA hay que decir o hacer', d.evitar)].filter(Boolean);

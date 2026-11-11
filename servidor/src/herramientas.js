@@ -468,6 +468,12 @@ export async function ejecutar(ctx, nombre, input = {}) {
       if (paraSecuencia) {
         const { faltan } = await (await import('./protocolo.js')).minimo({ ...paraSecuencia, linkedin_url: input.linkedin_url || paraSecuencia.linkedin_url, decisor: input.decisor || paraSecuencia.decisor });
         if (faltan.length) return { error: `Antes de contactar con ${paraSecuencia.nombre} falta saber: ${faltan.join(', ').toLowerCase()}. Complétalo o pídeselo a quien corresponda: no le escribas sin eso.` };
+        // Si ya se habló con ellos, no es un primer contacto: el guion retoma esa conversación
+        const previa = (await q(`SELECT to_char(coalesce(inicio, creada) AT TIME ZONE 'Europe/Madrid', 'DD/MM') AS dia, left(resumen, 400) AS resumen FROM llamadas
+          WHERE empresa_id=$1 AND resumen IS NOT NULL AND coalesce(segundos, 0) >= 30 ORDER BY coalesce(inicio, creada) DESC LIMIT 1`, [paraSecuencia.id])).rows[0];
+        const todo = (input.pasos || []).map(x => x?.texto || '').join('\n');
+        if (previa && !/hablamos|hablé|llamé|me dijo|me dijiste|me dijisteis|quedamos|la otra vez|el otro día|el día \d|como te comenté|como os comenté|te vuelvo a llamar|vuelvo a llamar/i.test(todo))
+          return { error: `Con ${paraSecuencia.nombre} ya se habló (llamada del ${previa.dia}: ${previa.resumen}). No es un primer contacto: el guion tiene que retomar esa conversación (a quién se habló, qué dijo, qué quedó pendiente) y seguir desde ahí, sin presentarse como si fuera la primera vez. Reescríbelo.` };
       }
       if (PRO.guiones) for (const p of input.pasos || []) if (p?.clave === 'llamada' || p?.canal === 'telefono') {
         const faltan = M.guiones.revisar(p.texto, { hablado: await yaHablado(input.empresa_id || ctx.tarea?.empresa_id) });

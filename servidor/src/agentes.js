@@ -56,7 +56,7 @@ En el dossier anota en qué idioma conviene escribir al decisor (el de su perfil
   javi: {
     nombre: 'Javi', rol: 'redactor comercial', skill: 'mensaje-prospeccion', icono: 'pluma',
     herramientas: ['actualizar_empresa', 'guardar_contacto', 'leer_empresa', 'corregir_contacto', 'guardar_secuencia', 'anadir_paso', 'pedir_aprobacion', 'encargar', 'anotar'], web: { busquedas: 2, lecturas: 4 }, estilo: true,
-    parte: `Lee la empresa y su dossier con leer_empresa. Para un contacto nuevo escribe SOLO el primer contacto, con UNA llamada a guardar_secuencia:
+    parte: `Lee la empresa y su dossier con leer_empresa. Mira antes sus llamadas y correos: si ya se habló con ellos, no es un contacto nuevo; el guion empieza por esa conversación (cuándo se habló, con quién y qué se dijo), retoma lo que quedó pendiente y no repite lo que ya se contó. Para un contacto nuevo escribe SOLO el primer contacto, con UNA llamada a guardar_secuencia:
 el paso conexion (solicitud de LinkedIn, máx. 280 caracteres, con «asunto» corto por si LinkedIn lo pide) y, si la empresa tiene teléfono y es una sociedad (S.L., S.A., cooperativa…; a autónomos y particulares no se les llama sin su permiso), también el paso llamada:
 el guion de la llamada de plan B: primero LinkedIn, que puede llevarnos al dueño directamente, y solo si en una semana no acepta, se llama. El guion sigue el método de guiones de llamada; aquí puede abrir con la solicitud de LinkedIn. Si hay interés, pedirle permiso para mandarle la información por correo.
 Si no hay LinkedIn no es un problema: elige la vía que mejor encaje y escribe ese paso: llamada (sociedad con teléfono; el guion), correo (canal email, corto y a quien decide; lo envía Dirección con un clic) o presentacion (hay contacto en común).
@@ -231,6 +231,27 @@ function sobreDueno() {
   const f = path.join(RAIZ, 'skills', 'sobre-dueno.md');
   if (!fs.existsSync(f)) return '';
   return `\n\n## Sobre Dirección y lo que vende\n${fs.readFileSync(f, 'utf8').replace(/^---[\s\S]*?---\s*/, '').trim()}\n`;
+}
+
+const sinTildes = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const escapar = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Una palabra de «Se aplica a:» vale también en plural, en mayúsculas y sin tildes: «clínica» encuentra «CLINICAS»
+const patron = p => new RegExp('\\b' + p.split(/\s+/).map(w => escapar(w) + '(?:e?s)?').join('\\s+') + '\\b');
+/** La ficha de servicios del sector de una empresa (skills/servicios-por-sector.md), o null si no tiene. El sector es texto libre:
+ *  gana la ficha cuya palabra sale antes («Distribuidora para hostelería» es comercio, no hostelería). Se prueba cada texto por orden: el sector y, si no dice nada, el nombre. */
+export function fichaDeSector(...textos) {
+  const f = path.join(RAIZ, 'skills', 'servicios-por-sector.md');
+  if (!fs.existsSync(f)) return null;
+  const fichas = fs.readFileSync(f, 'utf8').split(/^## /m).slice(1).map(b => ({
+    texto: '## ' + b.replace(/^Se aplica a:.*\n?/m, '').trim(),
+    palabras: (b.match(/^Se aplica a:(.*)$/m)?.[1] || '').split(',').map(p => sinTildes(p).trim()).filter(Boolean).map(patron),
+  }));
+  for (const t of textos.map(sinTildes)) {
+    let mejor = null, donde = Infinity;
+    for (const fi of fichas) for (const re of fi.palabras) { const i = t.search(re); if (i >= 0 && i < donde) [mejor, donde] = [fi, i]; }
+    if (mejor) return mejor.texto;
+  }
+  return null;
 }
 
 function estiloDueno() {

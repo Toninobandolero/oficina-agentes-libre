@@ -20,7 +20,7 @@ export async function quitar(id) {
 /** Bloque de texto que se añade a las instrucciones del agente en cada tarea. */
 const ESCRIBEN_GUIONES = new Set(['javi', 'nuria', 'paula']);
 // Lo que aprende uno de los que escriben a las empresas vale para todos: si no, el siguiente repite el mismo fallo
-const ESCRIBEN_A_EMPRESAS = ['javi', 'nuria', 'paula', 'marta', 'ines'];
+export const ESCRIBEN_A_EMPRESAS = ['javi', 'nuria', 'paula', 'marta', 'ines'];
 export async function paraPrompt(agente) {
   const mejoras = ESCRIBEN_GUIONES.has(agente) ? await (await import('./horario.js')).mejorasRecientes() : [];
   const [rg, cor] = await Promise.all([

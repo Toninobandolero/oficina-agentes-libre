@@ -77,6 +77,9 @@ export async function snapshot(extra = {}) {
               EXISTS (SELECT 1 FROM imagenes i WHERE i.aprobacion_id = a.id) AS imagen,
               split_part(coalesce(a.ref, ''), ':', 1) AS ref_tipo, e.categoria, e.puntuacion,
               e.nombre AS empresa, e.linkedin_url, e.linkedin_empresa, e.decisor, a.empresa_id, e.interes, e.interes_frase,
+              (SELECT max(coalesce(l.inicio, l.creada)) FROM llamadas l WHERE l.empresa_id = e.id AND l.resumen IS NOT NULL AND coalesce(l.segundos, 0) >= 30) AS hablado_en,
+              (SELECT count(*) FROM llamadas l WHERE l.empresa_id = e.id AND coalesce(l.inicio, l.creada) < now() - interval '15 minutes')::int AS n_llamadas,
+              (SELECT to_char(r.dia, 'YYYY-MM-DD') || ' ' || coalesce(r.hora, '09:00') FROM recordatorios r WHERE r.empresa_id = e.id AND r.clase = 'llamada' AND r.hecho IS NULL AND r.dia <= CURRENT_DATE ORDER BY r.dia, r.hora LIMIT 1) AS cita,
               coalesce(nullif(e.telefono, ''), (SELECT c.telefono FROM contactos c WHERE c.empresa_id = e.id AND NOT c.borrado AND c.telefono IS NOT NULL ORDER BY c.preferente DESC, c.id LIMIT 1)) AS telefono
          FROM aprobaciones a LEFT JOIN empresas e ON e.id = a.empresa_id
         WHERE a.estado = 'pendiente' ORDER BY a.creada`),

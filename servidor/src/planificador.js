@@ -292,13 +292,34 @@ export const revisarGerencia = () => tareas.crear('rafa', 'Revisión del gerente
 export async function reunionYCharlas(m, vac) {
   if (await ajuste('pausado', config.pausadoInicial)) return;
   // Reunión de equipo: los lunes a las 10:00 (después del informe del embudo)
-  if (!vac && m.dia === config.reunionDia && m.hora >= config.reunionHora) await unaVez('reunion:' + m.fecha, () => reunion.celebrar().catch(e => console.error('Reunión:', e.message)));
+  if (!vac && m.dia === config.reunionDia && m.hora >= config.reunionHora) await unaVez('reunion:' + m.fecha, async () => {
+    await emitir({ tipo: 'aviso_agenda', clase: 'reunion', hora: config.reunionHora, titulo: T('Empieza la reunión de equipo'), detalle: T('Cada uno cuenta lo que lleva. Máximo te deja el acta en la actividad cuando acabe.') });
+    await reunion.celebrar().catch(e => console.error('Reunión:', e.message));
+    await emitir({ tipo: 'aviso_agenda', clase: 'reunion', titulo: T('Ha terminado la reunión de equipo'), detalle: T('El acta está en la actividad: lo que te piden va enlazado.') });
+  });
   // Vida de oficina: las charlas del día, una sola llamada barata por la mañana
   if (vida.estaActiva() && m.hora >= '07:45' && m.hora < '20:00') await vida.charlasSiFaltan().catch(e => console.error('Charlas:', e.message));
 }
 
+/** Cada mañana: las llamadas apuntadas para hoy que no tienen guion en la mesa, Javi se lo prepara partiendo de las llamadas anteriores. Como mucho 8. */
+export async function guionesDelDia() {
+  const citas = (await q(`SELECT DISTINCT ON (r.empresa_id) r.empresa_id, r.texto, r.detalle, r.hora, e.nombre FROM recordatorios r JOIN empresas e ON e.id = r.empresa_id
+    WHERE r.clase='llamada' AND r.hecho IS NULL AND r.dia = CURRENT_DATE AND e.estado NOT IN ('perdida','descartada')
+      AND NOT EXISTS (SELECT 1 FROM aprobaciones a WHERE a.empresa_id = r.empresa_id AND a.estado='pendiente' AND a.texto ~* '(^|\n)\s*(LLAMADA|GUI[OÓ]N)')
+      AND NOT EXISTS (SELECT 1 FROM tareas t WHERE t.agente='javi' AND t.empresa_id = r.empresa_id AND t.estado IN ('pendiente','en_curso'))
+    ORDER BY r.empresa_id, r.hora LIMIT 8`)).rows;
+  for (const c of citas) {
+    const previas = (await q(`SELECT to_char(coalesce(inicio, creada) AT TIME ZONE 'Europe/Madrid', 'DD/MM HH24:MI') AS cuando, resultado, left(resumen, 600) AS resumen FROM llamadas WHERE empresa_id=$1 ORDER BY coalesce(inicio, creada) DESC LIMIT 3`, [c.empresa_id])).rows;
+    await encargar('javi', `Prepara el guion de la llamada de hoy${c.hora ? ` a las ${c.hora}` : ''} a ${c.nombre} (id ${c.empresa_id}). Motivo apuntado: ${c.texto}${c.detalle ? ` (${c.detalle})` : ''}.`
+      + (previas.length ? `\nLlamadas anteriores:\n${previas.map(x => `— ${x.cuando}: ${x.resultado || 'sin resultado'}${x.resumen ? `. ${x.resumen}` : ''}`).join('\n')}\nEl guion empieza por lo que pasó y sigue desde ahí; no lo escribas como si fuera la primera vez.` : '')
+      + `\nEntrégalo con pedir_aprobacion: título «ha preparado la llamada a ${c.nombre}», con el bloque LLAMADA, su OBJETIVO en una línea y el GUION.`, { empresa_id: c.empresa_id, origen: 'sistema' });
+  }
+  return citas.length;
+}
+
 async function captacion(m, vac) {
   const dm = Number(m.fecha.slice(8, 10));
+  if (!vac && m.dia >= 1 && m.dia <= 5 && m.hora >= '07:30') await unaVez('guiones-dia:' + m.fecha, () => guionesDelDia());
   if (!vac && m.dia === 1 && m.hora >= '09:15') await unaVez('contenido:' + m.fecha, async () => encargar('alex', await encargoContenido(m.fecha), { origen: 'sistema' }));
   if (!vac && m.dia === 2 && dm <= 7 && m.hora >= '09:15') await unaVez('boletin:' + m.fecha, () => encargar('alex',
     'Prepara el boletín de este mes (tipo \'boletin\', canal \'boletin\') para quien se ha apuntado en la web.', { origen: 'sistema' }));
@@ -360,6 +381,10 @@ export async function mantenimiento() {
   r.eventos = (await q(`DELETE FROM eventos WHERE ts < now() - interval '180 days'`)).rowCount;               // actividad del panel (se enseñan 40)
   r.busquedas = (await q(`DELETE FROM busquedas WHERE creada < now() - interval '30 days'`)).rowCount;        // caché de búsquedas (se usa 30 días)
   r.sesiones = (await q(`DELETE FROM sesiones WHERE expira < now()`)).rowCount;
+  // Imágenes y vídeos (lo que más pesa) de tarjetas descartadas, sustituidas o superadas hace más de 60 días: ya no se van a publicar
+  const viejas = `SELECT id FROM aprobaciones WHERE estado IN ('descartada','sustituida','superada','cambios') AND coalesce(resuelta, creada) < now() - interval '60 days'`;
+  r.imagenes = (await q(`DELETE FROM imagenes WHERE aprobacion_id IN (${viejas})`)).rowCount;
+  r.videos = (await q(`DELETE FROM videos WHERE aprobacion_id IN (${viejas})`)).rowCount;
   // Marcas de «esto ya se hizo ese día» (reunion:2026-10-27, analisis:…): solo hacen falta las recientes
   r.marcas = (await q(`DELETE FROM ajustes WHERE clave ~ '^[a-z-]+:[0-9]{4}-[0-9]{2}-[0-9]{2}$' AND substring(clave from '[0-9]{4}-[0-9]{2}-[0-9]{2}$')::date < current_date - 30`)).rowCount;
   if (Object.values(r).some(Boolean)) console.log('Mantenimiento:', JSON.stringify(r));

@@ -50,7 +50,7 @@ export const mesCuenta = () => gastadoDesde();
 
 /** Dirección apunta el saldo que ve hoy en Billing: desde ahí se resta lo que se gaste en la cuenta (con todas sus claves).
  *  Lo ya gastado hoy antes de apuntarlo se guarda como base, porque Anthropic agrupa por días enteros. */
-export async function fijarSaldo(usd) {
+export async function fijarSaldo(usd, caduca = null) {
   const n = Number(String(usd ?? '').replace(',', '.'));
   if (usd === '' || usd == null) { await fijarAjuste('saldo_claude', null); return null; }
   if (!Number.isFinite(n) || n < 0 || n > 100000) throw new Error('Pon el saldo que ves en Billing, en dólares (por ejemplo 57,30).');
@@ -58,16 +58,30 @@ export async function fijarSaldo(usd) {
   cache.delete(desde);
   const base = await gastadoDesde(desde);
   if (base == null) throw new Error('Primero pega la clave de administrador: sin ella no se puede saber lo que se gasta después.');
-  await fijarAjuste('saldo_claude', { usd: Math.round(n * 100) / 100, desde, base, cuando: new Date().toISOString() });
+  const cad = /^\d{4}-\d{2}-\d{2}$/.test(String(caduca || '')) ? String(caduca) : null;
+  await fijarAjuste('saldo_claude', { usd: Math.round(n * 100) / 100, desde, base, cuando: new Date().toISOString(), caduca: cad });
   return saldo();
 }
 /** El saldo apuntado y lo que queda ahora: { apuntado, cuando, gastado, quedan } o null. */
+// Un mes después de una fecha «AAAA-MM-DD» (el 31 pasa al último día del mes siguiente)
+const masUnMes = d => { const [y, m, dd] = d.split('-').map(Number), f = new Date(Date.UTC(y, m, 1)), ult = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(); f.setUTCDate(Math.min(dd, ult)); return f.toISOString().slice(0, 10); };
+/** Con Max, los créditos del plan se renuevan con cada ciclo (y lo que sobra caduca): pasada la fecha, se vuelve a empezar con los créditos del plan. */
+async function renovar(s) {
+  let r = s;
+  while (r.caduca && new Date() >= new Date(r.caduca + 'T00:00:00Z')) {
+    const plan = Number((await ajuste('presupuesto', null))?.creditos) || r.usd;
+    r = { usd: plan, desde: r.caduca + 'T00:00:00Z', base: 0, cuando: new Date(r.caduca + 'T00:00:00Z').toISOString(), caduca: masUnMes(r.caduca), renovado: true };
+  }
+  if (r !== s) await fijarAjuste('saldo_claude', r);
+  return r;
+}
 export async function saldo() {
-  const s = await ajuste('saldo_claude', null);
+  let s = await ajuste('saldo_claude', null);
   if (!s) return null;
+  s = await renovar(s);
   const desde = await gastadoDesde(s.desde);
   if (desde == null) return null;
   const gastado = Math.max(0, Math.round((desde - s.base) * 100) / 100);
-  return { apuntado: s.usd, cuando: s.cuando, gastado, quedan: Math.max(0, Math.round((s.usd - gastado) * 100) / 100) };
+  return { apuntado: s.usd, cuando: s.cuando, gastado, quedan: Math.max(0, Math.round((s.usd - gastado) * 100) / 100), caduca: s.caduca || null, renovado: Boolean(s.renovado) };
 }
 export async function estado() { return { conectado: Boolean(await ajuste('anthropic_admin', null)), mes_cuenta: await mesCuenta(), saldo: await saldo() }; }

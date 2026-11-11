@@ -2,7 +2,7 @@
 import { config } from './config.js';
 import { q, ajuste, fijarAjuste } from './db.js';
 import { emitir, estado, log, guardarInforme, panelAbierto } from './bus.js';
-import { AGENTES, promptSistema } from './agentes.js';
+import { AGENTES, promptSistema, fichaDeSector } from './agentes.js';
 import * as vida from './vida.js';
 import * as herramientas from './herramientas.js';
 import * as tareas from './tareas.js';
@@ -98,7 +98,7 @@ async function marcarEsperando(frenados) {
 const recortar = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 const hostDe = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return 'una web'; } };
 
-async function contexto(t) {
+export async function contexto(t) {
   const hoy = new Intl.DateTimeFormat('es-ES', { timeZone: config.zona, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date());
   const quien = AGENTES[t.origen]?.nombre || (t.origen === 'dueno' ? 'Dirección' : 'el sistema');
   let txt = t.tipo === 'pregunta'
@@ -112,6 +112,9 @@ async function contexto(t) {
     if (e) {
       const ficha = Object.fromEntries(Object.entries(e).filter(([k, v]) => v != null && !['nombre_norm', 'creada', 'actualizada', 'etapa_max'].includes(k)));
       txt += `\n\nFicha actual de la empresa (id ${e.id}):\n${paraAgente(ficha, 2)}`;
+      // Quien escribe a la empresa ve qué le ofrecemos a su sector: solo su ficha, no las de otros
+      const servicios = aprendizajes.ESCRIBEN_A_EMPRESAS.includes(t.agente) && fichaDeSector(e.sector, e.nombre);
+      if (servicios) txt += `\n\nFicha de servicios de su sector. Es una guía, no un guion cerrado: primero se averigua qué le duele y, si cuenta otra cosa, se sigue a medida. Ningún precio que no salga aquí o en tus instrucciones.\n${servicios}`;
       const personas = await (await import('./contactos.js')).lineaTelefonos(e.id);
       if (personas) txt += `\n\nA quién se puede llamar en esta empresa: ${personas}`;
       // Lo último con ella, para no hablarle a Dirección de memoria

@@ -253,9 +253,12 @@ async function encargarPaso(sec, clave, motivo) {
     seguimiento2: 'Seguimiento 2, el último: muy corto, sin presión, cierra con elegancia («si no es el momento, lo dejo aquí»).',
     llamada: `Guion de llamada (plan B)${PRO.guiones ? ', con el método de guiones de llamada' : ''}.`,
   }[clave] || '';
+  const charlas = (await q(`SELECT to_char(coalesce(inicio, creada) AT TIME ZONE 'Europe/Madrid', 'DD/MM') AS dia, left(resumen, 600) AS resumen FROM llamadas
+    WHERE empresa_id=$1 AND resumen IS NOT NULL ORDER BY coalesce(inicio, creada) DESC LIMIT 3`, [emp.id])).rows;
+  const yaHablado = charlas.length ? `\n\nLlamadas anteriores con ellos (el guion sigue desde aquí, no empieza de cero):\n${charlas.map(c => `— ${c.dia}: ${c.resumen}`).join('\n')}` : '';
   await q(`UPDATE secuencias SET control=$2, control_fecha=NULL, actualizada=now() WHERE id=$1`, [sec.id, `redactando:${clave}`]);
   await tareas.crear('javi', `${motivo}\n\nEscribe ahora el ${TIPOS[clave].titulo.toLowerCase()} para ${quien(sec, emp)} (${emp.nombre}) y entrégalo con anadir_paso (empresa_id «${emp.id}», clave «${clave}»). Llegará a la mesa de Dirección al momento.\n${guia}\n\n` +
-    `Lo que ya le hemos enviado:\n${enviados || '(nada)'}\n\n${sec.notas ? `Tus notas de entonces: ${sec.notas}\n\n` : ''}Mira el dossier con leer_empresa por si hay algo nuevo.`,
+    `Lo que ya le hemos enviado:\n${enviados || '(nada)'}${yaHablado}\n\n${sec.notas ? `Tus notas de entonces: ${sec.notas}\n\n` : ''}Mira el dossier con leer_empresa por si hay algo nuevo.`,
     { empresa_id: emp.id, origen: 'secuencia' });
 }
 

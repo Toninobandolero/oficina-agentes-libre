@@ -261,7 +261,14 @@ async function rutas(req, res) {
   if (m === 'GET' && p === '/api/empresas') return json(res, 200, await empresas.listar(Object.fromEntries(url.searchParams)));
   let r;
   if ((r = p.match(/^\/api\/empresas\/([\w-]+)\/contactos$/))) {
-    if (m === 'GET') return json(res, 200, { contactos: await contactos.deEmpresa(r[1]), opciones: await contactos.opciones(r[1]), consejos: await (await import('./horario.js')).mejorasRecientes() });
+    if (m === 'GET') {
+      // Para la ventana de llamar: las llamadas anteriores (¿es la primera?) y el motivo de la llamada apuntada en el calendario
+      // Las de la centralita y las que entraron por Lola (llamadas_voz)
+      const previas = (await q(`SELECT * FROM (SELECT coalesce(inicio, creada) AS cuando, segundos, resultado, estado, left(resumen, 700) AS resumen, NULL AS via FROM llamadas WHERE empresa_id=$1
+        UNION ALL SELECT creada, segundos, 'te_llamo', 'hecha', left(coalesce(resumen, motivo), 700), 'lola' FROM llamadas_voz WHERE empresa_id=$1 AND NOT dudosa) x ORDER BY cuando DESC LIMIT 5`, [r[1]])).rows;
+      const cita = (await q(`SELECT texto, detalle, hora FROM recordatorios WHERE empresa_id=$1 AND clase='llamada' AND hecho IS NULL AND dia <= CURRENT_DATE + 1 ORDER BY dia, hora LIMIT 1`, [r[1]])).rows[0] || null;
+      return json(res, 200, { contactos: await contactos.deEmpresa(r[1]), opciones: await contactos.opciones(r[1]), consejos: await (await import('./horario.js')).mejorasRecientes(r[1]), previas, cita });
+    }
     if (m === 'POST') {
       try {
         const c = await contactos.guardar(r[1], await cuerpo(req), { origen: 'dueno' });
@@ -429,7 +436,9 @@ async function rutas(req, res) {
   if (m === 'POST' && (r = p.match(/^\/api\/aprobaciones\/(\w+)\/correo$/))) {
     try { const b = await cuerpo(req); await (b.documento ? correo.enviarDocumento(r[1], b) : correo.enviarDesdeTarjeta(r[1], b)); return json(res, 200, { ok: true }); } catch (e) { return json(res, 400, { error: e.message }); }
   }
+  if (m === 'POST' && p === '/api/correo/nuevo') { try { return json(res, 200, await correo.escribir(await cuerpo(req))); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (m === 'POST' && p === '/api/correo/vista') { const b = await cuerpo(req); return json(res, 200, { html: await correo.vista(b) }); }
+  if (PRO.vigilante && m === 'GET' && p === '/api/espacio') return json(res, 200, await M.vigilante.espacio());   // disco, memoria y lo que más pesa
   if (PRO.vigilante && m === 'GET' && p === '/api/vigilante') return json(res, 200, { ultimo: await ajuste('vigilante_ultimo', null), correo: await ajuste('vigilante_correo', null), cambios: await ajuste('cambios_rafa', []), fallos: await ajuste('fallos_app', []) });
   if (PRO.vigilante && m === 'POST' && p === '/api/vigilante') {
     const v = M.vigilante;
@@ -528,6 +537,7 @@ async function rutas(req, res) {
   // Primer uso: Máximo ayuda a configurar el resto (arranque.js)
   if (m === 'GET' && p === '/api/arranque') return json(res, 200, await arranque.estado());
   if (m === 'POST' && p === '/api/arranque/mensaje') { try { return json(res, 200, await arranque.conversar((await cuerpo(req)).texto)); } catch (e) { return json(res, 400, { error: e.message }); } }
+  if (m === 'POST' && p === '/api/arranque/empresa') { try { return json(res, 200, await arranque.empezarCon(await cuerpo(req))); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (m === 'POST' && p === '/api/arranque/terminar') return json(res, 200, await arranque.terminar(await cuerpo(req)));
   // Departamentos que usa esta empresa
   if (m === 'GET' && p === '/api/departamentos') return json(res, 200, await departamentos.paraConfiguracion());
