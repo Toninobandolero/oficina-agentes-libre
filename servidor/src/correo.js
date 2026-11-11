@@ -350,11 +350,14 @@ export async function boletines(dias = 7, limite = 15) {
 }
 
 /** La bandeja del panel: lo que ha llegado (y lo que se ha enviado) con lo que ha hecho la oficina con cada uno. */
-export async function bandeja(limite = 60) {
-  return (await q(`SELECT c.id, c.direccion, c.de, c.para, c.asunto, left(c.texto, 4000) AS texto, c.clase, c.empresa_id, e.nombre AS empresa,
-                          coalesce(c.enviado, c.creada) AS fecha
+/** Los correos de la oficina: los preparados que aún no se han enviado (con su tarjeta en la mesa), los enviados y los recibidos. */
+export async function bandeja(limite = 80) {
+  return (await q(`SELECT * FROM (SELECT c.id, c.direccion, c.de, c.para, c.asunto, left(c.texto, 4000) AS texto, c.clase, c.empresa_id, e.nombre AS empresa,
+                          coalesce(c.enviado, c.creada) AS fecha, a.id AS aprobacion
                      FROM correos c LEFT JOIN empresas e ON e.id = c.empresa_id
-                    WHERE c.direccion IN ('entrada', 'salida') ORDER BY coalesce(c.enviado, c.creada) DESC LIMIT $1`, [limite])).rows;
+                     LEFT JOIN aprobaciones a ON c.direccion = 'borrador' AND a.ref = 'correo:' || c.id AND a.estado = 'pendiente'
+                    WHERE c.direccion IN ('entrada', 'salida') OR a.id IS NOT NULL) x
+                    ORDER BY (direccion = 'borrador') DESC, fecha DESC LIMIT $1`, [limite])).rows;
 }
 
 export async function deEmpresa(empresaId) {

@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 import { q } from './db.js';
 import { consejoHora, siguienteHueco } from './horario.js';
-import { alResolverTarjeta, emitir, estado, estadoDe, log } from './bus.js';
+import { alResolverTarjeta, correoPrevio, emitir, estado, estadoDe, log } from './bus.js';
 import { PRO } from './modulos.js';
 import { AGENTES } from './agentes.js';
 import * as empresas from './empresas.js';
@@ -150,7 +150,8 @@ export async function crear({ agente, tipo, titulo, texto, empresa_id = null, re
   const doc_empresa = emp ? (await q(`SELECT id FROM aprobaciones WHERE empresa_id=$1 AND tipo='propuesta' AND estado NOT IN ('sustituida','superada') ORDER BY creada DESC LIMIT 1`, [emp.id])).rows[0]?.id ?? null : null;
   const prio = prioridadDe({ prioridad: b.nivel, prioridad_motivo: b.motivo, caduca: cad, creada: fila.creada, fecha_prevista: prevista });
   await emitir({ tipo: 'traspaso', de: agente, a: 'dueno', carga: true });
-  await emitir({ tipo: 'aprobacion', id, agente, clase: tipo, doc_empresa, ref_tipo: String(ref || '').split(':')[0], categoria: emp?.categoria ?? null, puntuacion: emp?.puntuacion ?? null, empresa: emp?.nombre ?? null, linkedin_url: emp?.linkedin_url ?? null, linkedin_empresa: emp?.linkedin_empresa ?? null, decisor: emp?.decisor ?? null, telefono: emp?.telefono ?? null, empresa_id: emp?.id ?? null, perfil_url: perfil, buscar: buscar || null, titulo, texto, opciones, creada: fila.creada, prio, prioridad: b.nivel, prioridad_motivo: b.motivo, caduca: cad, canal, fecha_prevista: prevista, imagen: conImagen, video: tipo === 'video' ? video.ficha(texto) : undefined });
+  const correo_previo = /^correo:\d+$/.test(ref || '') ? (await q(`SELECT ${correoPrevio('b.id = $1')} AS p`, [Number(ref.slice(7))])).rows[0].p : null;
+  await emitir({ tipo: 'aprobacion', id, agente, correo_previo, clase: tipo, doc_empresa, ref_tipo: String(ref || '').split(':')[0], categoria: emp?.categoria ?? null, puntuacion: emp?.puntuacion ?? null, empresa: emp?.nombre ?? null, linkedin_url: emp?.linkedin_url ?? null, linkedin_empresa: emp?.linkedin_empresa ?? null, decisor: emp?.decisor ?? null, telefono: emp?.telefono ?? null, empresa_id: emp?.id ?? null, perfil_url: perfil, buscar: buscar || null, titulo, texto, opciones, creada: fila.creada, prio, prioridad: b.nivel, prioridad_motivo: b.motivo, caduca: cad, canal, fecha_prevista: prevista, imagen: conImagen, video: tipo === 'video' ? video.ficha(texto) : undefined });
   await log(agente, T`${titulo.replace(/\.$/, '')}. Está en tu mesa.`, { empresa_id: emp?.id, aprobacion_id: id });
   if (emp) await telegramDeEmpresa(emp.id);
   else if (prio.nivel <= 2) {

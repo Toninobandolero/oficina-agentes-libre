@@ -68,11 +68,16 @@ export async function emitirEmbudo() {
 
 const prioridadEfectiva = r => _efectiva(r, new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()));
 
+/** Para un correo preparado: lo último que ya salió a esa misma dirección (y si es este mismo correo), para saber si ya se le escribió. */
+export const correoPrevio = donde => `(SELECT json_build_object('cuando', s.enviado, 'asunto', s.asunto, 'igual', lower(trim(s.asunto)) = lower(trim(b.asunto)) OR trim(s.texto) = trim(b.texto), 'n', count(*) OVER ())
+  FROM correos b JOIN correos s ON s.direccion = 'salida' AND s.id <> b.id AND lower(trim(s.para)) = lower(trim(b.para)) WHERE ${donde} ORDER BY s.enviado DESC LIMIT 1)`;
+
 export async function snapshot(extra = {}) {
   const [embudo, pend, logs] = await Promise.all([
     calcularEmbudo(),
     q(`SELECT a.id, a.agente, a.tipo AS clase, a.titulo, a.texto, a.opciones, a.creada, a.prioridad, a.prioridad_motivo, a.caduca, a.canal, a.fecha_prevista, a.pospuesta, a.perfil_url, a.buscar, (a.documento IS NOT NULL) AS con_documento, (SELECT d.id FROM aprobaciones d WHERE d.empresa_id=a.empresa_id AND (d.documento IS NOT NULL OR d.tipo='propuesta') AND d.estado NOT IN ('sustituida','superada') ORDER BY d.creada DESC LIMIT 1) AS doc_empresa, a.desfasada,
               (SELECT p.canal FROM pasos p WHERE a.ref = 'paso:' || p.id) AS paso_canal,
+              ${correoPrevio(`a.ref = 'correo:' || b.id`)} AS correo_previo,
               CASE WHEN a.llamada_en > now() - interval '12 hours' THEN a.llamada_en END AS llamada_en,
               EXISTS (SELECT 1 FROM imagenes i WHERE i.aprobacion_id = a.id) AS imagen,
               split_part(coalesce(a.ref, ''), ':', 1) AS ref_tipo, e.categoria, e.puntuacion,

@@ -446,6 +446,7 @@ async function rutas(req, res) {
     return json(res, 200, await v.revisar());
   }
   if (m === 'GET' && p === '/api/correo/cuentas/comprobar') return json(res, 200, await cuentasCorreo.comprobar(url.searchParams.get('cuenta')));
+  if (m === 'GET' && p === '/api/buscar') return json(res, 200, await (await import('./buscar.js')).buscar(url.searchParams.get('q')));
   if (m === 'GET' && p === '/api/correo/bandeja') return json(res, 200, await correo.bandeja());
   if (m === 'GET' && p === '/api/correo/cuentas') return json(res, 200, cuentasCorreo.listar());
   if (m === 'POST' && p === '/api/correo/cuentas') { try { return json(res, 200, await cuentasCorreo.guardar(await cuerpo(req))); } catch (e) { return json(res, 400, { error: e.message }); } }

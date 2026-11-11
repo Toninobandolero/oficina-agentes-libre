@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Oficina">
-<script>/* Idioma del panel: ?lang=es|en se recuerda; si no, el del navegador */window.LANG=(()=>{try{var q=new URLSearchParams(location.search).get('lang');if(q==='es'||q==='en'){localStorage.setItem('idioma',q);return q;}return localStorage.getItem('idioma')||(/^es\b/i.test(navigator.language)?'es':'en');}catch(e){return 'es';}})();document.documentElement.lang=LANG;if(LANG==='en')document.write('<script src="en.js?v=382d1786"><\/script>');</script>
+<script>/* Idioma del panel: ?lang=es|en se recuerda; si no, el del navegador */window.LANG=(()=>{try{var q=new URLSearchParams(location.search).get('lang');if(q==='es'||q==='en'){localStorage.setItem('idioma',q);return q;}return localStorage.getItem('idioma')||(/^es\b/i.test(navigator.language)?'es':'en');}catch(e){return 'es';}})();document.documentElement.lang=LANG;if(LANG==='en')document.write('<script src="en.js?v=6dc796d3"><\/script>');</script>
 <title>Oficina de agentes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -166,6 +166,13 @@ body.pantalla-acceso .avisos-toast{display:none}
 .maximo-sitio{display:flex;gap:10px;align-items:center;width:calc(100% - 40px);margin:0 0 14px;padding:8px 12px;text-align:left;font:inherit;font-size:14px;line-height:1.35;color:inherit;background:rgba(201,161,90,.12);border:1px solid rgba(201,161,90,.55);border-radius:10px;cursor:pointer}.maximo-sitio{grid-column:1/-1}.conf>.maximo-sitio{width:auto;margin:12px 50px 4px 12px}
 @media (max-width:700px){.conf:has(>.maximo-sitio){grid-template-rows:auto auto minmax(0,1fr)}.conf>.maximo-sitio{margin:10px 12px 0}}
 .maximo-sitio img{width:40px;height:40px;flex:none;image-rendering:pixelated}.maximo-sitio b{color:#c9a15a}
+.buscador input{width:100%;box-sizing:border-box;font-size:16px;padding:8px 10px;margin:6px 0 4px}
+.busca-emp{border-top:1px solid var(--line);padding:10px 0 4px;margin-top:8px}
+.busca-emp h3{margin:0 0 4px;font-size:18px}.busca-emp h4{margin:12px 0 4px;font-size:14px}
+.busca-emp a:not(.btn),.bandeja-correo a:not(.btn){color:var(--text);text-decoration:underline}
+.busca-lista{margin:0;padding-left:18px;line-height:1.6}.busca-lista .btn{text-align:left;white-space:normal}
+.correos-filtro{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+.correo-estado.borrador{color:var(--wait)}.correo-estado.salida{color:var(--ok)}
 .bandeja-correo{padding:8px 0;border-bottom:1px solid var(--linea,#ffffff22)}.bandeja-correo summary{cursor:pointer;line-height:1.45}.bandeja-texto{white-space:pre-wrap;word-break:break-word;font:inherit;margin:8px 0 0;max-height:50vh;overflow:auto}
 #informe-dlg::backdrop,#llamada-dlg::backdrop,#aparte-dlg::backdrop,#importar-dlg::backdrop{background:rgba(6,10,22,.6)}
 .inf-caja{position:relative;padding:18px 22px;overflow:auto;max-height:calc(100vh - 40px)}
@@ -1005,10 +1012,11 @@ html[data-tema=terminal] .logo{font-family:var(--ui)}
       <span id="cal-chip" class="chip" hidden></span>
       <span id="ausencia-chip" class="chip" hidden></span>
       <span id="animo" class="chip" title="Sube con tus agradecimientos, la pizza, las fiestas y los juegos; baja con la basura y lo que se acumula en tu mesa"></span>
+      <button id="btn-buscar" class="btn sec peq" type="button" title="Busca una empresa, una persona, un correo o un teléfono (tecla /)">🔎 Buscar</button>
       <button id="btn-calendario-top" class="btn peq" type="button" title="Calendario: posts, eventos, seguimientos, reuniones y recordatorios">📅 Calendario</button>
       <details class="menu-top" id="menu-top"><summary class="btn sec peq" title="Más opciones">☰ Menú</summary>
         <div class="menu-pop" role="menu">
-          <button id="btn-bandeja" class="btn sec peq" type="button">📬 Correos recibidos</button>
+          <button id="btn-bandeja" class="btn sec peq" type="button">📬 Correos</button>
           <button id="btn-config" class="btn sec peq" type="button">⚙️ Configuración</button>
           <button id="btn-diseno" class="btn sec peq" type="button">🎨 Diseño del panel</button>
           <button id="btn-pausa" class="btn sec peq" type="button" hidden>Pausar equipo</button>
@@ -2732,7 +2740,11 @@ function pintarBandeja(){
     // Si ya se habló con ellos (o se llamó sin dar con nadie), que se vea antes de llamar
     const yaHablado=p.hablado_en?`<p class="aprob-ya">🗣 ${TR`No es la primera llamada: ya hablasteis el ${new Date(p.hablado_en).toLocaleDateString(LOCALE,{weekday:'long',day:'numeric',month:'long'})}.`}${p.interes_frase?` «${esc(p.interes_frase)}»`:''}</p>`:p.n_llamadas?`<p class="aprob-ya">📞 ${p.n_llamadas===1?TR('Ya le has llamado una vez, sin hablar con nadie.'):TR`Ya le has llamado ${p.n_llamadas} veces, sin hablar con nadie.`}</p>`:'';
     const cita=p.cita?`<p class="aprob-ya">📅 ${p.cita.slice(0,10)===isoLocal(new Date())?TR`Quedaste en llamarle hoy a las ${p.cita.slice(11)}.`:TR`Quedaste en llamarle el ${new Date(p.cita.slice(0,10)+'T12:00:00').toLocaleDateString(LOCALE,{weekday:'long',day:'numeric'})}: ya ha pasado.`}</p>`:'';
-    const meta=cita+yaHablado+(tv?tv.aviso:'')+`<p class="aprob-meta"><span class="prio p${p._prio.nivel}" title="${esc(p._prio.motivo)}">${p._prio.emoji} ${esc(p._prio.etiqueta)}</span><span>${esc(p._prio.motivo)}</span>${p.creada?`<span>· ${esc(haceCuanto(p.creada))}</span>`:''}${dormida(p)?TR`<span>· 💤 vuelve ${esc(cuandoTxt(p.pospuesta))}</span>`:''}${p.canal||cuando?`<span>· 🗓 ${esc([CANAL_TXT[p.canal]||p.canal,cuando].filter(Boolean).join(' · '))}</span>`:''}${p.clase==='post'&&cuando&&['linkedin','facebook'].includes(p.canal)&&cacheMesa[p.canal]?.autopublicar&&cacheMesa[p.canal]?.conectado?TR`<span class="auto-pub">· 🤖 Se publica solo el ${esc(cuando)} a las 9:00</span>`:''}</p>`+botonEmpresaTarjeta(p)+(princ.get(p.empresa_id)===p&&resto.get(p.empresa_id)?.length?`<button class="btn sec peq mesa-mas" type="button" data-mas-emp="${esc(p.empresa_id)}">${verMasEmp.has(p.empresa_id)?'▾':'▸'} +${resto.get(p.empresa_id).length} ${TR('más de esta empresa')}</button>`:'')+(p.llamada_en?`<p class="aprob-nota">${TR`📞 Llamada hecha a las ${new Date(p.llamada_en).toLocaleTimeString(LOCALE,{hour:'2-digit',minute:'2-digit'})}. Lo que pasó llega con la transcripción.`}</p>`:'');
+    // Un correo preparado: que se vea que aún no ha salido y si a esa dirección ya se le escribió
+    const cp=p.correo_previo,fCp=cp?new Date(cp.cuando).toLocaleDateString(LOCALE,{day:'numeric',month:'long'}):'';
+    const estadoCorreo=p.ref_tipo!=='correo'?'':cp?.igual?`<p class="aprob-ya">⚠️ ${TR`Este mismo correo ya se envió el ${fCp}: no hace falta mandarlo otra vez.`}</p>`
+      :`<p class="aprob-ya">📭 ${TR('Sin enviar todavía: sale cuando pulses «📧 Enviar».')}${cp?' '+TR`A esta dirección ya le escribiste el ${fCp} («${esc(cp.asunto||'')}»).`:''} <a href="#" data-ver-correos>${TR('📬 Ver todos los correos')}</a></p>`;
+    const meta=estadoCorreo+cita+yaHablado+(tv?tv.aviso:'')+`<p class="aprob-meta"><span class="prio p${p._prio.nivel}" title="${esc(p._prio.motivo)}">${p._prio.emoji} ${esc(p._prio.etiqueta)}</span><span>${esc(p._prio.motivo)}</span>${p.creada?`<span>· ${esc(haceCuanto(p.creada))}</span>`:''}${dormida(p)?TR`<span>· 💤 vuelve ${esc(cuandoTxt(p.pospuesta))}</span>`:''}${p.canal||cuando?`<span>· 🗓 ${esc([CANAL_TXT[p.canal]||p.canal,cuando].filter(Boolean).join(' · '))}</span>`:''}${p.clase==='post'&&cuando&&['linkedin','facebook'].includes(p.canal)&&cacheMesa[p.canal]?.autopublicar&&cacheMesa[p.canal]?.conectado?TR`<span class="auto-pub">· 🤖 Se publica solo el ${esc(cuando)} a las 9:00</span>`:''}</p>`+botonEmpresaTarjeta(p)+(princ.get(p.empresa_id)===p&&resto.get(p.empresa_id)?.length?`<button class="btn sec peq mesa-mas" type="button" data-mas-emp="${esc(p.empresa_id)}">${verMasEmp.has(p.empresa_id)?'▾':'▸'} +${resto.get(p.empresa_id).length} ${TR('más de esta empresa')}</button>`:'')+(p.llamada_en?`<p class="aprob-nota">${TR`📞 Llamada hecha a las ${new Date(p.llamada_en).toLocaleTimeString(LOCALE,{hour:'2-digit',minute:'2-digit'})}. Lo que pasó llega con la transcripción.`}</p>`:'');
     const extra=(p.ref_tipo==='sec'&&COMPLETO?`<button class="btn sec" type="button" data-correo-cerrar>${TR('📧 Correo y cerrar')}</button>`:'')+(p.canal==='google'?TR`<button class="btn sec peq" type="button" data-copiar-gbp="1">📋 Copiar y abrir Google Business ↗</button>`:'');
     li.innerHTML=TR`<button type="button" class="ap-ampliar" data-ampliar title="Ampliar: verla sola y en grande" aria-label="Ampliar esta tarjeta">⤢</button>${porId[p.agente]?`<button type="button" class="ap-ag" data-ver-ag="${p.agente}" title="${TR`Ver la ficha de ${esc(nombreVisible(a))}`}"><img alt="" src="${a.retrato}"></button>`:`<img alt="" src="${a.retrato}">`}<div>${meta}<p>${porId[p.agente]?`<button type="button" class="lnk-ag" data-ver-ag="${p.agente}" title="${TR`Ver la ficha de ${esc(nombreVisible(a))}`}">${esc(nombreVisible(a))}</button>`:`<b>${esc(a.nombre)}</b>`} ${esc(p.titulo)}</p>${p.texto||p.imagen?TR`<details class="aprob-det" data-ap-det="${esc(p.id)}"${ABIERTAS_MESA.has(p.id)?' open':''}><summary>Ver ${p.imagen?TR('imagen y '):''}texto</summary>${p.imagen&&EN_VIVO?`<a class="aprob-img" href="${API}/aprobaciones/${encodeURIComponent(p.id)}/imagen" target="_blank" rel="noopener" title="${TR('Ver la imagen en grande')}"><img src="${API}/aprobaciones/${encodeURIComponent(p.id)}/imagen" alt="${TR('Imagen del post')}" loading="lazy"></a>`:''}${p.texto?textoTarjeta(p.texto,' open'):''}</details>`:''}
     <div class="acciones">${botones}${p.clase==='boletin'?TR`<button class="btn sec" type="button" data-boletin-prueba>🧪 Enviarme una prueba</button>`:''}${extra}${perfil}${dormida(p)?TR`<button class="btn sec" type="button" data-posponer="0" title="Volver a ponerlo arriba">↩ A la mesa</button>`:TR`<button class="btn sec" type="button" data-posp-abrir title="Elige para cuándo: baja al fondo hasta ese día y queda apuntado en el calendario">💤 Más tarde</button>`}<button class="btn rosa" type="button" data-r="gracias" title="Dar las gracias">💛</button></div>
@@ -2847,10 +2859,53 @@ document.getElementById('btn-bandeja').addEventListener('click',async()=>{
   document.getElementById('menu-top').open=false;
   const c=ventanaAparte(TR('<h3>📬 Correos</h3><p class="meta">Cargando…</p>'));
   let l;try{l=await (await fetch(API+'/correo/bandeja')).json();if(l.error)throw new Error(l.error);}catch(e){c.innerHTML=TR`<h3>📬 Correos</h3><p class="meta">${esc(e.message||'')}</p>`;return;}
-  c.innerHTML=TR('<h3>📬 Correos</h3><p class="meta">Los últimos que han llegado a la oficina y los que has enviado. Pincha uno para leerlo entero.</p>')+(l.length?l.map(x=>{const sal=x.direccion==='salida';
-    return `<details class="bandeja-correo"><summary><b>${sal?'➡️ '+TR('Para')+' '+esc(x.para):'📩 '+esc(x.de)}</b> · ${esc(x.asunto||TR('(sin asunto)'))}<br><span class="meta">${haceCuanto(x.fecha)}${x.empresa?` · <a href="#" data-ficha-correo="${esc(x.empresa_id)}">${esc(x.empresa)}</a>`:''} · ${sal?TR('Enviado'):TR(QUE_CORREO[x.clase]||QUE_CORREO.otro)}</span></summary><pre class="bandeja-texto">${esc(x.texto||'')}</pre></details>`;}).join(''):TR('<p class="meta">Todavía no ha llegado ningún correo.</p>'));
+  // Los preparados que aún no han salido van primero: así se ve de un vistazo qué está enviado y qué no
+  const TIPO={borrador:['📭',TR('Sin enviar')],salida:['✅',TR('Enviado')],entrada:['📩',TR('Recibido')]},n=k=>l.filter(x=>x.direccion===k).length;
+  c.innerHTML=TR('<h3>📬 Correos</h3>')+`<p class="meta">${TR('Los que tu equipo ha preparado y aún no han salido, los que has enviado y los que han llegado. Pincha uno para leerlo entero.')}</p>
+    <div class="correos-filtro">${[['',TR('Todos')],['borrador',`📭 ${TR('Sin enviar')} (${n('borrador')})`],['salida',`✅ ${TR('Enviados')} (${n('salida')})`],['entrada',`📩 ${TR('Recibidos')} (${n('entrada')})`]].map(([k,t],i)=>`<button type="button" class="chipfiltro" data-filtro-correo="${k}" aria-pressed="${!i}">${t}</button>`).join('')}</div>`
+    +(l.length?l.map(x=>{const [ico,est]=TIPO[x.direccion]||TIPO.entrada,sal=x.direccion!=='entrada';
+      return `<details class="bandeja-correo" data-dir="${x.direccion}"><summary><b>${sal?`${ico} ${TR('Para')} ${esc(x.para)}`:`📩 ${esc(x.de)}`}</b> · ${esc(x.asunto||TR('(sin asunto)'))}<br><span class="meta"><b class="correo-estado ${x.direccion}">${est}</b> · ${haceCuanto(x.fecha)}${x.empresa?` · <a href="#" data-ficha-correo="${esc(x.empresa_id)}">${esc(x.empresa)}</a>`:''}${sal?'':' · '+TR(QUE_CORREO[x.clase]||QUE_CORREO.otro)}</span></summary>${x.aprobacion?`<p><button class="btn peq" type="button" data-abrir-tarjeta="${esc(x.aprobacion)}">${TR('📥 Abrir la tarjeta para enviarlo')}</button></p>`:''}<pre class="bandeja-texto">${esc(x.texto||'')}</pre></details>`;}).join('')
+      :`<p class="meta">${TR('Todavía no hay ningún correo.')}</p>`);
+  c.querySelectorAll('[data-filtro-correo]').forEach(b=>b.onclick=()=>{const k=b.dataset.filtroCorreo;c.querySelectorAll('[data-filtro-correo]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));c.querySelectorAll('.bandeja-correo').forEach(d=>d.hidden=Boolean(k)&&d.dataset.dir!==k);});
+  c.querySelectorAll('[data-abrir-tarjeta]').forEach(b=>b.onclick=()=>ampliarTarjeta(b.dataset.abrirTarjeta));
 });
 document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest('[data-ficha-correo]');if(!a)return;e.preventDefault();abrirFicha(a.dataset.fichaCorreo);});
+document.addEventListener('click',e=>{if(!e.target.closest?.('[data-ver-correos]'))return;e.preventDefault();document.getElementById('btn-bandeja').click();});
+/* Buscador general: una empresa, una persona, un correo, un teléfono o una palabra, y todo lo que hay de ello en la oficina */
+document.getElementById('btn-buscar').addEventListener('click',()=>abrirBuscador());
+document.addEventListener('keydown',e=>{if(e.key==='/'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&!e.target.closest?.('input,textarea,select,[contenteditable]')){e.preventDefault();abrirBuscador();}});
+function abrirBuscador(texto=''){
+  document.getElementById('menu-top').open=false;
+  const c=ventanaAparte(`<h3>${TR('🔎 Buscar')}</h3><form class="buscador" role="search"><input type="search" name="q" autocomplete="off" aria-label="${TR('Buscar')}" placeholder="${TR('Empresa, persona, correo, teléfono…')}"></form><div class="buscador-res" aria-live="polite"><p class="meta">${TR('Escribe el nombre de una empresa o de una persona, un correo o un teléfono: sale todo lo que hay de ello en la oficina.')}</p></div>`);
+  const f=c.querySelector('form'),campo=f.querySelector('input'),res=c.querySelector('.buscador-res');let n=0,t;
+  const buscar=async()=>{const v=campo.value.trim(),yo=++n;if(v.length<2)return;res.innerHTML=`<p class="meta">${TR('Buscando…')}</p>`;
+    try{const r=await (await fetch(API+'/buscar?q='+encodeURIComponent(v))).json();if(r.error)throw new Error(r.error);if(yo===n)res.innerHTML=htmlBusqueda(r);}
+    catch(e){if(yo===n)res.innerHTML=`<p class="conf-error">${esc(e.message||'')}</p>`;}};
+  campo.oninput=()=>{clearTimeout(t);t=setTimeout(buscar,300);};
+  f.onsubmit=e=>{e.preventDefault();clearTimeout(t);buscar();};
+  res.addEventListener('click',e=>{const b=e.target.closest('[data-abrir-tarjeta]');if(b)ampliarTarjeta(b.dataset.abrirTarjeta);});
+  campo.value=texto;campo.focus();if(texto)buscar();
+}
+function htmlBusqueda(r){
+  const f=x=>new Date(String(x).length===10?x+'T12:00:00':x).toLocaleDateString(LOCALE,{day:'numeric',month:'short',year:'numeric'});
+  const emp=(id,nombre)=>id?` · <a href="#" data-ficha-correo="${esc(id)}">🏢 ${esc(nombre||'')}</a>`:'';
+  const EST={borrador:'📭 '+TR('Sin enviar'),salida:'✅ '+TR('Enviado'),entrada:'📩 '+TR('Recibido')};
+  const correo=x=>`<details class="bandeja-correo"><summary><b class="correo-estado ${x.direccion}">${EST[x.direccion]||''}</b> · ${esc(x.asunto||TR('(sin asunto)'))}<br><span class="meta">${x.direccion==='entrada'?esc(x.de):TR('Para')+' '+esc(x.para)} · ${f(x.fecha)}${emp(x.empresa&&x.empresa_id,x.empresa)}</span></summary>${x.aprobacion?`<p><button class="btn peq" type="button" data-abrir-tarjeta="${esc(x.aprobacion)}">${TR('📥 Abrir la tarjeta para enviarlo')}</button></p>`:''}<pre class="bandeja-texto">${esc(x.texto||'')}</pre></details>`;
+  const llamada=x=>`<details class="bandeja-correo"><summary>📞 ${f(x.fecha)} · ${esc(RES_LLAMADA[x.resultado]||(x.segundos>=30?TR('hablaste con alguien'):TR('sin hablar con nadie')))}${emp(x.empresa&&x.empresa_id,x.empresa)}</summary>${x.resumen?`<p class="bandeja-texto">${esc(x.resumen)}</p>`:''}</details>`;
+  const persona=x=>`<li><b>${esc(x.nombre||x.email||x.telefono||'')}</b>${x.cargo?` · ${esc(x.cargo)}`:''}${x.email?` · <a href="mailto:${esc(x.email)}">${esc(x.email)}</a>`:''}${x.telefono?` · ${esc(x.telefono)}`:''}${emp(x.empresa&&x.empresa_id,x.empresa)}</li>`;
+  const tarjeta=x=>`<li><button class="btn sec peq" type="button" data-abrir-tarjeta="${esc(x.id)}">📥 ${esc(renombrar(`${porId[x.agente]?nombreVisible(porId[x.agente])+' ':''}${x.titulo||''}`))}</button>${emp(x.empresa&&x.empresa_id,x.empresa)}</li>`;
+  const cita=x=>`<li>${f(x.dia)}${x.hora?' '+esc(x.hora):''} · ${esc(x.texto)}</li>`;
+  const bloque=(t,l,fn,ul=true)=>l?.length?`<h4>${t} (${l.length})</h4>${ul?`<ul class="busca-lista">${l.map(fn).join('')}</ul>`:l.map(fn).join('')}`:'';
+  const empresa=e=>`<section class="busca-emp"><h3>🏢 <a href="#" data-ficha-correo="${esc(e.id)}">${esc(e.nombre)}</a></h3>
+    <p class="meta">${[NOMBRE_ESTADO[e.estado]||e.estado,e.sector,e.municipio].filter(Boolean).map(esc).join(' · ')}${e.web?` · <a href="${esc(urlWeb(e.web))}" target="_blank" rel="noopener">${esc(e.web)}</a>`:''}${e.telefono?' · 📞 '+esc(e.telefono):''}${e.email?` · <a href="mailto:${esc(e.email)}">${esc(e.email)}</a>`:''}</p>
+    ${e.proximo_paso?`<p>➡️ ${esc(e.proximo_paso)}${e.fecha_proximo_paso?` (${f(e.fecha_proximo_paso)})`:''}</p>`:''}
+    <p><a href="#" class="btn peq enlace" data-ficha-correo="${esc(e.id)}">${TR('Ver la ficha completa')}</a></p>
+    ${bloque('📥 '+TR('En tu mesa'),e.tarjetas,tarjeta)}${bloque('📅 '+TR('En el calendario'),e.citas,cita)}${bloque('📧 '+TR('Correos'),e.correos,correo,false)}${bloque('📞 '+TR('Llamadas'),e.llamadas,llamada,false)}${bloque('👤 '+TR('Personas'),e.contactos,persona)}
+    ${e.correos.length||e.llamadas.length?'':`<p class="meta">${TR('Todavía no hay correos ni llamadas con esta empresa.')}</p>`}</section>`;
+  const mas=bloque('👤 '+TR('Personas'),r.personas,persona)+bloque('📧 '+TR('Correos'),r.correos,correo,false)+bloque('📞 '+TR('Llamadas'),r.llamadas,llamada,false)+bloque('📥 '+TR('En tu mesa'),r.tarjetas,tarjeta);
+  if(!r.empresas.length&&!mas)return `<p class="meta">${TR('No hay nada con eso. Prueba con una parte del nombre, otra palabra o el teléfono.')}</p>`;
+  return r.empresas.map(empresa).join('')+(mas?`<section class="busca-emp">${r.empresas.length?`<h3>${TR('Más resultados')}</h3>`:''}${mas}</section>`:'');
+}
 // El menú se cierra al elegir algo o al pinchar fuera
 document.getElementById('menu-top').addEventListener('click',e=>{if(e.target.closest('.menu-pop button'))e.currentTarget.open=false;});
 /* Se abre junto a su botón, pero siempre dentro de la pantalla, baje a la fila que baje */
@@ -3170,7 +3225,7 @@ async function ventanaCorreo(p,{cerrar=false,documento=false}={}){
     catch(err){b.disabled=false;b.textContent=txtB;aviso.hidden=false;aviso.textContent=err.message||TR('No se ha podido enviar');aviso.scrollIntoView({block:'center'});}};
 }
 /* Escribir un correo desde la oficina: sale con tu cuenta y queda en la ficha de la empresa. O que Paula te lo prepare */
-async function ventanaCorreo({para='',empresaId=null}={}){
+async function ventanaNuevoCorreo({para='',empresaId=null}={}){
   const dlg=document.getElementById('informe-dlg'),cuerpo=dlg.querySelector('.inf-cuerpo');
   const e=empresaId&&indiceEmpresas.get(empresaId);
   let cuentas=[];try{cuentas=await (await fetch(API+'/correo/cuentas')).json();}catch{}
@@ -3194,6 +3249,7 @@ async function ventanaCorreo({para='',empresaId=null}={}){
       dlg.close();avisar({clave:'correo-nuevo',clase:'info',img:porId.paula?.retrato||DUENO.retrato,titulo:TR('✍️ Paula te lo prepara'),texto:TR('Te llega a tu panel de control para revisarlo y enviarlo.'),ms:7000});}
     catch{ev.target.disabled=false;}});
 }
+const RES_LLAMADA={hablado:TR('hablaste con alguien'),no_contesta:TR('no contestaron'),buzon:TR('saltó el buzón'),no_esta:TR('no estaba la persona'),numero_equivocado:TR('número equivocado'),volver_a_llamar:TR('quedasteis en volver a llamar'),no_interesa:TR('no le interesa'),te_llamo:TR('te llamó (le atendió Lola)')};
 async function ventanaLlamada({apId,empresaId,tel,nombre,marcacion=null}){
   const dlg=document.getElementById('llamada-dlg'),cuerpo=dlg.querySelector('.inf-cuerpo');
   {const r=raizTelWeb();if(r&&cuerpo.contains(r)){Object.assign(r.style,{position:'fixed',right:'10px',bottom:'5px',zIndex:'2147483647'});document.body.appendChild(r);}}   // el teléfono del ordenador, a salvo antes de repintar (si no, se borra) y siempre a la vista: puede haber una llamada en curso que colgar
@@ -3230,7 +3286,7 @@ async function ventanaLlamada({apId,empresaId,tel,nombre,marcacion=null}){
     el.hidden=!el.innerHTML;}
   pintarClave(null);
   // ¿Primera llamada o ya hubo otras? Con el resumen de la última, la razón de la cita de hoy y, si no hay guion, cómo pedirlo
-  const RES_LL={hablado:TR('hablaste con alguien'),no_contesta:TR('no contestaron'),buzon:TR('saltó el buzón'),no_esta:TR('no estaba la persona'),numero_equivocado:TR('número equivocado'),volver_a_llamar:TR('quedasteis en volver a llamar'),no_interesa:TR('no le interesa'),te_llamo:TR('te llamó (le atendió Lola)')};
+  const RES_LL=RES_LLAMADA;
   function pintarHistoria(d){
     let el=cuerpo.querySelector('[data-llam-hist]');if(!el){cuerpo.querySelector('[data-llam-clave]')?.insertAdjacentHTML('afterend','<div class="llam-hist" data-llam-hist></div>');el=cuerpo.querySelector('[data-llam-hist]');}
     const l=d.previas||[],fecha=x=>new Date(x.cuando).toLocaleString(LOCALE,{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
@@ -3779,7 +3835,9 @@ function avisar({clave,clase='',img,titulo,texto,ver,verTexto=TR('Ver'),empresa=
   if(ver)d.querySelector('[data-av-ver]').onclick=()=>{d.remove();ver();};
   if(empresa)d.querySelector('[data-av-emp]').onclick=()=>{d.remove();document.querySelectorAll('dialog[open]:not(#llamada-dlg)').forEach(x=>x.close());cambiarVista('empresas');abrirFicha(empresa);};
   cajaAvisos.prepend(d);while(cajaAvisos.children.length>4)cajaAvisos.lastChild.remove();
-  if(ms)setTimeout(()=>d.remove(),ms);
+  // Todos se van solos a los pocos segundos (lo que importa sigue en la mesa y el calendario); con el ratón encima, esperan
+  let t;const irse=n=>{clearTimeout(t);t=setTimeout(()=>d.remove(),n);};
+  irse(Math.min(ms||7000,8000));d.onmouseenter=()=>clearTimeout(t);d.onmouseleave=()=>irse(3000);
   if(!silencio&&clase!=='info')pitido();
 }
 function irABandeja(){if(!document.body.classList.contains('vista-empresas')&&!document.body.classList.contains('vista-chat')){}else document.querySelector('.tab[data-vista=oficina]').click();
@@ -5211,7 +5269,7 @@ document.addEventListener('click',e=>{
   const h=a.getAttribute('href')||'';
   // Un correo se escribe aquí, desde la oficina (como «Llamar»), no en una ventana en blanco
   if(/^mailto:/i.test(h)&&COMPLETO){e.preventDefault();e.stopPropagation();const emp=a.closest('[data-emp]')?.dataset.emp||(document.body.classList.contains('vista-empresas')?empresaSel:null);
-    ventanaCorreo({para:decodeURIComponent(h.slice(7).split('?')[0]),empresaId:emp});return;}
+    ventanaNuevoCorreo({para:decodeURIComponent(h.slice(7).split('?')[0]),empresaId:emp});return;}
   if(h.startsWith('#')||/^(mailto|tel):/i.test(h))return;
   if(a.target!=='_blank'){a.target='_blank';a.rel='noopener';}
 },true);
