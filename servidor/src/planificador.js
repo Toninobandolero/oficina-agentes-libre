@@ -64,6 +64,38 @@ export async function encolarAnalisisPendientes() {
   return r.rows.length;
 }
 
+/** Correos que mandaste a una empresa y se quedaron sin respuesta: a los 4 días laborables, Paula prepara un seguimiento corto
+ *  en el mismo hilo y te llega a la mesa con «Enviar». Como mucho 5 al día y dos seguimientos por empresa; después, nada.
+ *  No se sigue si contestaron (por correo o por teléfono), si ya hay algo en tu mesa o en marcha con esa empresa. */
+const DIAS_SIN_RESPUESTA = 4, MAX_SEGUIMIENTOS = 2;
+const laborablesAtras = (f, n) => { let d = f; while (n > 0) { d = sumar(d, -1); const w = new Date(d + 'T12:00:00Z').getUTCDay(); if (w > 0 && w < 6) n--; } return d; };
+export async function seguirCorreos(hoy = madrid().fecha) {
+  const r = (await q(`WITH ult AS (
+      SELECT DISTINCT ON (c.empresa_id) c.id, c.empresa_id, c.para, c.asunto, left(c.texto, 600) AS texto, c.enviado, c.seguimiento_pedido
+        FROM correos c WHERE c.direccion = 'salida' AND c.empresa_id IS NOT NULL AND coalesce(c.clase, '') NOT IN ('boletin', 'acuse')
+       ORDER BY c.empresa_id, c.enviado DESC)
+    SELECT u.*, e.nombre, to_char(u.enviado AT TIME ZONE 'Europe/Madrid', 'DD/MM') AS dia,
+           (SELECT count(*) FROM correos s WHERE s.empresa_id = u.empresa_id AND s.direccion = 'salida' AND s.clase = 'seguimiento' AND s.enviado > now() - interval '60 days')::int AS seguidos
+      FROM ult u JOIN empresas e ON e.id = u.empresa_id
+     WHERE u.seguimiento_pedido IS NULL AND (u.enviado AT TIME ZONE 'Europe/Madrid')::date <= $1::date AND u.enviado > now() - interval '45 days'
+       AND e.estado NOT IN ('perdida', 'descartada')
+       AND NOT EXISTS (SELECT 1 FROM correos x WHERE x.direccion = 'entrada' AND (x.empresa_id = u.empresa_id OR lower(x.de) = lower(u.para)) AND coalesce(x.enviado, x.creada) > u.enviado)
+       AND NOT EXISTS (SELECT 1 FROM llamadas l WHERE l.empresa_id = u.empresa_id AND coalesce(l.inicio, l.creada) > u.enviado)
+       AND NOT EXISTS (SELECT 1 FROM llamadas_voz v WHERE v.empresa_id = u.empresa_id AND v.creada > u.enviado)
+       AND NOT EXISTS (SELECT 1 FROM aprobaciones a WHERE a.empresa_id = u.empresa_id AND a.estado = 'pendiente')
+       AND NOT EXISTS (SELECT 1 FROM tareas t WHERE t.empresa_id = u.empresa_id AND t.estado IN ('pendiente', 'en_curso'))
+       AND (SELECT count(*) FROM correos s WHERE s.empresa_id = u.empresa_id AND s.direccion = 'salida' AND s.clase = 'seguimiento' AND s.enviado > now() - interval '60 days') < $2
+     ORDER BY u.enviado LIMIT 5`, [laborablesAtras(hoy, DIAS_SIN_RESPUESTA), MAX_SEGUIMIENTOS])).rows;
+  for (const c of r) {
+    await q(`UPDATE correos SET seguimiento_pedido = now() WHERE id = $1`, [c.id]);
+    await encargar('paula', `Seguimiento de un correo sin respuesta: el ${c.dia} le enviamos a ${c.para} (${c.nombre}, id ${c.empresa_id}) el correo «${c.asunto}» y desde entonces no ha contestado ni ha habido llamada.
+Lo que le escribimos (el principio): ${c.texto}
+Lee la empresa con leer_empresa y prepara un seguimiento corto con preparar_correo, en el mismo hilo: en_respuesta_a ${c.id}, para ${c.para} y asunto «Re: ${String(c.asunto || '').replace(/^re:\s*/i, '')}». En pocas líneas: recuerda en una frase lo que le escribimos y deja una pregunta fácil de contestar o algo útil, sin presionar ni repetir el correo.${c.seguidos + 1 >= MAX_SEGUIMIENTOS ? ' Es el último seguimiento: si tampoco contesta, no se le vuelve a escribir por correo.' : ''} No sale nada sin que Dirección pulse «Enviar».`, { empresa_id: c.empresa_id, origen: 'sistema' });
+  }
+  if (r.length) await log('sistema', T`ha pedido a Paula ${r.length} seguimiento${r.length === 1 ? '' : 's'} de correos sin respuesta: ${r.map(c => c.nombre).join(', ')}`);
+  return r.length;
+}
+
 async function avisoSeguimientos() {
   const v = await empresas.seguimientosVencidos();
   if (!v.length) return;
@@ -137,9 +169,10 @@ export async function tick() {
   if (!vac && m.hora >= config.suenoHasta && !ausencia.esHoraDeDormir(m.hora)) await unaVez('despertar:' + m.fecha, async () => (await import('./index.js')).despertar());
   if (!vac && m.hora >= '09:00') await unaVez('secuencias:' + m.fecha, secuencias.revisar);   // Paula te pone en la mesa lo que toca hoy
   if (!vac && m.hora >= '09:05') await unaVez('toque:' + m.fecha, toqueClientes);   // y propone un toque a un cliente que lleva meses sin noticias
+  if (!vac && m.dia >= 1 && m.dia <= 5 && m.hora >= '09:10') await unaVez('seguir-correos:' + m.fecha, () => seguirCorreos(m.fecha));   // y el seguimiento de los correos sin respuesta
   if (m.hora >= '04:00') await unaVez('mantenimiento:' + m.fecha, () => mantenimiento().catch(e => console.error('Mantenimiento:', e.message)));
   if (m.dia === config.inteligenciaDia && m.hora >= config.inteligenciaHora) await unaVez('inteligencia:' + m.fecha, () => encargar('sara', 'Prepara el informe semanal de inteligencia (mercado, competencia, ayudas y canales) y envíaselo a Dirección.', { origen: 'sistema' }));
-  if (m.dia === 1 && m.hora >= '08:45') await unaVez('informe:' + m.fecha, () => encargar('rafa', 'Prepara el informe semanal del embudo y envíaselo a Dirección.', { origen: 'sistema' }));
+  if (m.dia === 1 && m.hora >= '08:45') await unaVez('informe:' + m.fecha, () => encargar('rafa', 'Prepara el informe semanal del embudo y envíaselo a Dirección. Si hay varias líneas de venta (por_linea en resumen_embudo), una frase por cada una con sus cifras y, si una funciona claramente mejor, propón moverle esfuerzo.', { origen: 'sistema' }));
   await captacion(m, vac);
 }
 
@@ -317,8 +350,23 @@ export async function guionesDelDia() {
   return citas.length;
 }
 
+/** Cada mañana de diario, Lucía busca para cada línea de venta (que no sea la principal) lo que le falte de su ritmo de la semana. */
+export async function buscarPorLineas() {
+  const l = await import('./lineas.js');
+  let n = 0;
+  for (const x of await l.conCifras()) {
+    if (x.principal || !x.activa || !x.por_semana) continue;
+    const falta = Math.min(x.por_semana - x.nuevas_semana, config.empresasPorBusqueda);
+    if (falta <= 0) continue;
+    await tareas.crear('lucia', `Busca ${falta} empresas nuevas para la línea de venta «${x.nombre}» (linea_id ${x.id}). A quién: ${x.a_quien}. Lo que les ofrecemos: ${x.que_ofrece}.\nGuárdalas con guardar_empresas y linea_id ${x.id}, para que no se mezclen con las de otras líneas. Solo las que encajen con ese cliente, no con la ficha general de la empresa.`, { origen: 'sistema' });
+    n++;
+  }
+  return n;
+}
+
 async function captacion(m, vac) {
   const dm = Number(m.fecha.slice(8, 10));
+  if (!vac && m.dia >= 1 && m.dia <= 5 && m.hora >= '09:05') await unaVez('lineas:' + m.fecha, () => buscarPorLineas());
   if (!vac && m.dia >= 1 && m.dia <= 5 && m.hora >= '07:30') await unaVez('guiones-dia:' + m.fecha, () => guionesDelDia());
   if (!vac && m.dia === 1 && m.hora >= '09:15') await unaVez('contenido:' + m.fecha, async () => encargar('alex', await encargoContenido(m.fecha), { origen: 'sistema' }));
   if (!vac && m.dia === 2 && dm <= 7 && m.hora >= '09:15') await unaVez('boletin:' + m.fecha, () => encargar('alex',

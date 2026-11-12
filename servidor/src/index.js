@@ -35,6 +35,7 @@ import * as linkedin from './linkedin.js';
 import * as facebook from './facebook.js';
 import * as perfil from './perfil.js';
 import * as marca from './marca.js';
+import * as lineas from './lineas.js';
 import * as disenio from './disenio.js';
 import * as video from './video.js';
 import { PRO, M } from './modulos.js';
@@ -258,6 +259,8 @@ async function rutas(req, res) {
       return json(res, 200, hecho);
     } catch (e) { return json(res, 400, { error: e.message }); }
   }
+  if (m === 'GET' && p === '/api/lineas') return json(res, 200, await lineas.conCifras());
+  if (m === 'POST' && p === '/api/lineas') { try { return json(res, 200, await lineas.guardar(await cuerpo(req))); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (m === 'GET' && p === '/api/empresas') return json(res, 200, await empresas.listar(Object.fromEntries(url.searchParams)));
   let r;
   if ((r = p.match(/^\/api\/empresas\/([\w-]+)\/contactos$/))) {
@@ -267,7 +270,10 @@ async function rutas(req, res) {
       const previas = (await q(`SELECT * FROM (SELECT coalesce(inicio, creada) AS cuando, segundos, resultado, estado, left(resumen, 700) AS resumen, NULL AS via FROM llamadas WHERE empresa_id=$1
         UNION ALL SELECT creada, segundos, 'te_llamo', 'hecha', left(coalesce(resumen, motivo), 700), 'lola' FROM llamadas_voz WHERE empresa_id=$1 AND NOT dudosa) x ORDER BY cuando DESC LIMIT 5`, [r[1]])).rows;
       const cita = (await q(`SELECT texto, detalle, hora FROM recordatorios WHERE empresa_id=$1 AND clase='llamada' AND hecho IS NULL AND dia <= CURRENT_DATE + 1 ORDER BY dia, hora LIMIT 1`, [r[1]])).rows[0] || null;
-      return json(res, 200, { contactos: await contactos.deEmpresa(r[1]), opciones: await contactos.opciones(r[1]), consejos: await (await import('./horario.js')).mejorasRecientes(r[1]), previas, cita });
+      // El último guion de llamada preparado para esta empresa (aunque su tarjeta ya no esté en la mesa): si Javi lo ha hecho, al llamar está
+      const guion = (await q(`SELECT texto FROM aprobaciones WHERE empresa_id=$1 AND estado NOT IN ('descartada','sustituida','superada') AND creada > now() - interval '7 days'
+        AND texto ~* '(^|\n)\s*(LLAMADA|GUI[OÓ]N)' ORDER BY creada DESC LIMIT 1`, [r[1]])).rows[0]?.texto || null;
+      return json(res, 200, { guion, contactos: await contactos.deEmpresa(r[1]), opciones: await contactos.opciones(r[1]), consejos: await (await import('./horario.js')).mejorasRecientes(r[1]), previas, cita });
     }
     if (m === 'POST') {
       try {
@@ -291,6 +297,14 @@ async function rutas(req, res) {
   if (m === 'POST' && (r = p.match(/^\/api\/empresas\/([\w-]+)\/proximo-hecho$/))) {
     await empresas.actualizar(r[1], { proximo_paso: null, fecha_proximo_paso: null });
     return json(res, 200, { ok: true });
+  }
+  if (m === 'POST' && (r = p.match(/^\/api\/empresas\/([\w-]+)\/linea$/))) {
+    try {
+      const e = await empresas.actualizar(r[1], { linea_id: (await cuerpo(req)).linea_id || null });
+      await bus.log('dueno', T`ha pasado ${e.nombre} a la línea «${(await import('./lineas.js')).deEmpresa(e)?.nombre}».`, { empresa_id: e.id });
+      await bus.emitir({ tipo: 'lineas' });
+      return json(res, 200, e);
+    } catch (x) { return json(res, 400, { error: x.message }); }
   }
   if (m === 'POST' && (r = p.match(/^\/api\/empresas\/([\w-]+)\/estado$/))) {
     const b = await cuerpo(req);
@@ -858,6 +872,7 @@ export async function arrancar({ conMotor = true } = {}) {
   await facebook.cargarApp();
   await perfil.cargar();
   await marca.cargar();
+  await lineas.cargar();
   await cuentasCorreo.cargar();
   await chats.cargar();
   await telegram.cargar();

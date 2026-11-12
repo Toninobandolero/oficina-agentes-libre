@@ -50,16 +50,17 @@ export async function preparar({ agente, empresa_id = null, para, asunto, texto,
   if (!asu.trim() || !String(texto || '').trim()) throw new Error('El correo necesita asunto y texto.');
   const adjunto = adjuntar_documento ? await (await import('./documento.js')).deAprobacion(adjuntar_documento) : null;
   if (adjuntar_documento && !adjunto) throw new Error('No encuentro ese documento: usa el id de su tarjeta.');
-  const r = await q(`INSERT INTO correos (direccion, de, para, asunto, texto, empresa_id, en_respuesta_a, adjunto) VALUES ('borrador',$1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-    [config.correo.usuario, limpiarDir(para), asu, String(texto).trim(), emp?.id ?? previo?.empresa_id ?? null, previo?.message_id ?? null, adjunto ? adjuntar_documento : null]);
+  const seguimiento = previo?.direccion === 'salida';   // en respuesta a uno nuestro: es el seguimiento de un correo que no han contestado
+  const r = await q(`INSERT INTO correos (direccion, de, para, asunto, texto, empresa_id, en_respuesta_a, adjunto, clase) VALUES ('borrador',$1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+    [config.correo.usuario, limpiarDir(para), asu, String(texto).trim(), emp?.id ?? previo?.empresa_id ?? null, previo?.message_id ?? null, adjunto ? adjuntar_documento : null, seguimiento ? 'seguimiento' : null]);
   const id = r.rows[0].id;
-  if (previo && emp && !previo.empresa_id) await q(`UPDATE correos SET empresa_id=$1, clase='lead' WHERE id=$2`, [emp.id, previo.id]);
+  if (previo && !seguimiento && emp && !previo.empresa_id) await q(`UPDATE correos SET empresa_id=$1, clase='lead' WHERE id=$2`, [emp.id, previo.id]);
   const apId = await aprobaciones.crear({
     agente, tipo: 'correo', empresa_id: emp?.id ?? previo?.empresa_id ?? null, ref: `correo:${id}`,
     titulo: T`ha preparado un correo para ${para}${emp ? ` (${emp.nombre})` : ''}`,
     texto: `Para: ${para}\nAsunto: ${asu}${adjunto ? `\nAdjunto: ${adjunto.nombre}` : ''}\n\n${String(texto).trim()}\n\n${firma()}`,
     opciones: [{ r: 'enviar', t: '📧 Enviar' }, { r: 'fuera', t: 'Ya lo envié por otro lado' }, { r: 'cambios' }, { r: 'descartada', t: 'Descartar' }],
-    importancia: previo ? 'alta' : null, motivo: previo ? 'Respuesta a un correo que nos han enviado' : null,
+    importancia: previo && !seguimiento ? 'alta' : null, motivo: seguimiento ? 'Seguimiento de un correo que no han contestado' : previo ? 'Respuesta a un correo que nos han enviado' : null,
   });
   return { borrador: id, aprobacion: apId };
 }
@@ -78,7 +79,7 @@ export async function acuse({ para, nombre, tipo, empresa_id = null }) {
     '\n\nSi prefieres que hablemos por teléfono, responde a este correo con un número y una hora que te venga bien.';
   const c = cuentas.predeterminada();
   const info = await mandar(c, { to: para, subject: asunto, text: `${texto}\n\n${firma(c)}` });
-  await q(`INSERT INTO correos (direccion, de, para, asunto, texto, empresa_id, message_id, enviado) VALUES ('salida',$1,$2,$3,$4,$5,$6, now())`,
+  await q(`INSERT INTO correos (direccion, de, para, asunto, texto, empresa_id, message_id, enviado, clase) VALUES ('salida',$1,$2,$3,$4,$5,$6, now(), 'acuse')`,
     [c.direccion, limpiarDir(para), asunto, texto, empresa_id, info.messageId || null]);
   await log('sistema', T`ha enviado el acuse automático a ${para}: «${asunto}»`, { empresa_id });
   return info.messageId;
@@ -350,10 +351,14 @@ export async function boletines(dias = 7, limite = 15) {
 }
 
 /** La bandeja del panel: lo que ha llegado (y lo que se ha enviado) con lo que ha hecho la oficina con cada uno. */
+/** Columna para las listas: de un correo enviado (no boletín ni acuse), si después llegó alguno de esa empresa o de esa dirección. */
+export const respondido = c => `CASE WHEN ${c}.direccion = 'salida' AND coalesce(${c}.clase, '') NOT IN ('boletin', 'acuse') THEN EXISTS (SELECT 1 FROM correos rr WHERE rr.direccion = 'entrada'
+  AND (rr.empresa_id = ${c}.empresa_id OR lower(rr.de) = lower(${c}.para)) AND coalesce(rr.enviado, rr.creada) > ${c}.enviado) END AS respondido`;
+
 /** Los correos de la oficina: los preparados que aún no se han enviado (con su tarjeta en la mesa), los enviados y los recibidos. */
 export async function bandeja(limite = 80) {
   return (await q(`SELECT * FROM (SELECT c.id, c.direccion, c.de, c.para, c.asunto, left(c.texto, 4000) AS texto, c.clase, c.empresa_id, e.nombre AS empresa,
-                          coalesce(c.enviado, c.creada) AS fecha, a.id AS aprobacion
+                          coalesce(c.enviado, c.creada) AS fecha, a.id AS aprobacion, ${respondido('c')}
                      FROM correos c LEFT JOIN empresas e ON e.id = c.empresa_id
                      LEFT JOIN aprobaciones a ON c.direccion = 'borrador' AND a.ref = 'correo:' || c.id AND a.estado = 'pendiente'
                     WHERE c.direccion IN ('entrada', 'salida') OR a.id IS NOT NULL) x

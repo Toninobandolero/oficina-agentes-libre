@@ -13,6 +13,15 @@ export function T(s, ...v) {
 }
 
 export const EN = {
+  // lineas.js
+  "Ponle un nombre a la línea.": "Give the line a name.",
+  "Esa línea no existe.": "That line doesn't exist.",
+  "Di qué ofreces y a quién: sin eso el equipo no sabe qué buscar ni qué decir.": "Say what you offer and to whom: without that the team doesn't know what to look for or what to say.",
+  "Como mucho 3 líneas activas a la vez, contando la principal: apaga otra antes.": "At most 3 active lines at once, counting the main one: turn another one off first.",
+  "ha pasado {0} a la línea «{1}».": "moved {0} to the “{1}” line.",
+  "Escribe la nota.": "Write the note.",
+  "Esa empresa no existe.": "That company doesn't exist.",
+  "ha apuntado sobre {0}: «{1}»": "noted about {0}: “{1}”",
   "Este correo ya se le envió a {0} el {1}: no se manda dos veces. Si quieres escribirle otra cosa, cambia el asunto y el texto.": "This email was already sent to {0} on {1}: it isn't sent twice. To write something else, change the subject and text.",
   "Empieza la reunión de equipo": "The team meeting is starting",
   "Cada uno cuenta lo que lleva. Máximo te deja el acta en la actividad cuando acabe.": "Everyone reports on their work. Máximo leaves you the minutes in the activity when it ends.",
@@ -404,6 +413,7 @@ export const EN = {
   // planificador.js
   "ha llegado a su tope de {0} análisis de hoy y quedan {1} empresas por puntuar: sigue mañana a primera hora (o activa el modo turbo en el panel, en «IA: …»).": "has reached today's cap of {0} analyses and {1} companies are still to be scored: carrying on first thing tomorrow (or turn on turbo mode in the dashboard, under “AI: …”).",
   "recuerda {0} seguimiento{1} para hoy: {2}{3}": "reminds you of {0} follow-up{1} for today: {2}{3}",
+  "ha pedido a Paula {0} seguimiento{1} de correos sin respuesta: {2}": "asked Paula for {0} follow-up{1} of unanswered emails: {2}",
   "tiene el turbo activado, pero el equipo está en pausa: reanúdalo para que empiecen.": "has turbo on, but the team is paused: resume it so they can start.",
   "tiene el turbo activado, pero estás de vacaciones: no empezamos trabajo nuevo hasta que vuelvas.": "has turbo on, but you're on holiday: we won't start new work until you're back.",
   "pone el turbo en marcha: ya se ponen a trabajar {0}.": "starts turbo, now working: {0}.",

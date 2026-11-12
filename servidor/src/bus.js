@@ -81,6 +81,7 @@ export async function snapshot(extra = {}) {
               CASE WHEN a.llamada_en > now() - interval '12 hours' THEN a.llamada_en END AS llamada_en,
               EXISTS (SELECT 1 FROM imagenes i WHERE i.aprobacion_id = a.id) AS imagen,
               split_part(coalesce(a.ref, ''), ':', 1) AS ref_tipo, e.categoria, e.puntuacion,
+              (SELECT l.nombre FROM lineas l WHERE l.id = e.linea_id AND NOT l.principal) AS linea,
               e.nombre AS empresa, e.linkedin_url, e.linkedin_empresa, e.decisor, a.empresa_id, e.interes, e.interes_frase,
               (SELECT max(coalesce(l.inicio, l.creada)) FROM llamadas l WHERE l.empresa_id = e.id AND l.resumen IS NOT NULL AND coalesce(l.segundos, 0) >= 30) AS hablado_en,
               (SELECT count(*) FROM llamadas l WHERE l.empresa_id = e.id AND coalesce(l.inicio, l.creada) < now() - interval '15 minutes')::int AS n_llamadas,

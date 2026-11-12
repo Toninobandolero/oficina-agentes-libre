@@ -85,7 +85,8 @@ export const DEFINICIONES = {
   },
   guardar_empresas: {
     description: 'Añade empresas nuevas a la base de datos (estado «nueva»). Omite duplicadas por nombre o web. Cada empresa debe llevar fuente.',
-    input_schema: { type: 'object', properties: { empresas: { type: 'array', items: { type: 'object', properties: CAMPOS_EMPRESA, required: ['nombre', 'fuente'] } } }, required: ['empresas'] },
+    input_schema: { type: 'object', properties: { empresas: { type: 'array', items: { type: 'object', properties: CAMPOS_EMPRESA, required: ['nombre', 'fuente'] } },
+      linea_id: { type: 'integer', description: 'La línea de venta para la que buscas, si el encargo te da una (linea_id N). Sin ella, son de la línea principal.' } }, required: ['empresas'] },
   },
   actualizar_empresa: {
     description: 'Actualiza campos de una empresa: puntuación y ejes, categoría, confianza, decisor, estado, próximos pasos, notas…',
@@ -403,7 +404,7 @@ export async function ejecutar(ctx, nombre, input = {}) {
       return e;
     }
     case 'guardar_empresas': {
-      const res = await empresas.crear((input.empresas || []).map(e => empresas.SOLO_ENTRADA.includes(e.origen) ? { ...e, origen: 'busqueda' } : e));
+      const res = await empresas.crear((input.empresas || []).map(e => ({ ...(empresas.SOLO_ENTRADA.includes(e.origen) ? { ...e, origen: 'busqueda' } : e), linea_id: input.linea_id })));
       if (!departamentos.trabaja('mateo')) return res;   // Sin Investigación no se puntúa: pasárselo a Máximo solo gastaría IA
       const topeMateo = (await (await import('./planificador.js')).topes()).mateo;
       let encargadas = 0;
@@ -611,7 +612,9 @@ export async function ejecutar(ctx, nombre, input = {}) {
         (await import('./busqueda.js')).estado(),
         (await import('./planificador.js')).topes(),
       ]);
-      return { embudo, por_categoria: cat.rows, seguimientos_vencidos: vencidos, aprobaciones_pendientes: pend.rows, tareas_ultimos_7_dias: semana.rows, colas_de_trabajo: colas.rows, limite_analisis_dia: tp.mateo, objetivo_empresas: objetivo, gasto_mes_eur: gasto };
+      const lin = await (await import('./lineas.js')).conCifras();
+      const por_linea = lin.length > 1 ? lin.filter(l => l.activa).map(l => ({ linea: l.nombre, principal: l.principal, empresas: l.empresas, nuevas_esta_semana: l.nuevas_semana, por_semana: l.principal ? undefined : l.por_semana, contactadas: l.contactadas, en_conversacion_o_mas: l.conversacion, clientes: l.clientes })) : undefined;
+      return { embudo, por_linea, por_categoria: cat.rows, seguimientos_vencidos: vencidos, aprobaciones_pendientes: pend.rows, tareas_ultimos_7_dias: semana.rows, colas_de_trabajo: colas.rows, limite_analisis_dia: tp.mateo, objetivo_empresas: objetivo, gasto_mes_eur: gasto };
     }
     case 'guardar_regla': {
       // Las reglas que propone un agente no se activan hasta que Dirección las aprueba

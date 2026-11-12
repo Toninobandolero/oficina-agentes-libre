@@ -1,6 +1,7 @@
 // Buscador general del panel: una empresa, una persona, un correo, un teléfono o una palabra, y todo lo que hay de ello en la oficina.
 // De cada empresa que encaja se trae lo que ha pasado con ella (correos, llamadas, personas, tarjetas y calendario).
 import { q } from './db.js';
+import { respondido } from './correo.js';
 
 // Sin tildes ni mayúsculas, a los dos lados: «Madrid» encuentra «madrid»
 const N = col => `translate(lower(coalesce(${col}, '')), 'áéíóúüàèìòùñç', 'aeiouuaeiounc')`;
@@ -29,7 +30,7 @@ export async function buscar(texto) {
   // Todo lo de esas empresas, de una vez
   if (ids.length) {
     const [correos, llamadas, contactos, tarjetas, citas] = await Promise.all([
-      q(`SELECT c.id, c.empresa_id, c.direccion, c.de, c.para, c.asunto, left(c.texto, 3000) AS texto, coalesce(c.enviado, c.creada) AS fecha, a.id AS aprobacion
+      q(`SELECT c.id, c.empresa_id, c.direccion, c.de, c.para, c.asunto, left(c.texto, 3000) AS texto, coalesce(c.enviado, c.creada) AS fecha, a.id AS aprobacion, ${respondido('c')}
            FROM correos c LEFT JOIN aprobaciones a ON c.direccion = 'borrador' AND a.ref = 'correo:' || c.id AND a.estado = 'pendiente'
           WHERE c.empresa_id = ANY($1) AND (c.direccion IN ('entrada', 'salida') OR a.id IS NOT NULL) ORDER BY coalesce(c.enviado, c.creada) DESC`, [ids]),
       q(`SELECT call_id AS id, empresa_id, coalesce(inicio, creada) AS fecha, segundos, resultado, estado, left(resumen, 1500) AS resumen, NULL AS via FROM llamadas WHERE empresa_id = ANY($1)
@@ -49,7 +50,7 @@ export async function buscar(texto) {
     q(`SELECT c.id, c.nombre, c.cargo, c.email, c.telefono, c.empresa_id, e.nombre AS empresa FROM contactos c LEFT JOIN empresas e ON e.id = c.empresa_id
         WHERE NOT c.borrado AND (${N('c.nombre')} LIKE $1 OR ${N('c.email')} LIKE $1 OR ${N('c.cargo')} LIKE $1 OR ($2::text IS NOT NULL AND ${telDe('c.telefono')})) AND ${fuera('c.empresa_id')}
         ORDER BY c.nombre LIMIT 10`, [like, tel, ids]),
-    q(`SELECT c.id, c.direccion, c.de, c.para, c.asunto, left(c.texto, 3000) AS texto, coalesce(c.enviado, c.creada) AS fecha, c.empresa_id, e.nombre AS empresa, a.id AS aprobacion
+    q(`SELECT c.id, c.direccion, c.de, c.para, c.asunto, left(c.texto, 3000) AS texto, coalesce(c.enviado, c.creada) AS fecha, c.empresa_id, e.nombre AS empresa, a.id AS aprobacion, ${respondido('c')}
          FROM correos c LEFT JOIN empresas e ON e.id = c.empresa_id LEFT JOIN aprobaciones a ON c.direccion = 'borrador' AND a.ref = 'correo:' || c.id AND a.estado = 'pendiente'
         WHERE (c.direccion IN ('entrada', 'salida') OR a.id IS NOT NULL) AND ${fuera('c.empresa_id', 2)}
           AND (${N('c.asunto')} LIKE $1 OR ${N('c.para')} LIKE $1 OR ${N('c.de')} LIKE $1 OR ${N('c.texto')} LIKE $1)

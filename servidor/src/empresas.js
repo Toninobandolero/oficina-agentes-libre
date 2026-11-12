@@ -12,7 +12,7 @@ export const ETAPA = { nueva: 0, puntuada: 1, dossier: 2, contactada: 3, convers
 
 const EDITABLES = ['nombre', 'cif', 'web', 'sector', 'municipio', 'empleados', 'facturacion_eur', 'fuente',
   'puntuacion', 'encaje', 'necesidad', 'capacidad', 'acceso', 'categoria', 'confianza',
-  'decisor', 'cargo', 'linkedin_url', 'linkedin_empresa', 'email', 'telefono', 'whatsapp', 'direccion', 'instagram', 'facebook', 'google_place_id', 'estado', 'ultimo_contacto', 'proximo_paso', 'fecha_proximo_paso', 'notas', 'dossier', 'dolores', 'origen', 'origen_detalle', 'alianza_id'];
+  'decisor', 'cargo', 'linkedin_url', 'linkedin_empresa', 'email', 'telefono', 'whatsapp', 'direccion', 'instagram', 'facebook', 'google_place_id', 'estado', 'ultimo_contacto', 'proximo_paso', 'fecha_proximo_paso', 'notas', 'dossier', 'dolores', 'origen', 'origen_detalle', 'alianza_id', 'linea_id'];
 
 export function normalizar(nombre = '') {
   return nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -30,17 +30,19 @@ export async function leer(id) {
   return r.rows[0] || null;
 }
 
-export async function listar({ estado, sector, categoria, texto, origen, etapa_min, limite = 30 } = {}) {
+export async function listar({ estado, sector, categoria, texto, origen, etapa_min, linea, limite = 30 } = {}) {
   const cond = [], p = [];
   if (etapa_min !== undefined && etapa_min !== '' && !isNaN(Number(etapa_min))) { p.push(Number(etapa_min)); cond.push(`etapa_max >= $${p.length}`); }   // las que han llegado a esa etapa (el embudo)
   if (estado) { p.push(estado); cond.push(`estado = $${p.length}`); }
   if (origen) { p.push(origen); cond.push(`origen = $${p.length}`); }
+  if (linea === 'principal') cond.push(`(linea_id IS NULL OR linea_id NOT IN (SELECT id FROM lineas WHERE NOT principal))`);
+  else if (Number(linea)) { p.push(Number(linea)); cond.push('linea_id = $' + p.length); }
   if (sector) { p.push(`%${sector}%`); cond.push(`sector ILIKE $${p.length}`); }
   if (categoria) { p.push(categoria); cond.push(`categoria = $${p.length}`); }
   if (texto) { p.push(`%${normalizar(texto)}%`); const a = p.length; p.push(`%${texto.toLowerCase()}%`); cond.push(`(nombre_norm LIKE $${a} OR lower(coalesce(web,'')) LIKE $${p.length})`); }
   p.push(Math.min(Number(limite) || 30, 500));
   const r = await q(`SELECT id, nombre, web, sector, municipio, estado, categoria, puntuacion, confianza, decisor, cargo,
-                            email, telefono, whatsapp, linkedin_url, origen, origen_detalle, fecha_proximo_paso, proximo_paso, (dossier IS NOT NULL) AS tiene_dossier, actualizada, interes, interes_frase,
+                            email, telefono, whatsapp, linkedin_url, origen, origen_detalle, linea_id, fecha_proximo_paso, proximo_paso, (dossier IS NOT NULL) AS tiene_dossier, actualizada, interes, interes_frase,
                             (SELECT coalesce(sum(g.usd),0)::float FROM gasto g JOIN tareas t ON t.id = g.tarea_id WHERE t.empresa_id = empresas.id) AS coste_usd
                        FROM empresas ${cond.length ? 'WHERE ' + cond.join(' AND ') : ''}
                       ORDER BY actualizada DESC LIMIT $${p.length}`, p);
@@ -80,6 +82,8 @@ export async function crear(lista = [], alRepetir = null) {
         e.fuente || null, e.decisor || null, e.cargo || null, li.linkedin_url || null, e.notas || null,
         li.linkedin_empresa || null, e.email || null, e.telefono || null, e.whatsapp || null, origen, e.origen_detalle || null, Number.isInteger(+e.alianza_id) && e.alianza_id ? +e.alianza_id : null, e.direccion || null, e.instagram || null, e.facebook || null, e.google_place_id || null]);
     if (e.decisor) await fijarDecisor(id, { nombre: e.decisor, cargo: e.cargo });
+    // De otra línea de venta (si existe y no es la principal); sin ella, de la principal
+    if (Number.isInteger(+e.linea_id) && +e.linea_id) await q(`UPDATE empresas SET linea_id=$2 WHERE id=$1 AND EXISTS (SELECT 1 FROM lineas WHERE id=$2 AND NOT principal)`, [id, +e.linea_id]);
     creadas.push({ id, nombre: e.nombre.trim() });
   }
   if (creadas.length) await emitirEmbudo();
@@ -113,6 +117,11 @@ export async function actualizar(id, campos = {}, { desdeAgente = false } = {}) 
     if (k === 'categoria' && v && !['A', 'B', 'C', 'D'].includes(v)) throw new Error('La categoría debe ser A, B, C o D');
     if (k === 'origen' && !ORIGENES.includes(v)) throw new Error(`Origen no válido: ${v}. Usa uno de: ${ORIGENES.join(', ')}`);
     if (k === 'origen' && desdeAgente && SOLO_ENTRADA.includes(v)) continue;
+    if (k === 'linea_id') {   // la principal se guarda vacía; una que no existe no se acepta
+      const l = v ? (await q(`SELECT principal FROM lineas WHERE id=$1`, [Number(v) || 0])).rows[0] : null;
+      if (v && !l) throw new Error('Esa línea de venta no existe.');
+      p.push(l && !l.principal ? Number(v) : null); sets.push('linea_id = $' + p.length); continue;
+    }
     p.push(k === 'web' ? normalizarWeb(v) : (v === '' ? null : v));
     sets.push(`${k} = $${p.length}`);
     if (k === 'nombre') { p.push(normalizar(v)); sets.push(`nombre_norm = $${p.length}`); }
@@ -181,7 +190,8 @@ export async function expediente(id) {
   const h = await historial(id);
   const c = (t, n) => (t != null && String(t).length > n ? String(t).slice(0, n) + '…' : t);
   const contactos = await (await import('./contactos.js')).deEmpresa(id);
-  return { ...e, contactos, historial: {
+  const linea = (await import('./lineas.js')).paraExpediente(e);
+  return { ...e, ...(linea ? { linea } : {}), contactos, historial: {
     encargos: h.tareas.slice(-10).map(t => ({ agente: t.agente, encargo: c(t.instruccion, 160), estado: t.estado, resultado: c(t.resultado, 300), cuando: hMadrid(t.terminada || t.creada) })),
     mensajes: h.mensajes.slice(-8).map(m => ({ agente: m.agente, tipo: m.tipo, titulo: c(m.titulo, 120), texto: c(m.texto, 400), estado: m.estado, cuando: hMadrid(m.resuelta || m.creada) })),
     llamadas: h.llamadas.slice(0, 5).map(l => ({

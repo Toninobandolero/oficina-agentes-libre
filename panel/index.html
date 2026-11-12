@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Oficina">
-<script>/* Idioma del panel: ?lang=es|en se recuerda; si no, el del navegador */window.LANG=(()=>{try{var q=new URLSearchParams(location.search).get('lang');if(q==='es'||q==='en'){localStorage.setItem('idioma',q);return q;}return localStorage.getItem('idioma')||(/^es\b/i.test(navigator.language)?'es':'en');}catch(e){return 'es';}})();document.documentElement.lang=LANG;if(LANG==='en')document.write('<script src="en.js?v=6dc796d3"><\/script>');</script>
+<script>/* Idioma del panel: ?lang=es|en se recuerda; si no, el del navegador */window.LANG=(()=>{try{var q=new URLSearchParams(location.search).get('lang');if(q==='es'||q==='en'){localStorage.setItem('idioma',q);return q;}return localStorage.getItem('idioma')||(/^es\b/i.test(navigator.language)?'es':'en');}catch(e){return 'es';}})();document.documentElement.lang=LANG;if(LANG==='en')document.write('<script src="en.js?v=e803683a"><\/script>');</script>
 <title>Oficina de agentes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -79,8 +79,10 @@ input::placeholder,textarea::placeholder{color:var(--muted)}
 .btn:focus-visible,.chipfiltro:focus-visible,.cerrar:focus-visible{outline:2px solid #fff;outline-offset:2px}
 
 /* Pantalla de acceso: la oficina de fondo y la tarjeta delante */
-.acceso{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:rgba(10,16,34,.45);backdrop-filter:blur(2px)}
+.acceso{position:fixed;inset:0;z-index:100000;display:grid;place-content:center;gap:10px;background:rgba(10,16,34,.45);backdrop-filter:blur(2px)}
 .acceso-tarjeta{width:min(380px,calc(100vw - 32px));background:var(--panel);padding:26px 26px 22px;box-shadow:0 8px 0 #0a1226,0 0 0 4px #0d1730}
+.acceso .volver{width:min(380px,calc(100vw - 32px));font-size:14px;font-weight:700;color:var(--wait);text-decoration:none}
+.acceso .volver:hover,.acceso .volver:focus-visible{text-decoration:underline}
 .acceso-tarjeta .logo{margin-bottom:14px}
 .acceso-tarjeta h1{font-size:26px;line-height:1.1}
 .acceso-tarjeta p{margin:6px 0 18px;color:var(--muted);font-size:14.5px}
@@ -171,6 +173,11 @@ body.pantalla-acceso .avisos-toast{display:none}
 .busca-emp h3{margin:0 0 4px;font-size:18px}.busca-emp h4{margin:12px 0 4px;font-size:14px}
 .busca-emp a:not(.btn),.bandeja-correo a:not(.btn){color:var(--text);text-decoration:underline}
 .busca-lista{margin:0;padding-left:18px;line-height:1.6}.busca-lista .btn{text-align:left;white-space:normal}
+.lineas-lista{list-style:none;margin:10px 0;padding:0;display:grid;gap:8px}
+.lineas-lista li{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:10px 12px;background:var(--panel-2);border:1px solid var(--line)}
+#emp-filas .linea-chip{display:block;width:fit-content;margin-top:3px;font-weight:400}
+.lineas-lista li.apagada{opacity:.6}.lineas-lista small{display:block;color:var(--muted);margin-top:3px;line-height:1.4}
+.linea-chip{display:inline-block;font-size:12px;padding:1px 7px;border:1px solid var(--line);color:var(--muted);vertical-align:middle}
 .correos-filtro{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
 .correo-estado.borrador{color:var(--wait)}.correo-estado.salida{color:var(--ok)}
 .bandeja-correo{padding:8px 0;border-bottom:1px solid var(--linea,#ffffff22)}.bandeja-correo summary{cursor:pointer;line-height:1.45}.bandeja-texto{white-space:pre-wrap;word-break:break-word;font:inherit;margin:8px 0 0;max-height:50vh;overflow:auto}
@@ -545,7 +552,7 @@ body.modo-oficina .leyenda{display:none}
 .tray h2,.side h2{font-size:17px;display:flex;align-items:center;gap:8px}
 .badge{font-family:var(--pixel);font-size:13px;background:var(--wait);color:var(--bg);padding:0 7px;min-width:22px;text-align:center}
 .badge.cero{background:var(--line);color:var(--muted)}
-#bandeja{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+#bandeja,#bandeja-urgente{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}#bandeja-urgente:empty{display:none}
 .aprob{background:var(--panel-2);padding:10px 12px;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
 .aprob img{width:28px;height:28px;image-rendering:pixelated;background:var(--line)}
 .aprob p{margin:0}
@@ -654,7 +661,9 @@ textarea:focus,input[type=text]:focus{outline:2px solid var(--wait);outline-offs
 #zdrmWPhI .zdrm-webphone-call-btn{background:var(--ok)!important;border-radius:0!important;border:0!important}
 #zdrmWPhI .zdrm-webphone-decline-btn{background:var(--err)!important}
 #zdrmWPhI .zdrm-webphone-call-btn-ico,#zdrmWPhI .zdrm-webphone-numpad-ico{filter:brightness(0) invert(1)}
-#zdrmWPhI .zdrm-webphone-numpad-ico{filter:none;opacity:.8}
+#zdrmWPhI .zdrm-webphone-numpad-ico{filter:brightness(0) invert(1);opacity:.9}
+html.claro #zdrmWPhI .zdrm-webphone-numpad-ico{filter:none}
+#zdrmWPhI .zdrm-webphone-numpad{background:var(--bg)!important;border:1px solid var(--line)!important}
 .llam-colgar{font-size:18px;padding:10px 18px;background:var(--err);color:#fff;border:0}
 #zdrmWPhI .zdrm-webphone-numpad-btn-txt{font-family:var(--pixel)!important}
 html[data-tema=marca] #zdrmWPhI .zdrm-webphone{border-radius:14px!important;overflow:hidden}
@@ -662,6 +671,7 @@ html[data-tema=marca] #zdrmWPhI :is(.zdrm-webphone-numpad-btn,#zdrm-webphone-pho
 html[data-tema=marca] #zdrmWPhI .zdrm-webphone-call-btn{border-radius:12px!important}
 .llam-clave{margin:10px 0;padding:10px 12px;background:var(--panel-2);border:2px solid var(--azul);font-size:18px;line-height:1.4}.llam-clave p{margin:4px 0}
 .llam-presenta{margin:10px 0;padding:10px 12px;background:var(--bg);border:2px solid var(--wait);font-size:16px;line-height:1.4}
+.llam-notas-hechas{margin:6px 0;padding-left:18px;line-height:1.5}.llam-notas-hechas:empty{display:none}.llam-notas-antes ul{margin:4px 0 8px;padding-left:18px;line-height:1.5}
 .llam-notas{width:100%;box-sizing:border-box;font:inherit;padding:8px 10px}
 .llam-consejo{background:var(--bg);border-left:4px solid var(--wait);padding:8px 10px;font-size:14px}
 .llam-modos{gap:8px;flex-wrap:wrap}
@@ -679,7 +689,19 @@ html[data-tema=marca] #zdrmWPhI .zdrm-webphone-call-btn{border-radius:12px!impor
 .ficha-dolores ul{margin:4px 0;padding-left:20px;font-size:14px}.ficha-dolores li{margin:3px 0}.que-toca .ficha-plan{margin-top:8px;font-size:14px}.ficha-registro,.ficha-inv{margin-top:14px}.ficha-registro>summary,.ficha-plan>summary{cursor:pointer}.ficha-inv>summary{cursor:pointer;font-family:var(--pixel);font-size:16px;font-weight:600}.ficha-inv>summary .meta{font-family:var(--ui);font-size:13px;font-weight:400}.ficha-inv details{margin-top:8px}
 .voz-pasar-form{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:6px 0}.voz-pasar-form input[type=time]{width:100px}.voz-dias{display:inline-flex;gap:4px}.voz-dias label{display:inline-flex;align-items:center;gap:2px;font-size:13px}
 .li-estado .no{color:#e0a14f}.llam-estado{background:var(--bg);padding:8px 10px;font-size:14px;border-left:4px solid var(--ok)}.llam-estado.error{border-left-color:#e05a4f}
-.llam-telweb:empty{display:none}.llam-telweb{margin:8px 0;display:flex;justify-content:center}
+.llam-telweb:empty{display:none}.llam-telweb{margin:0;display:flex;justify-content:center}
+/* Zadarma lo pone arriba a la izquierda (no hace caso de la posición que se le pide): fuera de la ventana de la llamada, siempre abajo a la derecha */
+body>#zdrmWPhI.zdrm-fixed{top:auto!important;left:auto!important;right:10px!important;bottom:5px!important;z-index:2147483647!important}
+/* Y solo se ve si hay una llamada en curso (para poder colgar): si no, no aparece de la nada */
+body>#zdrmWPhI:not(:has(.zdrm-webphone-decline-btn:not(.zdrm-webphone-hide))){width:1px!important;height:1px!important;overflow:hidden!important;clip-path:inset(50%)}
+/* Dentro de la ventana de la llamada manda lo nuestro: el teléfono de Zadarma sigue funcionando, pero no se ve */
+[data-llam-telweb] #zdrmWPhI{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip-path:inset(50%)}
+/* Fijos abajo de la ventana: aunque el historial de la empresa sea largo, durante la llamada siempre se ven */
+.llam-mandos{position:sticky;bottom:0;z-index:3;background:var(--panel);border-top:2px solid var(--line);padding:10px 0 8px;margin:10px 0 0}.llam-tiempo{font-family:var(--pixel);font-size:20px;margin:0 0 8px}
+.llam-mandos .acciones{display:flex;flex-wrap:wrap;gap:8px}
+.llam-teclado{display:grid;grid-template-columns:repeat(3,72px);gap:8px;margin-top:10px}
+.llam-teclado .btn{font-size:24px;padding:12px 0;font-family:var(--pixel)}
+html[data-tema=marca] .llam-teclado .btn{border-radius:12px}
 .llam-emp p{margin:2px 0}
 .presu{background:var(--panel-2);border:1px solid var(--line);padding:12px 14px;margin-bottom:16px}
 .presu-total{font-size:16px;margin:4px 0 10px}.presu-botones{flex-wrap:wrap;align-items:center;gap:6px}
@@ -1044,6 +1066,7 @@ html[data-tema=terminal] .logo{font-family:var(--ui)}
       <input type="text" id="emp-buscar" placeholder="Buscar empresa o web…" aria-label="Buscar empresa">
       <select id="emp-estado" aria-label="Filtrar por estado"><option value="">Todos los estados</option></select>
       <select id="emp-cat" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option><option>A</option><option>B</option><option>C</option><option>D</option></select>
+      <select id="emp-linea" aria-label="Filtrar por línea de venta" hidden><option value="">Todas las líneas</option></select>
       <a id="emp-csv" class="btn sec peq" href="/api/empresas.csv" download target="_blank" rel="noopener">Exportar a Excel (CSV)</a>
       <button id="emp-importar" class="btn sec peq" type="button">Importar</button>
       <span class="cuenta" id="emp-cuenta"></span>
@@ -1130,7 +1153,7 @@ html[data-tema=terminal] .logo{font-family:var(--ui)}
   <dialog id="config" aria-label="Configuración de la plantilla">
     <div class="conf abierto"><button class="cerrar" type="button" aria-label="Cerrar" onclick="this.closest('dialog').close()">×</button>
       <div class="conf-barra"><button type="button" class="btn sec peq" id="conf-volver">‹ Menú</button><button type="button" class="btn sec peq" id="conf-cerrar">✕ Cerrar</button></div>
-      <nav><div class="conf-vida"><h2>Mi empresa</h2><p>Lo que el equipo sabe de tu empresa y de ti.</p><button class="btn peq" type="button" id="conf-empresa-btn">🏢 Datos de la empresa</button> <button class="btn sec peq" type="button" id="conf-marca-btn">🎨 Imagen de marca</button></div><div class="conf-vida"><h2>Departamentos</h2><p>Los que usa tu empresa y quién trabaja en ellos.</p><button class="btn sec peq" type="button" id="conf-dep-btn">🗂 Departamentos</button></div><div class="conf-vida"><h2>Diseño</h2><p>Cómo se ve todo el panel (pixel, cómic, suizo o terminal), en claro u oscuro, y la oficina.</p><button class="btn sec peq" type="button" data-abrir-diseno>🎨 Cambiar el diseño</button></div><div class="conf-vida"><h2>Conexiones</h2><p>Cuentas de correo, Telegram, LinkedIn, Facebook, Google Maps, centralita, voz de Lola y chats de clientes.</p><button class="btn sec peq" type="button" id="conf-con-btn">🔌 Conexiones</button></div><div class="conf-vida"><h2>Protocolo comercial</h2><p>Qué se hace con cada cliente según lo que diga, y cuándo se deja de insistir.</p><button class="btn sec peq" type="button" id="conf-proto-btn">📋 Ver el protocolo</button></div><div class="conf-vida"><h2>Inteligencia artificial</h2><p id="conf-ia-txt">La clave con la que trabajan los agentes.</p><button class="btn sec peq" type="button" id="conf-ia-btn">🧠 Claves de IA</button></div><div class="conf-vida"><h2>Personalidades</h2><p id="conf-vida-txt"></p><button class="btn sec peq" type="button" id="conf-vida-btn"></button></div><h2>Plantilla</h2><ul id="conf-lista"></ul></nav>
+      <nav><div class="conf-vida"><h2>Mi empresa</h2><p>Lo que el equipo sabe de tu empresa y de ti.</p><button class="btn peq" type="button" id="conf-empresa-btn">🏢 Datos de la empresa</button> <button class="btn sec peq" type="button" id="conf-marca-btn">🎨 Imagen de marca</button></div><div class="conf-vida"><h2>Departamentos</h2><p>Los que usa tu empresa y quién trabaja en ellos.</p><button class="btn sec peq" type="button" id="conf-dep-btn">🗂 Departamentos</button></div><div class="conf-vida"><h2>Líneas de venta</h2><p>Cada cosa que vendes, a quién y a qué ritmo: el equipo busca, puntúa y escribe con la de cada empresa.</p><button class="btn sec peq" type="button" id="conf-lineas-btn">📦 Líneas de venta</button></div><div class="conf-vida"><h2>Diseño</h2><p>Cómo se ve todo el panel (pixel, cómic, suizo o terminal), en claro u oscuro, y la oficina.</p><button class="btn sec peq" type="button" data-abrir-diseno>🎨 Cambiar el diseño</button></div><div class="conf-vida"><h2>Conexiones</h2><p>Cuentas de correo, Telegram, LinkedIn, Facebook, Google Maps, centralita, voz de Lola y chats de clientes.</p><button class="btn sec peq" type="button" id="conf-con-btn">🔌 Conexiones</button></div><div class="conf-vida"><h2>Protocolo comercial</h2><p>Qué se hace con cada cliente según lo que diga, y cuándo se deja de insistir.</p><button class="btn sec peq" type="button" id="conf-proto-btn">📋 Ver el protocolo</button></div><div class="conf-vida"><h2>Inteligencia artificial</h2><p id="conf-ia-txt">La clave con la que trabajan los agentes.</p><button class="btn sec peq" type="button" id="conf-ia-btn">🧠 Claves de IA</button></div><div class="conf-vida"><h2>Personalidades</h2><p id="conf-vida-txt"></p><button class="btn sec peq" type="button" id="conf-vida-btn"></button></div><h2>Plantilla</h2><ul id="conf-lista"></ul></nav>
       <form id="conf-form" method="dialog"></form>
       <div id="conf-panel" class="conf-panel" hidden></div>
     </div>
@@ -1138,6 +1161,7 @@ html[data-tema=terminal] .logo{font-family:var(--ui)}
 
   <section class="tray" aria-label="Tu panel de control">
     <h2>Tu panel de control <span id="npend" class="badge cero">0</span><button type="button" class="btn sec peq cal-btn" id="btn-calendario" title="Calendario de publicaciones: lo programado, lo publicado y lo que propone Álex">📅 Calendario</button></h2>
+    <ul id="bandeja-urgente" class="bandeja-urgente"></ul>
     <div class="mesa-hoy" id="mesa-hoy" hidden></div>
     <div class="mesa-barra" id="mesa-barra" hidden></div>
     <ul id="bandeja"></ul>
@@ -2591,7 +2615,8 @@ function accionDueno(acc){
 }
 
 /* ---------- Aprobaciones ---------- */
-const pendientes=new Map();const ulB=document.getElementById('bandeja');
+const pendientes=new Map();const ulB=document.getElementById('bandeja'),ulU=document.getElementById('bandeja-urgente');
+const tarjetasMesa=()=>[...document.querySelectorAll('#bandeja .aprob,#bandeja-urgente .aprob')];
 /* Guion de vídeo: el aviso dice siempre qué hay y qué falta. El vídeo existe si se ha generado y está publicado solo si Dirección lo dice */
 // La empresa de una tarjeta: la suya o, si el agente no la dijo, la que se nombra en el título o en el texto
 const EMOJI_INTERES={baja:'🛑',rechazo:'🚫',ahora_no:'🕓',objecion:'🤔',deriva:'👉',informacion:'📄',interes:'🙂',urgente:'🔥'};
@@ -2639,11 +2664,14 @@ async function pintarHoy(){
   const hoy=isoLocal(new Date());let l=[];
   try{l=await (await fetch(API+`/agenda?desde=${hoy}&hasta=${hoy}&tipos=llamada,recordatorio,reunion`)).json();}catch{return;}
   if(!Array.isArray(l))return;
-  const ahora=ahoraLocal().slice(11);l=l.filter(x=>x.estado!=='hecho'&&!(x.tipo==='reunion'&&(x.hora||'')<ahora));
+  const ahora=ahoraLocal().slice(11);// La reunión ya hecha sigue a la vista con su acta (lo que se habló y lo que te piden)
+  const actaHoy=reunionUltima?.fecha&&isoLocal(new Date(reunionUltima.fecha))===hoy?reunionUltima:null;
+  l=l.filter(x=>x.estado!=='hecho'&&!(x.tipo==='reunion'&&(x.hora||'')<ahora&&!actaHoy));
   caja.hidden=!l.length;if(!l.length){caja.innerHTML='';return;}
   caja.innerHTML=`<p class="mesa-hoy-tit">📅 ${TR('Hoy en tu calendario')}</p>`+l.map(x=>{const pasada=x.hora&&x.hora<=ahora;
     return `<div class="mesa-hoy-fila${pasada?' ya':''}"><b>${esc(x.hora||TR('Todo el día'))}</b><span>${x.tipo==='llamada'?'📞':x.tipo==='reunion'?'👥':'⏰'} ${esc(renombrar(x.titulo))}</span>
-      ${x.tipo==='llamada'&&x.telefono?botonLlamar(x.empresa_id,x.telefono,(indiceEmpresas.get(x.empresa_id)?.nombre)||''):''}${x.rid?`<button type="button" class="btn sec peq" data-hoy-hecho="${x.rid}">${x.tipo==='llamada'?TR('✓ Ya he llamado'):TR('✓ Hecho')}</button>`:''}</div>`;}).join('');
+      ${x.tipo==='reunion'&&actaHoy&&(x.hora||'')<ahora?`<button type="button" class="btn peq" data-hoy-acta>🗣 ${TR('Ver el acta')}</button>`:''}${x.empresa_id?`<button type="button" class="btn sec peq" data-abrir-emp=""${esc(x.empresa_id)}">🏢 ${esc(String(indiceEmpresas.get(x.empresa_id)?.nombre||TR('Ver la empresa')).replace(/\s*\(.*$/,''))}</button>`:''}${x.tipo==='llamada'&&x.telefono?botonLlamar(x.empresa_id,x.telefono,(indiceEmpresas.get(x.empresa_id)?.nombre)||''):''}${x.rid?`<button type="button" class="btn sec peq" data-hoy-hecho="${x.rid}">${x.tipo==='llamada'?TR('✓ Ya he llamado'):TR('✓ Hecho')}</button>`:''}</div>`;}).join('');
+  caja.querySelectorAll('[data-hoy-acta]').forEach(b=>b.onclick=()=>verActa(actaHoy));
   caja.querySelectorAll('[data-hoy-hecho]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await api(`/recordatorios/${b.dataset.hoyHecho}/hecho`,{});pintarHoy();}catch{b.disabled=false;}});
 }
 setTimeout(pintarHoy,2000);setInterval(pintarHoy,5*60_000);
@@ -2653,7 +2681,9 @@ function colaContactos(){const orden={A:0,B:1,C:2,D:3},vistas=new Set();
     .filter(p=>{const k=p.empresa_id||p.id;if(vistas.has(k))return false;vistas.add(k);return true;});}
 const correoListo=p=>p.ref_tipo!=='sec'&&esCorreoTarjeta(p);
 const claveRapido=()=>'rapidoHoy:'+isoLocal(new Date());
-function empezarRapido(){rapidoSaltadas.clear();modoRapido=true;irABandeja();siguienteRapido();}
+/* «Siguiente»: se cierra lo que haya abierto al lado (también la llamada) y se abre la siguiente empresa */
+function cerrarLaterales(){document.querySelectorAll('dialog[open]:not(#tarjeta-dlg)').forEach(d=>{if(d.id==='llamada-dlg')d.dataset.sinSeguir='1';d.close();});}
+function empezarRapido(){cerrarLaterales();rapidoSaltadas.clear();modoRapido=true;irABandeja();siguienteRapido();}
 function siguienteRapido(){const p=colaContactos()[0],dlg=document.getElementById('tarjeta-dlg');
   if(!p){modoRapido=false;if(dlg.open)dlg.close();avisar({clave:'rapido',clase:'info',img:DUENO.retrato,titulo:TR('🚀 No quedan más empresas listas'),ms:6000});return;}
   ampliarTarjeta(p.id);}
@@ -2666,9 +2696,9 @@ function pintarBandeja(){
   // Si estás escribiendo en una tarjeta (en la mesa o en grande), no la repinto hasta que termines
   const dlgT=document.getElementById('tarjeta-dlg');
   const ae=document.activeElement,enUso=(ulB.contains(ae)||dlgT.contains(ae))&&((ae.tagName==='TEXTAREA'&&ae.value.trim())||ae.closest?.('.form-posp:not([hidden])'))
-    ||[...ulB.querySelectorAll('video'),...dlgT.querySelectorAll('video')].some(v=>!v.paused&&pendientes.has(v.closest('.aprob')?.dataset.id));   // ni mientras ves un vídeo
+    ||[...ulB.querySelectorAll('video'),...ulU.querySelectorAll('video'),...dlgT.querySelectorAll('video')].some(v=>!v.paused&&pendientes.has(v.closest('.aprob')?.dataset.id));   // ni mientras ves un vídeo
   if(enUso){ulB.dataset.pendiente='1';return;}
-  ulB.innerHTML='';
+  ulB.innerHTML='';ulU.innerHTML='';
   const todas=[...pendientes.values()].map(p=>({...p,_prio:prioPanel(p),_dia:diaDe(p.creada)}));
   const lista=todas.filter(p=>!dormida(p)),dormidas=todas.filter(dormida);
   // Un solo aviso por empresa: el más importante y, a igualdad, el último. Lo demás queda dentro de él
@@ -2701,7 +2731,7 @@ function pintarBandeja(){
   if(!visibles.length&&importantes.length){const li=document.createElement('li');li.className='vacio';li.textContent=TR('Nada con este filtro.');ulB.appendChild(li);}
   // Lo urgente, siempre arriba y aparte
   const urg=visibles.filter(p=>p._prio.nivel===1);
-  if(urg.length&&ordenMesa==='fecha'){grupos.forEach(g=>{g.items=g.items.filter(p=>p._prio.nivel!==1);});for(const [k,g] of [...grupos])if(!g.items.length)grupos.delete(k);
+  if(urg.length){grupos.forEach(g=>{g.items=g.items.filter(p=>p._prio.nivel!==1);});for(const [k,g] of [...grupos])if(!g.items.length)grupos.delete(k);
     const resto=[...grupos];grupos.clear();grupos.set('0-urgente',{titulo:TR('🔴 Urgente'),items:urg,urgente:true});resto.forEach(([k,g])=>grupos.set(k,g));}
   if(restoMesa.length&&filtroMesa==='todo')grupos.set('zy-resto',{titulo:TR('📂 Lo demás, cuando quieras'),items:restoMesa,plegado:true});
   if(dormidas.length&&filtroMesa==='todo')grupos.set('zz-dormidas',{titulo:TR('💤 Para más tarde'),items:dormidas.sort(porFecha),dormidas:true});
@@ -2744,7 +2774,7 @@ function pintarBandeja(){
     const cp=p.correo_previo,fCp=cp?new Date(cp.cuando).toLocaleDateString(LOCALE,{day:'numeric',month:'long'}):'';
     const estadoCorreo=p.ref_tipo!=='correo'?'':cp?.igual?`<p class="aprob-ya">⚠️ ${TR`Este mismo correo ya se envió el ${fCp}: no hace falta mandarlo otra vez.`}</p>`
       :`<p class="aprob-ya">📭 ${TR('Sin enviar todavía: sale cuando pulses «📧 Enviar».')}${cp?' '+TR`A esta dirección ya le escribiste el ${fCp} («${esc(cp.asunto||'')}»).`:''} <a href="#" data-ver-correos>${TR('📬 Ver todos los correos')}</a></p>`;
-    const meta=estadoCorreo+cita+yaHablado+(tv?tv.aviso:'')+`<p class="aprob-meta"><span class="prio p${p._prio.nivel}" title="${esc(p._prio.motivo)}">${p._prio.emoji} ${esc(p._prio.etiqueta)}</span><span>${esc(p._prio.motivo)}</span>${p.creada?`<span>· ${esc(haceCuanto(p.creada))}</span>`:''}${dormida(p)?TR`<span>· 💤 vuelve ${esc(cuandoTxt(p.pospuesta))}</span>`:''}${p.canal||cuando?`<span>· 🗓 ${esc([CANAL_TXT[p.canal]||p.canal,cuando].filter(Boolean).join(' · '))}</span>`:''}${p.clase==='post'&&cuando&&['linkedin','facebook'].includes(p.canal)&&cacheMesa[p.canal]?.autopublicar&&cacheMesa[p.canal]?.conectado?TR`<span class="auto-pub">· 🤖 Se publica solo el ${esc(cuando)} a las 9:00</span>`:''}</p>`+botonEmpresaTarjeta(p)+(princ.get(p.empresa_id)===p&&resto.get(p.empresa_id)?.length?`<button class="btn sec peq mesa-mas" type="button" data-mas-emp="${esc(p.empresa_id)}">${verMasEmp.has(p.empresa_id)?'▾':'▸'} +${resto.get(p.empresa_id).length} ${TR('más de esta empresa')}</button>`:'')+(p.llamada_en?`<p class="aprob-nota">${TR`📞 Llamada hecha a las ${new Date(p.llamada_en).toLocaleTimeString(LOCALE,{hour:'2-digit',minute:'2-digit'})}. Lo que pasó llega con la transcripción.`}</p>`:'');
+    const meta=(p.linea?`<p class="aprob-meta"><span class="linea-chip">📦 ${esc(p.linea)}</span></p>`:'')+estadoCorreo+cita+yaHablado+(tv?tv.aviso:'')+`<p class="aprob-meta"><span class="prio p${p._prio.nivel}" title="${esc(p._prio.motivo)}">${p._prio.emoji} ${esc(p._prio.etiqueta)}</span><span>${esc(p._prio.motivo)}</span>${p.creada?`<span>· ${esc(haceCuanto(p.creada))}</span>`:''}${dormida(p)?TR`<span>· 💤 vuelve ${esc(cuandoTxt(p.pospuesta))}</span>`:''}${p.canal||cuando?`<span>· 🗓 ${esc([CANAL_TXT[p.canal]||p.canal,cuando].filter(Boolean).join(' · '))}</span>`:''}${p.clase==='post'&&cuando&&['linkedin','facebook'].includes(p.canal)&&cacheMesa[p.canal]?.autopublicar&&cacheMesa[p.canal]?.conectado?TR`<span class="auto-pub">· 🤖 Se publica solo el ${esc(cuando)} a las 9:00</span>`:''}</p>`+botonEmpresaTarjeta(p)+(princ.get(p.empresa_id)===p&&resto.get(p.empresa_id)?.length?`<button class="btn sec peq mesa-mas" type="button" data-mas-emp="${esc(p.empresa_id)}">${verMasEmp.has(p.empresa_id)?'▾':'▸'} +${resto.get(p.empresa_id).length} ${TR('más de esta empresa')}</button>`:'')+(p.llamada_en?`<p class="aprob-nota">${TR`📞 Llamada hecha a las ${new Date(p.llamada_en).toLocaleTimeString(LOCALE,{hour:'2-digit',minute:'2-digit'})}. Lo que pasó llega con la transcripción.`}</p>`:'');
     const extra=(p.ref_tipo==='sec'&&COMPLETO?`<button class="btn sec" type="button" data-correo-cerrar>${TR('📧 Correo y cerrar')}</button>`:'')+(p.canal==='google'?TR`<button class="btn sec peq" type="button" data-copiar-gbp="1">📋 Copiar y abrir Google Business ↗</button>`:'');
     li.innerHTML=TR`<button type="button" class="ap-ampliar" data-ampliar title="Ampliar: verla sola y en grande" aria-label="Ampliar esta tarjeta">⤢</button>${porId[p.agente]?`<button type="button" class="ap-ag" data-ver-ag="${p.agente}" title="${TR`Ver la ficha de ${esc(nombreVisible(a))}`}"><img alt="" src="${a.retrato}"></button>`:`<img alt="" src="${a.retrato}">`}<div>${meta}<p>${porId[p.agente]?`<button type="button" class="lnk-ag" data-ver-ag="${p.agente}" title="${TR`Ver la ficha de ${esc(nombreVisible(a))}`}">${esc(nombreVisible(a))}</button>`:`<b>${esc(a.nombre)}</b>`} ${esc(p.titulo)}</p>${p.texto||p.imagen?TR`<details class="aprob-det" data-ap-det="${esc(p.id)}"${ABIERTAS_MESA.has(p.id)?' open':''}><summary>Ver ${p.imagen?TR('imagen y '):''}texto</summary>${p.imagen&&EN_VIVO?`<a class="aprob-img" href="${API}/aprobaciones/${encodeURIComponent(p.id)}/imagen" target="_blank" rel="noopener" title="${TR('Ver la imagen en grande')}"><img src="${API}/aprobaciones/${encodeURIComponent(p.id)}/imagen" alt="${TR('Imagen del post')}" loading="lazy"></a>`:''}${p.texto?textoTarjeta(p.texto,' open'):''}</details>`:''}
     <div class="acciones">${botones}${p.clase==='boletin'?TR`<button class="btn sec" type="button" data-boletin-prueba>🧪 Enviarme una prueba</button>`:''}${extra}${perfil}${dormida(p)?TR`<button class="btn sec" type="button" data-posponer="0" title="Volver a ponerlo arriba">↩ A la mesa</button>`:TR`<button class="btn sec" type="button" data-posp-abrir title="Elige para cuándo: baja al fondo hasta ese día y queda apuntado en el calendario">💤 Más tarde</button>`}<button class="btn rosa" type="button" data-r="gracias" title="Dar las gracias">💛</button></div>
@@ -2783,6 +2813,9 @@ function pintarBandeja(){
       if(f.dataset.modo==='cambios')pedirCambios(p.id,t);else resolverAprobacion(p.id,f.dataset.modo,t);};
     ulB.appendChild(li);
   });});
+  // Lo urgente, encima de todo el panel de control (también del calendario de hoy y de «Siguiente empresa»)
+  const cabU=ulB.querySelector(':scope>.mesa-urgente');
+  if(cabU){const mover=[cabU];let n=cabU.nextElementSibling;while(n&&!n.matches('.mesa-grupo,.mesa-rapido')){mover.push(n);n=n.nextElementSibling;}ulU.append(...mover);}
   colocarAmpliada();
 }
 /* ---------- Programar publicaciones y calendario ---------- */
@@ -2854,19 +2887,21 @@ var calTipos=(()=>{try{const v=JSON.parse(localStorage.getItem('calTipos'));if(A
 document.getElementById('btn-calendario').addEventListener('click',()=>verCalendario());
 document.getElementById('btn-calendario-top').addEventListener('click',()=>verCalendario());
 /* La bandeja: los correos que han llegado a la oficina (y los enviados) y qué ha hecho la oficina con cada uno */
+// De un correo enviado: si ya han contestado o cuánto lleva sin respuesta (a los 4 días laborables, Paula prepara el seguimiento)
+const contestado=x=>x.respondido===true?` · <b class="correo-estado salida">${TR('↩️ Ha contestado')}</b>`:x.respondido===false?` · <b class="correo-estado borrador">${TR`⏳ Sin respuesta desde ${haceCuanto(x.fecha)}`}</b>`:'';
 const QUE_CORREO={lead:'Es de una empresa nuestra: Paula te prepara la respuesta',otro:'De alguien que no tenemos: lo revisa Paula',boletin:'Boletín: lo lee Sara',linkedin:'Aviso de LinkedIn: ya se ha apuntado',aviso:'Aviso automático: no hay que contestar'};
 document.getElementById('btn-bandeja').addEventListener('click',async()=>{
   document.getElementById('menu-top').open=false;
   const c=ventanaAparte(TR('<h3>📬 Correos</h3><p class="meta">Cargando…</p>'));
   let l;try{l=await (await fetch(API+'/correo/bandeja')).json();if(l.error)throw new Error(l.error);}catch(e){c.innerHTML=TR`<h3>📬 Correos</h3><p class="meta">${esc(e.message||'')}</p>`;return;}
   // Los preparados que aún no han salido van primero: así se ve de un vistazo qué está enviado y qué no
-  const TIPO={borrador:['📭',TR('Sin enviar')],salida:['✅',TR('Enviado')],entrada:['📩',TR('Recibido')]},n=k=>l.filter(x=>x.direccion===k).length;
+  const TIPO={borrador:['📭',TR('Sin enviar')],salida:['✅',TR('Enviado')],entrada:['📩',TR('Recibido')]},n=k=>l.filter(x=>k==='sin'?x.respondido===false:x.direccion===k).length;
   c.innerHTML=TR('<h3>📬 Correos</h3>')+`<p class="meta">${TR('Los que tu equipo ha preparado y aún no han salido, los que has enviado y los que han llegado. Pincha uno para leerlo entero.')}</p>
-    <div class="correos-filtro">${[['',TR('Todos')],['borrador',`📭 ${TR('Sin enviar')} (${n('borrador')})`],['salida',`✅ ${TR('Enviados')} (${n('salida')})`],['entrada',`📩 ${TR('Recibidos')} (${n('entrada')})`]].map(([k,t],i)=>`<button type="button" class="chipfiltro" data-filtro-correo="${k}" aria-pressed="${!i}">${t}</button>`).join('')}</div>`
+    <div class="correos-filtro">${[['',TR('Todos')],['borrador',`📭 ${TR('Sin enviar')} (${n('borrador')})`],['salida',`✅ ${TR('Enviados')} (${n('salida')})`],['entrada',`📩 ${TR('Recibidos')} (${n('entrada')})`],['sin',`⏳ ${TR('Sin respuesta')} (${n('sin')})`]].map(([k,t],i)=>`<button type="button" class="chipfiltro" data-filtro-correo="${k}" aria-pressed="${!i}">${t}</button>`).join('')}</div>`
     +(l.length?l.map(x=>{const [ico,est]=TIPO[x.direccion]||TIPO.entrada,sal=x.direccion!=='entrada';
-      return `<details class="bandeja-correo" data-dir="${x.direccion}"><summary><b>${sal?`${ico} ${TR('Para')} ${esc(x.para)}`:`📩 ${esc(x.de)}`}</b> · ${esc(x.asunto||TR('(sin asunto)'))}<br><span class="meta"><b class="correo-estado ${x.direccion}">${est}</b> · ${haceCuanto(x.fecha)}${x.empresa?` · <a href="#" data-ficha-correo="${esc(x.empresa_id)}">${esc(x.empresa)}</a>`:''}${sal?'':' · '+TR(QUE_CORREO[x.clase]||QUE_CORREO.otro)}</span></summary>${x.aprobacion?`<p><button class="btn peq" type="button" data-abrir-tarjeta="${esc(x.aprobacion)}">${TR('📥 Abrir la tarjeta para enviarlo')}</button></p>`:''}<pre class="bandeja-texto">${esc(x.texto||'')}</pre></details>`;}).join('')
+      return `<details class="bandeja-correo" data-dir="${x.direccion}"${x.respondido===false?' data-sin="1"':''}><summary><b>${sal?`${ico} ${TR('Para')} ${esc(x.para)}`:`📩 ${esc(x.de)}`}</b> · ${esc(x.asunto||TR('(sin asunto)'))}<br><span class="meta"><b class="correo-estado ${x.direccion}">${est}</b> · ${haceCuanto(x.fecha)}${contestado(x)}${x.empresa?` · <a href="#" data-ficha-correo="${esc(x.empresa_id)}">${esc(x.empresa)}</a>`:''}${sal?'':' · '+TR(QUE_CORREO[x.clase]||QUE_CORREO.otro)}</span></summary>${x.aprobacion?`<p><button class="btn peq" type="button" data-abrir-tarjeta="${esc(x.aprobacion)}">${TR('📥 Abrir la tarjeta para enviarlo')}</button></p>`:''}<pre class="bandeja-texto">${esc(x.texto||'')}</pre></details>`;}).join('')
       :`<p class="meta">${TR('Todavía no hay ningún correo.')}</p>`);
-  c.querySelectorAll('[data-filtro-correo]').forEach(b=>b.onclick=()=>{const k=b.dataset.filtroCorreo;c.querySelectorAll('[data-filtro-correo]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));c.querySelectorAll('.bandeja-correo').forEach(d=>d.hidden=Boolean(k)&&d.dataset.dir!==k);});
+  c.querySelectorAll('[data-filtro-correo]').forEach(b=>b.onclick=()=>{const k=b.dataset.filtroCorreo;c.querySelectorAll('[data-filtro-correo]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));c.querySelectorAll('.bandeja-correo').forEach(d=>d.hidden=Boolean(k)&&!(k==='sin'?d.dataset.sin:d.dataset.dir===k));});
   c.querySelectorAll('[data-abrir-tarjeta]').forEach(b=>b.onclick=()=>ampliarTarjeta(b.dataset.abrirTarjeta));
 });
 document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest('[data-ficha-correo]');if(!a)return;e.preventDefault();abrirFicha(a.dataset.fichaCorreo);});
@@ -2890,7 +2925,7 @@ function htmlBusqueda(r){
   const f=x=>new Date(String(x).length===10?x+'T12:00:00':x).toLocaleDateString(LOCALE,{day:'numeric',month:'short',year:'numeric'});
   const emp=(id,nombre)=>id?` · <a href="#" data-ficha-correo="${esc(id)}">🏢 ${esc(nombre||'')}</a>`:'';
   const EST={borrador:'📭 '+TR('Sin enviar'),salida:'✅ '+TR('Enviado'),entrada:'📩 '+TR('Recibido')};
-  const correo=x=>`<details class="bandeja-correo"><summary><b class="correo-estado ${x.direccion}">${EST[x.direccion]||''}</b> · ${esc(x.asunto||TR('(sin asunto)'))}<br><span class="meta">${x.direccion==='entrada'?esc(x.de):TR('Para')+' '+esc(x.para)} · ${f(x.fecha)}${emp(x.empresa&&x.empresa_id,x.empresa)}</span></summary>${x.aprobacion?`<p><button class="btn peq" type="button" data-abrir-tarjeta="${esc(x.aprobacion)}">${TR('📥 Abrir la tarjeta para enviarlo')}</button></p>`:''}<pre class="bandeja-texto">${esc(x.texto||'')}</pre></details>`;
+  const correo=x=>`<details class="bandeja-correo"><summary><b class="correo-estado ${x.direccion}">${EST[x.direccion]||''}</b> · ${esc(x.asunto||TR('(sin asunto)'))}<br><span class="meta">${x.direccion==='entrada'?esc(x.de):TR('Para')+' '+esc(x.para)} · ${f(x.fecha)}${contestado(x)}${emp(x.empresa&&x.empresa_id,x.empresa)}</span></summary>${x.aprobacion?`<p><button class="btn peq" type="button" data-abrir-tarjeta="${esc(x.aprobacion)}">${TR('📥 Abrir la tarjeta para enviarlo')}</button></p>`:''}<pre class="bandeja-texto">${esc(x.texto||'')}</pre></details>`;
   const llamada=x=>`<details class="bandeja-correo"><summary>📞 ${f(x.fecha)} · ${esc(RES_LLAMADA[x.resultado]||(x.segundos>=30?TR('hablaste con alguien'):TR('sin hablar con nadie')))}${emp(x.empresa&&x.empresa_id,x.empresa)}</summary>${x.resumen?`<p class="bandeja-texto">${esc(x.resumen)}</p>`:''}</details>`;
   const persona=x=>`<li><b>${esc(x.nombre||x.email||x.telefono||'')}</b>${x.cargo?` · ${esc(x.cargo)}`:''}${x.email?` · <a href="mailto:${esc(x.email)}">${esc(x.email)}</a>`:''}${x.telefono?` · ${esc(x.telefono)}`:''}${emp(x.empresa&&x.empresa_id,x.empresa)}</li>`;
   const tarjeta=x=>`<li><button class="btn sec peq" type="button" data-abrir-tarjeta="${esc(x.id)}">📥 ${esc(renombrar(`${porId[x.agente]?nombreVisible(porId[x.agente])+' ':''}${x.titulo||''}`))}</button>${emp(x.empresa&&x.empresa_id,x.empresa)}</li>`;
@@ -3177,11 +3212,38 @@ async function telefonoWeb(){
   })().catch(err=>{telWebListo=null;throw err;});
   return telWebListo;
 }
+/* Los mandos de la llamada desde el ordenador, con el estilo de la oficina: tiempo, teclado para la centralita del otro lado
+   («pulse 1…»), silenciar y colgar. El teléfono de Zadarma sigue haciendo la llamada, escondido detrás */
+function mandosLlamada(cuerpo,est){
+  const z=()=>window.zdrmWPhI?.apiWidget;
+  if(!cuerpo.querySelector('[data-llam-mandos]'))est.insertAdjacentHTML('afterend',`<div class="llam-mandos" data-llam-mandos>
+    <p class="llam-tiempo" data-llam-tiempo aria-live="polite">${TR('Llamando…')}</p>
+    <div class="acciones"><button type="button" class="btn sec" data-llam-teclado aria-expanded="false">⌨️ ${TR('Teclado')}</button><button type="button" class="btn sec" data-llam-mute aria-pressed="false">🔇 ${TR('Silenciar')}</button><button type="button" class="btn llam-colgar" data-llam-colgar>📵 ${TR('Colgar')}</button></div>
+    <div class="llam-teclado" data-llam-teclas hidden>${'123456789*0#'.split('').map(k=>`<button type="button" class="btn sec" data-tecla="${k}">${k}</button>`).join('')}</div></div>`);
+  const m=cuerpo.querySelector('[data-llam-mandos]'),teclas=m.querySelector('[data-llam-teclas]'),bt=m.querySelector('[data-llam-teclado]'),bm=m.querySelector('[data-llam-mute]');
+  bt.onclick=()=>{teclas.hidden=!teclas.hidden;bt.setAttribute('aria-expanded',String(!teclas.hidden));};
+  // Cada tecla, por el teclado del propio teléfono (también * y #); si no está, por su API (solo cifras)
+  teclas.querySelectorAll('[data-tecla]').forEach(b=>b.onclick=()=>{const k=b.dataset.tecla;
+    const suya=[...document.querySelectorAll('#zdrmWPhI .zdrm-webphone-numpad-btn')].find(x=>x.querySelector('.zdrm-webphone-numpad-btn-txt')?.textContent.trim()===k);
+    // Zadarma escucha al soltar el botón (mouseup), no el clic
+    if(suya)['mousedown','mouseup'].forEach(t=>suya.dispatchEvent(new MouseEvent(t,{bubbles:true})));else if(/\d/.test(k))z()?.sendDTMF?.(Number(k));});
+  bm.onclick=()=>{const on=bm.getAttribute('aria-pressed')!=='true';try{z()?.micSwitch(on?'on':'off');}catch{}bm.setAttribute('aria-pressed',String(on));bm.textContent=on?`🎙 ${TR('Activar micrófono')}`:`🔇 ${TR('Silenciar')}`;};
+  m.querySelector('[data-llam-colgar]').onclick=()=>{try{window.zdrmWPhI.finishCall();}catch{document.querySelector('#zdrmWPhI .zdrm-webphone-decline-btn')?.click();}};
+  // El tiempo y los avisos del teléfono, en el nuestro
+  const tiempo=m.querySelector('[data-llam-tiempo]');clearInterval(m._reloj);
+  m._reloj=setInterval(()=>{if(!m.isConnected)return clearInterval(m._reloj);
+    const t=document.querySelector('#zdrmWPhI .zdrm-webphone-timer')?.textContent.trim(),aviso=document.querySelector('#zdrmWPhI .zdrm-webphone-info-msg')?.textContent.trim();
+    const colgada=document.querySelector('#zdrmWPhI .zdrm-webphone-decline-btn')?.classList.contains('zdrm-webphone-hide');
+    tiempo.textContent=t&&!colgada?`📞 ${TR('En llamada')} · ${t}`:aviso||(colgada&&t?TR('Llamada terminada'):TR('Llamando…'));},500);
+}
 /** El teléfono web flota fuera de la ventana de llamada (que es modal): se mete dentro mientras está abierta. */
 function raizTelWeb(){let el=document.getElementById('zdrm-webphone-phonenumber-input');if(!el)return null;while(el.parentElement&&el.parentElement!==document.body&&!el.parentElement.matches('[data-llam-telweb]'))el=el.parentElement;return el;}   // el teléfono entero: hijo del body o de su hueco en la ventana de la llamada
 /* Las ventanas: en pantalla ancha, en un costado y con la página usable al lado; en el móvil, encima de todo */
 let capaVentana=60;
-function abrirVentana(d){if(!d.open){if(matchMedia('(min-width:1001px)').matches)d.show();else d.showModal();}d.style.zIndex=++capaVentana;}
+function abrirVentana(d){if(!d.open){if(matchMedia('(min-width:1001px)').matches){
+    // En el lateral, una sola ventana: la que se abre quita la que hubiera (una pregunta sí va encima de la suya)
+    if(!(d.id==='aparte-dlg'&&d.querySelector('.pregunta')))document.querySelectorAll('dialog[open]').forEach(x=>{if(x===d||(d.id==='llamada-dlg'&&x.id==='tarjeta-dlg'))return;if(x.id==='llamada-dlg')x.dataset.sinSeguir='1';x.close();});
+    d.show();}else d.showModal();}d.style.zIndex=++capaVentana;}
 addEventListener('keydown',e=>{if(e.key!=='Escape'||document.querySelector('dialog:modal'))return;[...document.querySelectorAll('dialog[open]')].sort((a,b)=>b.style.zIndex-a.style.zIndex)[0]?.close();});
 /* Preguntas y documentos, también en una ventana de las nuestras: nunca las del navegador */
 const dlgAparte=document.getElementById('aparte-dlg');
@@ -3253,7 +3315,9 @@ const RES_LLAMADA={hablado:TR('hablaste con alguien'),no_contesta:TR('no contest
 async function ventanaLlamada({apId,empresaId,tel,nombre,marcacion=null}){
   const dlg=document.getElementById('llamada-dlg'),cuerpo=dlg.querySelector('.inf-cuerpo');
   {const r=raizTelWeb();if(r&&cuerpo.contains(r)){Object.assign(r.style,{position:'fixed',right:'10px',bottom:'5px',zIndex:'2147483647'});document.body.appendChild(r);}}   // el teléfono del ordenador, a salvo antes de repintar (si no, se borra) y siempre a la vista: puede haber una llamada en curso que colgar
-  const p=apId?pendientes.get(apId):null,conTexto=p||(empresaId?[...pendientes.values()].find(x=>String(x.empresa_id)===String(empresaId)&&/LLAMADA|GUI[OÓ]N/.test(x.texto||'')):null),guion=String(conTexto?.texto||'').trim();
+  // El guion: el de esta tarjeta si lo lleva; si no, el de otra tarjeta de la misma empresa que lo lleve (p. ej. el que acaba de preparar Javi)
+  const conGuion=x=>/LLAMADA|GUI[OÓ]N/.test(x?.texto||'');
+  const p=apId?pendientes.get(apId):null,conTexto=(conGuion(p)&&p)||(empresaId?[...pendientes.values()].filter(x=>String(x.empresa_id)===String(empresaId)&&conGuion(x)).sort((a,b)=>String(b.creada||'').localeCompare(String(a.creada||'')))[0]:null)||p,guion=String(conTexto?.texto||'').trim();
   const desde=cacheMesa.zadarma?.desde||'',conCentralita=Boolean(cacheMesa.zadarma?.configurado),empresaNombre=nombre;
   cuerpo.innerHTML=TR`<div class="det-cab"><img alt="" src="${DUENO.retrato}"><div><h3>📞 Llamar a ${esc(nombre||tel)}</h3><p>${esc(tel)} · ellos verán el número de la oficina</p></div></div>
     <p class="llam-presenta" data-llam-presenta hidden></p>
@@ -3264,14 +3328,22 @@ async function ventanaLlamada({apId,empresaId,tel,nombre,marcacion=null}){
     ${guion?`<h4>${/LLAMADA|GUI[OÓ]N/.test(guion)?TR('Guion'):TR('Lo que preparó el equipo')}</h4><div class="llam-guion">${enlazar(esc(guion))}</div>`:''}
     <h4>Notas mientras hablas <span class="meta">(opcional)</span></h4>
     <textarea class="llam-notas" data-sin-borrador rows="4" placeholder="Quién te ha cogido, cuándo está, qué te ha dicho…"></textarea>
-    <div class="acciones"><button class="btn peq" type="button" data-llam-guardar${marcacion?'':' disabled'}>Guardar notas</button><span class="meta" data-llam-ok></span></div>
+    <div class="acciones"><button class="btn peq" type="button" data-llam-guardar${marcacion||empresaId?'':' disabled'}>Guardar notas</button><span class="meta" data-llam-ok></span></div>
     <p class="meta">Al colgar no tienes que marcar nada: en unos minutos llega la transcripción, Paula la resume y ${p?TR('esta tarjeta se cierra sola (o, si no contestan, se queda para volver a llamar a la mejor hora)'):TR('saca las conclusiones')}.</p>`;
   if(conCentralita)cuerpo.querySelector('[data-llam-estado]').insertAdjacentHTML('beforebegin',saldoZadarma(cacheMesa.zadarma));
   cuerpo.querySelector('[data-llam-presenta]').insertAdjacentHTML('beforebegin','<div class="llam-clave" data-llam-clave></div>');
   abrirVentana(dlg);
   if(!/^\s*T[ÚU][^:\n]*:.*\bsoy\b/im.test(guion))fetch(API+'/perfil').then(r=>r.json()).then(d=>{const txt=d.dueno?.presentacion_llamada||String(d.dueno?.presentacion||'').split(/\.\s/)[0],el=cuerpo.querySelector('[data-llam-presenta]');if(txt&&el){el.innerHTML=`<b>${TR('Preséntate:')}</b> ${esc(txt)}`;el.hidden=false;}}).catch(err=>console.error('Presentación:',err));
   const g=cuerpo.querySelector('[data-llam-guardar]'),ok=cuerpo.querySelector('[data-llam-ok]'),ta=cuerpo.querySelector('.llam-notas');
-  const guardar=async()=>{if(!marcacion||!ta.value.trim())return;try{await api(`/llamar/${marcacion}/notas`,{notas:ta.value});ok.textContent=TR('✓ Guardadas: Paula las tendrá en cuenta');}catch{}};
+  // Cada nota se guarda aparte, con su fecha, en la ficha de la empresa (y en la llamada, para Paula); el campo queda libre para la siguiente
+  ta.insertAdjacentHTML('beforebegin','<ul class="llam-notas-hechas" data-llam-notas-hechas></ul>');
+  const hechas=cuerpo.querySelector('[data-llam-notas-hechas]');
+  const guardar=async()=>{const texto=ta.value.trim();if(!texto||(!marcacion&&!empresaId))return;g.disabled=true;
+    try{const r=empresaId?await api(`/empresas/${encodeURIComponent(empresaId)}/nota`,{texto,marcacion}):await api(`/llamar/${marcacion}/notas`,{notas:texto});
+      hechas.insertAdjacentHTML('beforeend',`<li><b>✓ ${esc(r?.cuando||'')}</b> ${esc(texto)}</li>`);ta.value='';
+      ok.textContent=empresaId?TR('✓ Guardada en la ficha de la empresa: Paula y el equipo la tienen en cuenta'):TR('✓ Guardadas: Paula las tendrá en cuenta');}
+    catch(err){ok.textContent=err.message||TR('No se ha podido guardar');}
+    g.disabled=false;};
   g.onclick=guardar;
   const est=cuerpo.querySelector('[data-llam-estado]'),bm=cuerpo.querySelector('[data-llam-movil]'),bw=cuerpo.querySelector('[data-llam-web]');
   const estado=(t,err)=>{est.hidden=false;est.textContent=t;est.classList.toggle('error',!!err);};
@@ -3297,7 +3369,9 @@ async function ventanaLlamada({apId,empresaId,tel,nombre,marcacion=null}){
       +(l.length>1?`<details><summary class="meta">${TR('Todas las llamadas')}</summary><ul>${l.map(x=>`<li>${esc(fecha(x))} · ${esc(que(x))}</li>`).join('')}</ul></details>`:'')
       :`<p class="llam-hist-tit">🆕 ${TR('Primera llamada a esta empresa.')}</p>`;
     if(d.cita)h+=`<p class="llam-hist-cita">📅 <b>${TR('Por qué llamas')}:</b> ${esc(d.cita.texto)}${d.cita.detalle?` — ${esc(d.cita.detalle)}`:''}</p>`;
-    if(!guion)h+=`<p class="llam-sin-guion">${TR('No hay guion preparado para esta llamada.')} <button type="button" class="btn peq" data-pedir-guion>${TR('📝 Que Javi me lo prepare')}</button></p>`;
+    // Si el guion lo preparó Javi y su tarjeta ya no está en la mesa, viene con los datos de la empresa
+    if(!guion&&d.guion&&!cuerpo.querySelector('.llam-guion'))cuerpo.querySelector('[data-llam-emp]')?.insertAdjacentHTML('afterend',`<h4>${TR('Guion')}</h4><div class="llam-guion">${enlazar(esc(String(d.guion).trim()))}</div>`);
+    if(!guion&&!d.guion)h+=`<p class="llam-sin-guion">${TR('No hay guion preparado para esta llamada.')} <button type="button" class="btn peq" data-pedir-guion>${TR('📝 Que Javi me lo prepare')}</button></p>`;
     el.innerHTML=h;
     el.querySelector('[data-pedir-guion]')?.addEventListener('click',async ev=>{ev.target.disabled=true;
       const res=l.map(x=>`— ${fecha(x)}: ${que(x)}${x.resumen?`. ${x.resumen}`:''}`).join('\n');
@@ -3305,6 +3379,8 @@ async function ventanaLlamada({apId,empresaId,tel,nombre,marcacion=null}){
         ev.target.outerHTML=`<span class="meta">✓ ${TR('Javi lo prepara: en un minuto lo tienes en tu panel de control.')}</span>`;}catch{ev.target.disabled=false;}});
   }
   const cab=cuerpo.querySelector('.det-cab'),modos=cuerpo.querySelector('.llam-modos'),caja=document.createElement('div');caja.className='llam-quien';modos.before(caja);
+  // Desde la llamada se llega a la empresa: todo lo que ha pasado con ella, en su ficha
+  if(empresaId)cab.querySelector('p').insertAdjacentHTML('afterend',`<p><button type="button" class="btn sec peq" data-abrir-emp="${esc(empresaId)}">🏢 ${esc(empresaNombre||indiceEmpresas.get(empresaId)?.nombre||TR('Ver la empresa'))} · ${TR('ver su ficha')}</button></p>`);
   let quien='';
   const sinCentralita=()=>{if(conCentralita)return;bm.hidden=bw.hidden=true;modos.querySelector('[data-llam-tel]')?.remove();if(tel)modos.insertAdjacentHTML('beforeend',TR`<a class="btn enlace" data-llam-tel href="tel:${esc(String(tel).replace(/\s/g,''))}">📞 Llamar a este número</a>`);};
   const destino=o=>{tel=o.telefono;quien=o.nombre?o.etiqueta:'';pintarClave(o);nombre=[o.nombre?o.etiqueta:'',empresaNombre].filter(Boolean).join(' · ')||tel;
@@ -3334,8 +3410,7 @@ async function ventanaLlamada({apId,empresaId,tel,nombre,marcacion=null}){
       const raiz=raizTelWeb();if(raiz){raiz.style.position='relative';raiz.style.right='auto';raiz.style.bottom='auto';raiz.style.display='';cuerpo.querySelector('[data-llam-telweb]').appendChild(raiz);}
       const inp=document.getElementById('zdrm-webphone-phonenumber-input');if(!inp)throw new Error(TR('El teléfono del ordenador no está listo. Vuelve a pulsar'));inp.removeAttribute('disabled');inp.value=r.marcar||tel;window.zdrmWPhI.callNum();
       estado(TR('💻 Llamando desde el ordenador. Usa los cascos.'));
-      if(!cuerpo.querySelector('[data-llam-colgar]'))est.insertAdjacentHTML('afterend',`<p><button type="button" class="btn llam-colgar" data-llam-colgar>📵 ${TR('Colgar')}</button></p>`);
-      cuerpo.querySelector('[data-llam-colgar]').onclick=()=>{try{window.zdrmWPhI.finishCall();}catch{document.querySelector('#zdrmWPhI .zdrm-webphone-decline-btn')?.click();}};}
+      mandosLlamada(cuerpo,est);}
     catch(err){estado(TR('No se ha podido llamar desde el ordenador: ')+(err.message||'error')+TR('. Prueba con el móvil.'),true);}
     setTimeout(()=>bw.disabled=false,6000);};
   sinCentralita();
@@ -3344,6 +3419,9 @@ async function ventanaLlamada({apId,empresaId,tel,nombre,marcacion=null}){
   try{const c=await (await fetch(API+'/llamar/consejo?lang='+LANG+(empresaId?'&empresa_id='+encodeURIComponent(empresaId):''))).json();const el=cuerpo.querySelector('[data-llam-consejo]');if(c.texto&&el){el.textContent=TR('🕑 Cuándo llamar: ')+c.texto;el.hidden=false;}}catch{}
   if(empresaId)try{const e=await (await fetch(API+'/empresas/'+encodeURIComponent(empresaId))).json();const el=cuerpo.querySelector('[data-llam-emp]');
     const frase=(String(e.dossier||'').match(/##\s*En una frase\s*\n+([^\n]+)/i)||[])[1];
+    // Las notas de otros días, para tenerlas delante
+    const antes=String(e.notas||'').split('\n').filter(l=>/^\[\d\d\/\d\d/.test(l)).slice(-8);
+    if(antes.length)hechas.insertAdjacentHTML('beforebegin',`<details class="llam-notas-antes"><summary>${TR('📝 Notas de otros días')} (${antes.length})</summary><ul>${antes.map(l=>`<li>${esc(l)}</li>`).join('')}</ul></details>`);
     if(el&&!e.error)el.innerHTML=`<p><b>${esc(e.nombre)}</b>${[e.sector,e.municipio].filter(Boolean).length?' · '+esc([e.sector,e.municipio].filter(Boolean).join(' · ')):''}</p>${e.decisor?`<p>👤 ${esc(e.decisor)}${e.cargo?' · '+esc(e.cargo):''}</p>`:''}${frase?`<p class="meta">${esc(frase)}</p>`:''}`;}catch{}
 }
 // Los botones de la ficha de empresa: lo que más se pide, en este orden
@@ -3417,7 +3495,7 @@ async function verLinea(li){
 const ESTADO_AP={llamada:TR('Resuelto por teléfono'),pendiente:TR('En tu mesa'),aprobada:TR('Aprobado'),descartada:TR('Descartado'),programada:TR('Programado'),publicada:TR('Publicado'),sustituida:TR('Sustituido por una versión nueva'),cambios:TR('Pediste cambios')};
 async function verAprobacion(id){
   if(pendientes.has(id)&&ampliarTarjeta(id))return;
-  if(pendientes.has(id)){irABandeja();const li=[...ulB.querySelectorAll('.aprob')].find(x=>x.dataset.id===id);if(li){li.scrollIntoView({block:'center'});li.classList.add('resalta');setTimeout(()=>li.classList.remove('resalta'),2500);}return;}
+  if(pendientes.has(id)){irABandeja();const li=tarjetasMesa().find(x=>x.dataset.id===id);if(li){li.scrollIntoView({block:'center'});li.classList.add('resalta');setTimeout(()=>li.classList.remove('resalta'),2500);}return;}
   const dlg=document.getElementById('informe-dlg'),cuerpo=dlg.querySelector('.inf-cuerpo');
   cuerpo.innerHTML=TR('<p class="vacio">Cargando…</p>');abrirVentana(dlg);
   if(!COMPLETO){cuerpo.innerHTML=TR('<p class="vacio">En la demo no se guarda.</p>');return;}
@@ -3606,7 +3684,7 @@ function finReunion(){duenoDeReunion();AGENTES.forEach(a=>{if(a.descanso?.tipo==
 function alReunion(ev){
   if(ev.fase==='empieza'){reunionEnCurso=true;aLaReunion();duenoAReunion();
     avisar({clave:'reunion',clase:'info',img:porId.rafa.retrato,titulo:TR('🗣 Reunión de equipo'),texto:TR('Todos a la sala de reuniones. En un par de minutos tienes el acta.'),ms:6000,silencio:true});}
-  else if(ev.fase==='acta'){reunionEnCurso=false;reunionUltima=ev.acta;
+  else if(ev.fase==='acta'){reunionEnCurso=false;reunionUltima=ev.acta;pintarHoy();
     const orden=(ev.acta.agentes||[]).map(a=>a.id);orden.forEach((id,i)=>setTimeout(()=>{const x=ev.acta.agentes[i];if(porId[id]&&x)decir(id,String(x.haciendo||x.hecho).slice(0,110),{ms:3800});},i*1500));
     setTimeout(finReunion,orden.length*1500+4000);
     avisar({clave:'reunion',clase:'info',img:porId.rafa.retrato,titulo:TR('🗣 Acta de la reunión'),texto:ev.acta.resumen||'',verTexto:TR('Ver el acta'),ver:()=>verActa(ev.acta),ms:20000});}
@@ -3634,7 +3712,7 @@ function verActa(acta){
     try{await api('/reunion/respuesta',{agente:f.dataset.actaResp,necesidad:f.dataset.nec,texto:t});f.outerHTML=TR`<p class="meta">✅ Respondido: «${esc(t)}». ${esc(nom(f.dataset.actaResp))} se pone con ello.</p>`;}catch{f.querySelector('button').disabled=false;}});
   if(!dlg.open)abrirVentana(dlg);
 }
-async function cargarReunion(){if(!COMPLETO)return;try{const r=await (await fetch(API+'/reunion')).json();if(r?.fecha)reunionUltima=r;}catch{}}
+async function cargarReunion(){if(!COMPLETO)return;try{const r=await (await fetch(API+'/reunion')).json();if(r?.fecha){reunionUltima=r;pintarHoy();}}catch{}}
 setTimeout(cargarReunion,1200);
 setTimeout(async()=>{if(!COMPLETO||!PRO.centralita)return;try{cacheMesa.zadarma=await (await fetch(API+'/zadarma')).json();pintarBandeja();}catch{}},1500);
 setTimeout(async()=>{if(!COMPLETO)return;try{cacheMesa.linkedin=await (await fetch(API+'/linkedin')).json();pintarBandeja();}catch{}},1500);
@@ -3753,7 +3831,7 @@ function soltarTexto(id){const li=[...document.querySelectorAll('.aprob')].find(
 function pedirCambios(id,texto){
   const p=pendientes.get(id);
   // En cuanto el servidor lo recibe, la tarjeta se va de la mesa y sale el aviso (sin esperar al aviso en vivo)
-  const li=[...ulB.querySelectorAll('.aprob')].find(x=>x.dataset.id===id),bt=li?.querySelector('form.cambios button[type=submit]');
+  const li=tarjetasMesa().find(x=>x.dataset.id===id),bt=li?.querySelector('form.cambios button[type=submit]');
   if(bt){bt.disabled=true;bt.textContent=TR('Enviando…');}
   if(EN_VIVO)fetch(API+`/aprobaciones/${encodeURIComponent(id)}/cambios`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto})})
     .then(async r=>{const j=await r.json().catch(()=>({}));
@@ -3917,6 +3995,7 @@ document.getElementById('conf-dep-btn').onclick=()=>{confSel='departamentos';pin
 document.getElementById('conf-ia-btn').onclick=()=>{confSel='ia';pintarConfig();};
 document.getElementById('conf-con-btn').onclick=()=>{confSel='conexiones';pintarConfig();};
 document.getElementById('conf-proto-btn').onclick=()=>{confSel='protocolo';pintarConfig();};
+document.getElementById('conf-lineas-btn').onclick=()=>{confSel='lineas';lineaEditando=null;pintarConfig();};
 /* Conexiones: lo que antes estaba en tu mesa (bot de la oficina, LinkedIn, Facebook, centralita, Lola, chats de clientes) */
 async function pintarProtocolo(){
   const f=document.getElementById('conf-panel');verPanelConf(true);
@@ -4126,6 +4205,7 @@ function pintarConfig(){
   document.getElementById('conf-ia-btn').classList.toggle('sec',confSel!=='ia');
   document.getElementById('conf-con-btn').classList.toggle('sec',confSel!=='conexiones');
   document.getElementById('conf-proto-btn').classList.toggle('sec',confSel!=='protocolo');
+  document.getElementById('conf-lineas-btn').classList.toggle('sec',confSel!=='lineas');
   if(confSel!=='conexiones'&&confSel!=='protocolo')verPanelConf(false);
   if(confSel==='empresa'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarPerfil();return;}
   if(confSel==='marca'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarMarca();return;}
@@ -4133,6 +4213,7 @@ function pintarConfig(){
   if(confSel==='ia'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarIA();return;}
   if(confSel==='conexiones'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarConexiones();return;}
   if(confSel==='protocolo'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarProtocolo();return;}
+  if(confSel==='lineas'){document.querySelectorAll('#conf-lista button').forEach(b=>b.classList.remove('sel'));pintarLineas();return;}
   const p=persona(confSel),c=plantilla.agentes.find(x=>x.id===confSel);
   borrador={nombre:p.nombre,rol:c?.rol||'',modelo:c?.modelo||'',look:{...(id=>{const L={...(confSel==='dueno'?DUENO.look:p.lookBase)};delete L.__id;return L;})()}};
   const sw=(campo,cols)=>`<div class="sw">${cols.map(col=>`<button type="button" style="background:${col}" data-campo="${campo}" data-color="${col}" aria-label="${col}"${(borrador.look[campo]||'').toLowerCase()===col?' aria-pressed="true"':''}></button>`).join('')}<input type="color" data-campo="${campo}" value="${borrador.look[campo]||'#888888'}" aria-label="${TR('Otro color')}"></div>`;
@@ -4295,6 +4376,7 @@ function ingest(ev){
     case 'vida':aplicarVida({activa:ev.activa});break;
     case 'charlas':charlasServidor=ev.lista||[];break;
     case 'reunion':alReunion(ev);break;
+    case 'lineas':cargarLineas();break;
     case 'perfil':{const f=document.getElementById('conf-form');const editando=f.contains(document.activeElement);if(!editando){perfilDatos=null;if(dlg.open&&confSel==='empresa')pintarPerfil();}break;}
     case 'chat':recibirChat(ev.mensaje);break;
     case 'objetivo':recibirObjetivo(ev.objetivo);break;
@@ -4774,7 +4856,7 @@ cv.addEventListener('click',e=>{
 /* Enlaces: siempre en otra ventana, para no perder la oficina (también en navegadores integrados que ignoran target=_blank) */
 document.addEventListener('click',e=>{
   const a=e.target.closest&&e.target.closest('a[href]');if(!a||e.defaultPrevented||e.button!==0)return;
-  const href=a.getAttribute('href')||'';if(!href||href.startsWith('#')||href.startsWith('javascript:')||a.hasAttribute('download'))return;
+  const href=a.getAttribute('href')||'';if(!href||href.startsWith('#')||/^(javascript|mailto|tel):/i.test(href)||a.hasAttribute('download'))return;   // un correo se escribe en la oficina, nunca en otra pestaña
   let url;try{url=new URL(href,location.href);}catch{return;}
   if(url.origin===location.origin&&url.pathname===location.pathname&&url.hash)return;   // anclas de la propia página
   const esPdf=/\/documento\.pdf$/.test(url.pathname);
@@ -4893,6 +4975,41 @@ const NOMBRE_ESTADO=Object.fromEntries(ESTADOS_EMP);
 const ETAPA_A_ESTADO={puntuadas:'puntuada',dossier:'dossier',contactadas:'contactada',conversacion:'conversacion',reunion:'reunion',propuesta:'propuesta',ganadas:'ganada',universo:''};
 const selEstado=document.getElementById('emp-estado');ESTADOS_EMP.forEach(([v,t])=>selEstado.insertAdjacentHTML('beforeend',`<option value="${v}">${t}</option>`));
 let empresasLista=[],empresaSel=null;
+/* Líneas de venta: cada cosa que vendes y a quién. La principal es la de siempre (la ficha de la empresa); las demás llevan etiqueta */
+let LINEAS=[],lineaEditando=null;
+const lineaDe=e=>LINEAS.find(l=>l.id===e?.linea_id&&!l.principal)||null;
+async function cargarLineas(){if(!EN_VIVO||PANTALLA_ACCESO)return;try{LINEAS=await (await fetch(API+'/lineas')).json();}catch{return;}
+  const s=document.getElementById('emp-linea');s.hidden=LINEAS.length<2;const v=s.value;
+  s.innerHTML=`<option value="">${TR('Todas las líneas')}</option>`+LINEAS.map(l=>`<option value="${l.principal?'principal':l.id}">${esc(l.nombre)}${l.activa?'':TR(' (apagada)')}</option>`).join('');s.value=v;}
+setTimeout(cargarLineas,1500);
+async function pintarLineas(){
+  const f=document.getElementById('conf-form');f.innerHTML=TR('<p class="meta">Cargando…</p>');
+  await cargarLineas();
+  const e=LINEAS.find(l=>l.id===lineaEditando),num=n=>Number(n||0).toLocaleString(LOCALE);
+  const fila=l=>`<li class="${l.activa?'':'apagada'}"><div><b>${esc(l.nombre)}</b>${l.principal?TR(' (principal)'):''}<small>${l.principal?TR('Lo que dice la ficha de tu empresa y tu objetivo de búsqueda.'):esc(l.a_quien||'')}</small>
+      <small>${TR`${num(l.empresas)} empresas · ${num(l.nuevas_semana)} nuevas esta semana${l.principal?'':TR` de ${num(l.por_semana)}`} · ${num(l.contactadas)} contactadas · ${num(l.conversacion)} en conversación o más · ${num(l.clientes)} clientes`}</small></div>
+    <div class="acciones"><button class="btn sec peq" type="button" data-l-cambiar="${l.id}">${TR('Cambiar')}</button></div></li>`;
+  const p=e?.principal;
+  f.innerHTML=`<div><h3>${TR('Líneas de venta')}</h3><p class="meta">${TR('Cada cosa que vendes es una línea: qué ofreces, a quién y cuántas empresas nuevas a la semana. Cada empresa lleva la suya, y el equipo la busca, la puntúa y le escribe con la de esa línea, sin mezclar. Como mucho 3 activas a la vez.')}</p></div>
+    <ul class="lineas-lista">${LINEAS.map(fila).join('')}</ul>
+    <fieldset class="perfil"><legend>${e?TR`Cambiar «${esc(e.nombre)}»`:TR('Añadir una línea')}</legend>
+      <label>${TR('Nombre')}<input name="nombre" maxlength="80" required value="${esc(e?.nombre||'')}" placeholder="${TR('p. ej. Oficina de agentes montada')}"></label>
+      ${p?`<p class="meta">${TR('De la principal solo se cambia el nombre: lo demás está en Mi empresa (qué vendes y tu cliente ideal) y en tu objetivo de búsqueda.')}</p>`:`
+      <label>${TR('Qué ofreces')}<textarea name="que_ofrece" rows="2" maxlength="600" required placeholder="${TR('En una frase, y el precio orientativo')}">${esc(e?.que_ofrece||'')}</textarea></label>
+      <label>${TR('A quién')}<textarea name="a_quien" rows="3" maxlength="800" required placeholder="${TR('Tipo de empresa, tamaño, zona y quién decide')}">${esc(e?.a_quien||'')}</textarea></label>
+      <label>${TR('Empresas nuevas a la semana')}<input name="por_semana" type="number" min="0" max="200" value="${esc(e?.por_semana??10)}"></label>
+      <label>${TR('La oferta por escrito (la que usa Javi al escribir)')}<textarea name="oferta" rows="5" maxlength="4000" placeholder="${TR('Qué incluye, condiciones, precio… Si la dejas vacía, escribe con «Qué ofreces».')}">${esc(e?.oferta||'')}</textarea></label>
+      <label class="ia-op"><input type="checkbox" name="activa"${!e||e.activa?' checked':''}><span><b>${TR('Activa')}</b>. ${TR('Apagada, no se busca para ella; sus empresas siguen como están.')}</span></label>`}
+    </fieldset>
+    <p class="conf-error" role="alert"></p>
+    <div class="acciones"><button class="btn" type="submit">${e?TR('Guardar'):TR('Añadir la línea')}</button>${e?`<button class="btn sec" type="button" data-l-nueva>${TR('Cancelar')}</button>`:''}<button class="btn sec" type="button" data-acc="cerrar">${TR('Cerrar')}</button></div>`;
+  f.querySelector('[data-acc=cerrar]').onclick=()=>document.getElementById('config').close();
+  f.querySelector('[data-l-nueva]')?.addEventListener('click',()=>{lineaEditando=null;pintarLineas();});
+  f.querySelectorAll('[data-l-cambiar]').forEach(b=>b.onclick=()=>{lineaEditando=Number(b.dataset.lCambiar);pintarLineas();});
+  f.onsubmit=async ev=>{ev.preventDefault();const er=f.querySelector('.conf-error');er.textContent='';
+    const d={id:e?.id,nombre:f.nombre.value.trim(),...(p?{}:{que_ofrece:f.que_ofrece.value.trim(),a_quien:f.a_quien.value.trim(),por_semana:Number(f.por_semana.value),oferta:f.oferta.value.trim(),activa:f.activa.checked})};
+    try{await api('/lineas',d);lineaEditando=null;await pintarLineas();cargarEmpresas();}catch(err){er.textContent=err.message;}};
+}
 function cambiarVista(v){
   document.body.classList.toggle('vista-empresas',v==='empresas');
   document.body.classList.toggle('vista-chat',v==='chat');
@@ -5116,7 +5233,7 @@ var ampliada=null;
 const dlgTarjeta=document.getElementById('tarjeta-dlg');
 dlgTarjeta.addEventListener('close',()=>{modoRapido=false;rapidoSaltadas.clear();dlgTarjeta.classList.remove('rapido');ampliada=null;dlgTarjeta.querySelector('.tarj-cuerpo').innerHTML='';pintarBandeja();});
 dlgTarjeta.addEventListener('focusout',()=>setTimeout(()=>{if(ulB.dataset.pendiente&&!dlgTarjeta.contains(document.activeElement)&&!ulB.contains(document.activeElement)){delete ulB.dataset.pendiente;pintarBandeja();}},200));
-function liMesa(id){return [...ulB.querySelectorAll('.aprob')].find(x=>x.dataset.id===id);}
+function liMesa(id){return tarjetasMesa().find(x=>x.dataset.id===id);}
 /** Abre una tarjeta de tu mesa en grande. Devuelve false si no está a la vista (y no se ha podido abrir). */
 function ampliarTarjeta(id){
   const dlgTarjeta=document.getElementById('tarjeta-dlg');
@@ -5128,7 +5245,8 @@ function ampliarTarjeta(id){
   if(!dlgTarjeta.open)abrirVentana(dlgTarjeta);
   colocarAmpliada();return true;
 }
-document.getElementById('llamada-dlg').addEventListener('close',()=>{
+document.getElementById('llamada-dlg').addEventListener('close',e=>{
+  if(e.target.dataset.sinSeguir){delete e.target.dataset.sinSeguir;return;}   // la cerró «Siguiente»: ya se ha pasado de empresa
   if(!modoRapido||!ampliada)return;const p=pendientes.get(ampliada);
   if(!p||llamadaHoy(p.empresa_id||p.id)){rapidoSaltadas.add(ampliada);guardar(claveRapido(),leerLS(claveRapido(),0)+(p?1:0));siguienteRapido();}});
 function colocarAmpliada(){
@@ -5149,7 +5267,7 @@ function colocarAmpliada(){
   dlgTarjeta.classList.toggle('rapido',conSiguiente);
   if(conSiguiente){const p=pA,bar=document.createElement('div');bar.className='rapido-barra';
     bar.innerHTML=`<b>${esc([p?.categoria&&`${TR('Categoría')} ${p.categoria}`,p?.puntuacion!=null&&`${p.puntuacion}/100`].filter(Boolean).join(' · '))}</b><span>${TR('Quedan')} ${colaContactos().length} · ${TR('hoy llevas')} ${leerLS(claveRapido(),0)}</span><button class="btn sec peq" type="button">⏭ ${TR('Siguiente')}</button>`;
-    bar.querySelector('button').onclick=()=>{modoRapido=true;rapidoSaltadas.add(ampliada);siguienteRapido();};cuerpo.prepend(bar);}
+    bar.querySelector('button').onclick=()=>{cerrarLaterales();modoRapido=true;rapidoSaltadas.add(ampliada);siguienteRapido();};cuerpo.prepend(bar);}
 }
 
 // El embudo cuenta las que HAN LLEGADO a cada etapa (aunque ya estén más adelante): al pinchar se ven esas mismas
@@ -5157,7 +5275,7 @@ var filtroEtapa=null;
 const ETAPA_NUM={universo:0,puntuadas:1,dossier:2,contactadas:3,conversacion:4,reunion:5,propuesta:6,ganadas:7};
 document.querySelectorAll('.etapa').forEach(li=>li.onclick=()=>{const id=li.id.slice(2);selEstado.value='';filtroEtapa=id==='universo'?null:id;cambiarVista('empresas');cargarEmpresas();});
 let tBuscar;document.getElementById('emp-buscar').oninput=()=>{clearTimeout(tBuscar);tBuscar=setTimeout(cargarEmpresas,300);};
-selEstado.onchange=cargarEmpresas;document.getElementById('emp-cat').onchange=cargarEmpresas;
+selEstado.onchange=cargarEmpresas;document.getElementById('emp-cat').onchange=cargarEmpresas;document.getElementById('emp-linea').onchange=cargarEmpresas;
 if(!COMPLETO)document.getElementById('emp-csv').hidden=true;
 /* Importar una lista de otro programa, en Excel o CSV: el servidor propone a qué campo va cada columna, aquí se revisa cómo quedaría y solo se guarda al confirmar */
 const dlgImportar=document.getElementById('importar-dlg'),formImportar=dlgImportar.querySelector('form'),revImportar=dlgImportar.querySelector('.importar-revisar');
@@ -5228,10 +5346,10 @@ function pintarFiltroEtapa(){
   el.querySelector('button').onclick=()=>{filtroEtapa=null;cargarEmpresas();};
 }
 async function cargarEmpresas(){
-  const texto=document.getElementById('emp-buscar').value.trim(),estado=selEstado.value,categoria=document.getElementById('emp-cat').value;
+  const texto=document.getElementById('emp-buscar').value.trim(),estado=selEstado.value,categoria=document.getElementById('emp-cat').value,linea=document.getElementById('emp-linea').value;
   if(estado)filtroEtapa=null;
   pintarFiltroEtapa();
-  if(EN_VIVO){const qs=new URLSearchParams({limite:500});if(texto)qs.set('texto',texto);if(estado)qs.set('estado',estado);if(categoria)qs.set('categoria',categoria);if(filtroEtapa)qs.set('etapa_min',ETAPA_NUM[filtroEtapa]);
+  if(EN_VIVO){const qs=new URLSearchParams({limite:500});if(texto)qs.set('texto',texto);if(estado)qs.set('estado',estado);if(categoria)qs.set('categoria',categoria);if(linea)qs.set('linea',linea);if(filtroEtapa)qs.set('etapa_min',ETAPA_NUM[filtroEtapa]);
     try{empresasLista=await (await fetch(API+'/empresas?'+qs)).json();}catch{empresasLista=[];}}
   else empresasLista=DEMO_FICHAS.filter(e=>(!estado||e.estado===estado)&&(!categoria||e.categoria===categoria)&&(!texto||e.nombre.toLowerCase().includes(texto.toLowerCase())));
   pintarListaEmpresas();
@@ -5242,7 +5360,7 @@ function pintarListaEmpresas(){
   document.getElementById('emp-vacio').hidden=empresasLista.length>0;
   empresasLista.forEach(e=>{
     const tr=document.createElement('tr');if(e.id===empresaSel)tr.className='sel';tr.tabIndex=0;
-    tr.innerHTML=`<td><b>${logoEmpresa(e)}${esc(e.nombre)}</b><span class="sub">${esc([e.municipio,e.sector].filter(Boolean).join(' · '))}</span></td>
+    tr.innerHTML=`<td><b>${logoEmpresa(e)}${esc(e.nombre)}</b>${lineaDe(e)?` <span class="linea-chip">📦 ${esc(lineaDe(e).nombre)}</span>`:''}<span class="sub">${esc([e.municipio,e.sector].filter(Boolean).join(' · '))}</span></td>
       <td><span class="cat ${e.categoria||'x'}">${e.categoria||'–'}</span> ${e.puntuacion??''}</td>
       <td><span class="estado-pill">${EMOJI_INTERES[e.interes]?EMOJI_INTERES[e.interes]+' ':''}${esc(NOMBRE_ESTADO[e.estado]||e.estado)}</span></td>
       <td><span class="origen o-${esc(e.origen||'busqueda')}" title="${esc(e.origen_detalle||'')}">${esc(NOMBRE_ORIGEN[e.origen||'busqueda']||e.origen)}</span></td>
@@ -5461,13 +5579,14 @@ async function abrirFicha(id){
   const web=e.web?`<a href="${esc(urlWeb(e.web))}" target="_blank" rel="noopener">${esc(String(e.web).replace(/^https?:\/\//,""))}</a>`:'';
   f.innerHTML=`<h3>${logoEmpresa(e,32)+esc(e.nombre)}${e.categoria?` <span class="cat ${e.categoria}">${e.categoria}</span>`:''}</h3>
   <p class="meta">${[web,esc(e.municipio||''),esc(e.sector||'')].filter(Boolean).join(' · ')}</p>${htmlDatos(e)}
-  <div class="ficha-estado"><form data-f="estado"><select name="estado" aria-label="${TR('Cambiar estado')}">${ESTADOS_EMP.map(([v,t])=>`<option value="${v}"${v===e.estado?' selected':''}>${t}</option>`).join('')}</select></form>${htmlDijo(e)}</div>
+  <div class="ficha-estado"><form data-f="estado"><select name="estado" aria-label="${TR('Cambiar estado')}">${ESTADOS_EMP.map(([v,t])=>`<option value="${v}"${v===e.estado?' selected':''}>${t}</option>`).join('')}</select></form>${LINEAS.length>1?`<select data-linea-emp aria-label="${TR('Línea de venta')}">${LINEAS.map(l=>`<option value="${l.principal?'':l.id}"${(lineaDe(e)?.id||null)===(l.principal?null:l.id)?' selected':''}>📦 ${esc(l.nombre)}</option>`).join('')}</select>`:''}${htmlDijo(e)}</div>
   ${htmlQueToca(e,h)}${htmlDolores(e)}${htmlContactos(e)}${htmlLoPasado(e,h)}${htmlInvestigacion(e,h)}`;
   llevar(); /* Otra vez ya con la ficha entera: mientras carga no hay página para llegar arriba */
   atarContactos(f,e);atarSituacion(f,e);
   f.querySelector('[data-orden-hist]')?.addEventListener('click',()=>{ordenHist=ordenHist==='recientes'?'antiguos':'recientes';try{localStorage.setItem('ordenHistorial',ordenHist);}catch{}abrirFicha(id);});
   f.querySelector('[data-qt-hecho]')?.addEventListener('click',async ev=>{ev.target.disabled=true;try{await api(`/recordatorios/${ev.target.dataset.qtHecho}/hecho`,{});abrirFicha(id);}catch{ev.target.disabled=false;}});
   f.querySelector('[data-qt-proximo]')?.addEventListener('click',async ev=>{ev.target.disabled=true;try{await api('/empresas/'+encodeURIComponent(id)+'/proximo-hecho',{});abrirFicha(id);}catch{ev.target.disabled=false;}});
+  f.querySelector('[data-linea-emp]')?.addEventListener('change',async ev=>{try{await api('/empresas/'+encodeURIComponent(id)+'/linea',{linea_id:ev.target.value?Number(ev.target.value):null});e.linea_id=ev.target.value?Number(ev.target.value):null;cargarEmpresas();}catch(err){avisar({clave:'linea',clase:'error',img:DUENO.retrato,titulo:TR('No se ha podido'),texto:err.message||'',ms:7000});}});
   f.querySelector('[data-f=estado] select').onchange=async ev=>{const est=ev.target.value;
     if(EN_VIVO){await api('/empresas/'+encodeURIComponent(id)+'/estado',{estado:est}).catch(()=>{});}else{e.estado=est;anotar('dueno',TR`ha marcado ${e.nombre} como «${NOMBRE_ESTADO[est]}».`);}
     cargarEmpresas();abrirFicha(id);};

@@ -399,7 +399,8 @@ ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS publicar_en TIMESTAMPTZ;   -- 
 ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS documento JSONB;           -- diagnóstico o propuesta con estructura, para maquetarlo en PDF (documento.js)
 ALTER TABLE correos ADD COLUMN IF NOT EXISTS formato TEXT;                    -- diseno (con la marca) o texto
 ALTER TABLE correos ADD COLUMN IF NOT EXISTS cuenta TEXT;                     -- desde qué cuenta sale (cuentasCorreo.js)
-ALTER TABLE correos ADD COLUMN IF NOT EXISTS adjunto TEXT;                    -- la tarjeta cuyo PDF va adjunto
+ALTER TABLE correos ADD COLUMN IF NOT EXISTS adjunto TEXT;
+ALTER TABLE correos ADD COLUMN IF NOT EXISTS seguimiento_pedido TIMESTAMPTZ;   -- se le pidió a Paula el seguimiento de este correo sin respuesta                    -- la tarjeta cuyo PDF va adjunto
 ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS desfasada TEXT;            -- preparada antes de una novedad de esa empresa: Dirección la ve avisada (mesaViva.js)
 ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS llamada_en TIMESTAMPTZ;   -- cuándo se llamó por la centralita: ya no hay que marcar «Ya he llamado»
 ALTER TABLE aprobaciones ADD COLUMN IF NOT EXISTS fallo_pub TIMESTAMPTZ;     -- último intento fallido de publicar (se reintenta a las 3 h)
@@ -529,7 +530,20 @@ ALTER TABLE empresas ADD COLUMN IF NOT EXISTS instagram TEXT;
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS facebook TEXT;
 ALTER TABLE empresas ADD COLUMN IF NOT EXISTS google_place_id TEXT;
 ALTER TABLE tareas ADD COLUMN IF NOT EXISTS paso INTEGER;
-ALTER TABLE empresas ADD COLUMN IF NOT EXISTS dolores TEXT;   -- lo que le duele, dicho por ellos
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS dolores TEXT;
+-- Líneas de venta: cada cosa que vende la oficina, a quién y a qué ritmo. La principal es la ficha de la empresa y el objetivo de búsqueda
+CREATE TABLE IF NOT EXISTS lineas (
+  id          SERIAL PRIMARY KEY,
+  nombre      TEXT NOT NULL,
+  que_ofrece  TEXT,
+  a_quien     TEXT,                       -- su cliente ideal: tipo de empresa, tamaño, zona y quién decide
+  por_semana  INTEGER NOT NULL DEFAULT 0, -- empresas nuevas a la semana (la principal va con el objetivo de búsqueda)
+  oferta      TEXT,                       -- la oferta por escrito: la que usa Javi
+  principal   BOOLEAN NOT NULL DEFAULT false,
+  activa      BOOLEAN NOT NULL DEFAULT true,
+  creada      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS linea_id INTEGER;   -- vacía = la línea principal   -- lo que le duele, dicho por ellos
 
 -- Quien decide en cada empresa vive en contactos (decide); la ficha solo enseña su nombre y cargo, y los escribe contactos.fijarDecisor
 ALTER TABLE contactos ADD COLUMN IF NOT EXISTS decide BOOLEAN NOT NULL DEFAULT false;

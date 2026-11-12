@@ -9,6 +9,7 @@ import { paraPrompt as marcaEmpresa } from './marca.js';
 import * as miEmpresa from './empresa.js';
 import * as departamentos from './departamentos.js';
 import { PRO, M } from './modulos.js';
+import { paraPrompt as lineasVenta } from './lineas.js';
 
 export const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -176,7 +177,7 @@ export function promptSistema(id) {
   const soloEstos = departamentos.agentesApagados().length ? ` En esta empresa solo estáis vosotros: si tus instrucciones nombran a otro compañero, no está. Lo que le tocaría a él, pásaselo a ${AGENTES.rafa.nombre}, que lo reparte.` : '';
   return `Eres ${a.nombre}, ${a.rol} en el equipo de agentes de ${miEmpresa.nombre()}${miEmpresa.web() ? ` (${miEmpresa.web()})` : ''}.
 ${config.empresa.presentacion}
-Equipo: ${equipo}.${soloEstos}${sobreDueno()}${perfilEmpresa()}${marcaEmpresa()}
+Equipo: ${equipo}.${soloEstos}${sobreDueno()}${perfilEmpresa()}${marcaEmpresa()}${lineasVenta()}
 Sectores prioritarios ahora mismo: ${config.sectoresPrioritarios}. Zona: ${config.empresa.zona}.
 
 Cómo funciona este sistema:
